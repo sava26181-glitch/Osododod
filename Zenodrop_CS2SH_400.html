@@ -251,14 +251,13 @@ function normalizeSkin(x,i){
 }
 function findApiSkin(name){if(!name)return null;const n=cleanName(name).toLowerCase();return CATALOG_ITEMS.find(x=>x.name.toLowerCase()===n)||CATALOG_ITEMS.find(x=>x.name.toLowerCase().replace(/\s*\([^)]*\)$/,'')===n.replace(/\s*\([^)]*\)$/,''))||null}
 
-// Улучшенные честные шансы и смягченные диапазоны для окупаемости кейсов
 function chooseBand(price){
   return [
-    {min: price * 2.0, max: price * 4.0, p: 4.0},  // Хороший плюс
-    {min: price * 1.1, max: price * 2.0, p: 16.0}, // Окупаемость
-    {min: price * 0.8, max: price * 1.1, p: 35.0}, // Около цены
-    {min: price * 0.4, max: price * 0.8, p: 30.0}, // Небольшой минус
-    {min: 0, max: price * 0.4, p: 15.0}          // Мусор
+    {min: price * 2.0, max: price * 4.0, p: 4.0},
+    {min: price * 1.1, max: price * 2.0, p: 16.0},
+    {min: price * 0.8, max: price * 1.1, p: 35.0},
+    {min: price * 0.4, max: price * 0.8, p: 30.0},
+    {min: 0, max: price * 0.4, p: 15.0}
   ];
 }
 
@@ -266,7 +265,7 @@ function chooseBandWithPity(price, userStats){
   let r = Math.random() * 100;
   let bands = chooseBand(price);
   if (userStats && userStats.casesOpened > 0 && userStats.casesOpened % 3 === 0) {
-    r = r * 0.6; // Чаще давать окупаемость при серии открытий
+    r = r * 0.6;
   }
   for(const b of bands){if(r<b.p)return b;r-=b.p}
   return bands.at(-1);
@@ -282,7 +281,6 @@ function pickFromBand(items,band){
 }
 
 function buildCaseContents(price,index){
-  // Ограничиваем максимальную стоимость для дешевых кейсов, чтобы не было ложных надежд
   const minVal = Math.max(1, price * 0.15);
   const maxVal = price <= 25 ? price * 2.2 : (price <= 100 ? price * 2.5 : price * 3.5);
   
