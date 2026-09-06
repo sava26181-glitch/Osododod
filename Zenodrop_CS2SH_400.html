@@ -257,8 +257,6 @@ function normalizeSkin(x,i){
 }
 function findApiSkin(name){if(!name)return null;const n=cleanName(name).toLowerCase();return CATALOG_ITEMS.find(x=>x.name.toLowerCase()===n)||CATALOG_ITEMS.find(x=>x.name.toLowerCase().replace(/\s*\([^)]*\)$/,'')===n.replace(/\s*\([^)]*\)$/,''))||null}
 
-/* Кейс 100 ₽: вероятность ровно по заданной пользователем схеме.
-   70 + 9 + 7 + 5 + 1 + 0.002 + 7.998 = 100%. */
 function getCaseBands(price){
   const m=price/100;
   return [
@@ -322,61 +320,68 @@ function normalizeUser(user,steamId,name,avatar){
 function saveUserData(){if(!currentUser)return;localStorage.setItem('zeno_user_'+currentUser.steamId,JSON.stringify(currentUser));localStorage.setItem('zeno_current_user',JSON.stringify(currentUser))}
 function loadUserData(id,n,a){let u=null;try{u=JSON.parse(localStorage.getItem('zeno_user_'+id)||'null')}catch(e){}currentUser=normalizeUser(u,id,n,a);saveUserData()}
 
-async function initializeApp(){const loading=document.getElementById('loadingText');try{
-  loadCachedPrices();
-  const cached=loadSelectedCatalog();
-  const boot=await Promise.allSettled([fetchUsdRub(),getJSON(API.skins)]);
-  const rawResult=boot[1];
-  if(rawResult.status!=='fulfilled')throw rawResult.reason;
-  const raw=rawResult.value,arr=Array.isArray(raw)?raw:Object.values(raw),uniq=new Map();
-  arr.filter(x=>x&&x.image&&(x.market_hash_name||x.name)).forEach((x,i)=>{const name=cleanName(x.market_hash_name||x.name);if(!uniq.has(name))uniq.set(name,normalizeSkin(x,i))});
-  const all=[...uniq.values()];
-  if(cached){
-    CATALOG_ITEMS=cached.map(x=>({...x}));
-    CATALOG_ITEMS.forEach(x=>x.value=Number(PRICE_MAP[cleanName(x.name)]||x.value||0));
-    buildCases();
+async function initializeApp(){
+  const loading=document.getElementById('loadingText');
+  try{
+    loadCachedPrices();
+    const cached=loadSelectedCatalog();
+    
+    // Если есть кэш каталога, запускаем мгновенно без сетевой задержки
+    if(cached){
+      CATALOG_ITEMS=cached.map(x=>({...x}));
+      CATALOG_ITEMS.forEach(x=>x.value=Number(PRICE_MAP[cleanName(x.name)]||x.value||0));
+      buildCases();
+      try{const saved=JSON.parse(localStorage.getItem('zeno_current_user')||'null');if(saved&&saved.steamId)loadUserData(saved.steamId,saved.username,saved.avatar)}catch(e){}
+      if(!currentUser){currentUser=normalizeUser(null,'default_76561198','Гость','');currentUser.inventory=CATALOG_ITEMS.slice(0,2).map(x=>({...x}))}
+      saveUserData();renderQuickChances();updateHeaderAvatar();switchMainTab('upgrade');finishIntro();
+      
+      // Фоновое обновление цен
+      Promise.allSettled([fetchUsdRub(), getJSON(API.skins)]).then(async ([rateRes, rawRes]) => {
+        if(rawRes.status==='fulfilled'){
+          const raw=rawRes.value,arr=Array.isArray(raw)?raw:Object.values(raw),uniq=new Map();
+          arr.filter(x=>x&&x.image&&(x.market_hash_name||x.name)).forEach((x,i)=>{const name=cleanName(x.market_hash_name||x.name);if(!uniq.has(name))uniq.set(name,normalizeSkin(x,i))});
+          const all=[...uniq.values()];
+          await enrichPrices(all);
+          CATALOG_ITEMS.forEach(x=>x.value=Number(PRICE_MAP[cleanName(x.name)]||x.value||0));
+          saveSelectedCatalog(CATALOG_ITEMS);buildCases();renderGrid();
+        }
+      }).catch(()=>{});
+      return;
+    }
+
+    const boot=await Promise.allSettled([fetchUsdRub(),getJSON(API.skins)]);
+    const rawResult=boot[1];
+    if(rawResult.status!=='fulfilled')throw rawResult.reason;
+    const raw=rawResult.value,arr=Array.isArray(raw)?raw:Object.values(raw),uniq=new Map();
+    arr.filter(x=>x&&x.image&&(x.market_hash_name||x.name)).forEach((x,i)=>{const name=cleanName(x.market_hash_name||x.name);if(!uniq.has(name))uniq.set(name,normalizeSkin(x,i))});
+    const all=[...uniq.values()];
+    
+    const candidates=all.filter(x=>x.img).slice().sort((a,b)=>hashCode(a.name)-hashCode(b.name)).slice(0,3000);
+    await enrichPrices(candidates);
+    const ranges=[
+      [8,20,10],[20,40,10],[40,80,20],[80,150,40],[150,300,80],
+      [300,600,120],[600,1000,150],[1000,2500,180],[2500,10000,220],[10000,Infinity,170]
+    ];
+    const selected=[],families=new Set();
+    const familyOf=x=>String(x.name).replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)$/i,'').toLowerCase();
+    for(const [min,max,quota] of ranges){
+      const pool=candidates.filter(x=>x.value>=min&&x.value<max&&!families.has(familyOf(x)))
+        .sort((a,b)=>a.value-b.value||hashCode(a.name)-hashCode(b.name));
+      for(const x of pool.slice(0,quota)){selected.push(x);families.add(familyOf(x));}
+    }
+    if(selected.length<1000){
+      for(const x of candidates.filter(x=>x.value>=8&&!families.has(familyOf(x)))
+        .sort((a,b)=>a.value-b.value||hashCode(a.name)-hashCode(b.name))){
+        selected.push(x);families.add(familyOf(x));
+        if(selected.length>=1000)break;
+      }
+    }
+    CATALOG_ITEMS=selected.slice(0,1000);saveSelectedCatalog(CATALOG_ITEMS);buildCases();
     try{const saved=JSON.parse(localStorage.getItem('zeno_current_user')||'null');if(saved&&saved.steamId)loadUserData(saved.steamId,saved.username,saved.avatar)}catch(e){}
     if(!currentUser){currentUser=normalizeUser(null,'default_76561198','Гость','');currentUser.inventory=CATALOG_ITEMS.slice(0,2).map(x=>({...x}))}
     saveUserData();renderQuickChances();updateHeaderAvatar();switchMainTab('upgrade');finishIntro();
-    enrichPrices(CATALOG_ITEMS).then(()=>{CATALOG_ITEMS.forEach(x=>x.value=Number(PRICE_MAP[cleanName(x.name)]||x.value||0));saveSelectedCatalog(CATALOG_ITEMS);buildCases();renderGrid();}).catch(()=>{});
-    return;
-  }
-  // Берём 1000 уникальных предметов и распределяем их по реальным ценовым диапазонам.
-  const candidates=all.filter(x=>x.img).slice().sort((a,b)=>hashCode(a.name)-hashCode(b.name)).slice(0,3000);
-  await enrichPrices(candidates);
-  const ranges=[
-    [8,20,10],[20,40,10],[40,80,20],[80,150,40],[150,300,80],
-    [300,600,120],[600,1000,150],[1000,2500,180],[2500,10000,220],[10000,Infinity,170]
-  ];
-  const selected=[],families=new Set();
-  const familyOf=x=>String(x.name).replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)$/i,'').toLowerCase();
-  for(const [min,max,quota] of ranges){
-    const pool=candidates.filter(x=>x.value>=min&&x.value<max&&!families.has(familyOf(x)))
-      .sort((a,b)=>a.value-b.value||hashCode(a.name)-hashCode(b.name));
-    for(const x of pool.slice(0,quota)){selected.push(x);families.add(familyOf(x));}
-  }
-  // Добиваем до 1000 ближайшими реальными ценами, сохраняя минимум 8 ₽ и уникальные модели.
-  if(selected.length<1000){
-    for(const x of candidates.filter(x=>x.value>=8&&!families.has(familyOf(x)))
-      .sort((a,b)=>a.value-b.value||hashCode(a.name)-hashCode(b.name))){
-      selected.push(x);families.add(familyOf(x));
-      if(selected.length>=1000)break;
-    }
-  }
-  if(selected.length<1000){
-    const more=all.filter(x=>x.img&&!candidates.includes(x));
-    await enrichPrices(more);
-    for(const x of more.filter(x=>x.value>=8&&!families.has(familyOf(x))).sort((a,b)=>a.value-b.value)){
-      selected.push(x);families.add(familyOf(x));
-      if(selected.length>=1000)break;
-    }
-  }
-  if(selected.length<1000)throw new Error('Only '+selected.length+' unique priced skins');
-  CATALOG_ITEMS=selected.slice(0,1000);saveSelectedCatalog(CATALOG_ITEMS);buildCases();
-  try{const saved=JSON.parse(localStorage.getItem('zeno_current_user')||'null');if(saved&&saved.steamId)loadUserData(saved.steamId,saved.username,saved.avatar)}catch(e){}
-  if(!currentUser){currentUser=normalizeUser(null,'default_76561198','Гость','');currentUser.inventory=CATALOG_ITEMS.slice(0,2).map(x=>({...x}))}
-  saveUserData();renderQuickChances();updateHeaderAvatar();switchMainTab('upgrade');finishIntro();
-}catch(e){console.error(e);loading.innerHTML='Не удалось загрузить каталог/цены.<br><small style="color:#6b7280">Проверь server.js и CS2.SH.</small>'}}
+  }catch(e){console.error(e);loading.innerHTML='Не удалось загрузить каталог/цены.<br><small style="color:#6b7280">Проверь server.js и CS2.SH.</small>'}}
+
 function logoutSteam(){localStorage.removeItem('zeno_current_user');currentUser=defaultUser('guest','Гость','');updateHeaderAvatar();switchMainTab('profile')}
 function updateHeaderAvatar(){const b=document.getElementById('headerAvatarContainer');if(!b)return;b.innerHTML=currentUser?.avatar?`<img src="${escapeAttr(currentUser.avatar)}" alt="Avatar">`:'<div style="width:100%;height:100%;background:#333"></div>'}
 function switchMainTab(tab){['navUpgrade','navCases','navProfile'].forEach(x=>document.getElementById(x).classList.remove('active'));['tabUpgradeContent','tabCasesContent','tabProfileContent'].forEach(x=>document.getElementById(x).classList.remove('active'));if(tab==='upgrade'){document.getElementById('navUpgrade').classList.add('active');document.getElementById('tabUpgradeContent').classList.add('active');renderGrid();updateUI()}else if(tab==='cases'){document.getElementById('navCases').classList.add('active');document.getElementById('tabCasesContent').classList.add('active');renderCasesList()}else{document.getElementById('navProfile').classList.add('active');document.getElementById('tabProfileContent').classList.add('active');renderProfile()}}
