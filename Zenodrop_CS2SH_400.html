@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -57,6 +56,13 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .item-card img{width:75px;height:50px;object-fit:contain;margin:4px 0;filter:drop-shadow(0 4px 8px rgba(0,0,0,.6));max-width:100%}
 .item-card .iname{font-size:10px;font-weight:700;color:#d1d5db;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
 .item-card .iprice{font-size:11px;font-weight:800;color:#fbbf24;margin-top:3px}
+
+/* Стили мини-кнопок в профиле */
+.item-card-actions{display:flex;gap:4px;width:100%;margin-top:6px;justify-content:space-between}
+.mini-action-btn{background:#1a1d29;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#9ca3af;width:28px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;transition:.2s}
+.mini-action-btn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b}
+.mini-action-btn svg{width:12px;height:12px;fill:currentColor}
+
 .cases-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%}
 .case-card{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;transition:.3s}
 .case-card:hover{border-color:#f59e0b;transform:translateY(-3px)}
@@ -326,7 +332,6 @@ async function initializeApp(){
     loadCachedPrices();
     const cached=loadSelectedCatalog();
     
-    // Если есть кэш каталога, запускаем мгновенно без сетевой задержки
     if(cached){
       CATALOG_ITEMS=cached.map(x=>({...x}));
       CATALOG_ITEMS.forEach(x=>x.value=Number(PRICE_MAP[cleanName(x.name)]||x.value||0));
@@ -335,7 +340,6 @@ async function initializeApp(){
       if(!currentUser){currentUser=normalizeUser(null,'default_76561198','Гость','');currentUser.inventory=CATALOG_ITEMS.slice(0,2).map(x=>({...x}))}
       saveUserData();renderQuickChances();updateHeaderAvatar();switchMainTab('upgrade');finishIntro();
       
-      // Фоновое обновление цен
       Promise.allSettled([fetchUsdRub(), getJSON(API.skins)]).then(async ([rateRes, rawRes]) => {
         if(rawRes.status==='fulfilled'){
           const raw=rawRes.value,arr=Array.isArray(raw)?raw:Object.values(raw),uniq=new Map();
@@ -386,9 +390,84 @@ function logoutSteam(){localStorage.removeItem('zeno_current_user');currentUser=
 function updateHeaderAvatar(){const b=document.getElementById('headerAvatarContainer');if(!b)return;b.innerHTML=currentUser?.avatar?`<img src="${escapeAttr(currentUser.avatar)}" alt="Avatar">`:'<div style="width:100%;height:100%;background:#333"></div>'}
 function switchMainTab(tab){['navUpgrade','navCases','navProfile'].forEach(x=>document.getElementById(x).classList.remove('active'));['tabUpgradeContent','tabCasesContent','tabProfileContent'].forEach(x=>document.getElementById(x).classList.remove('active'));if(tab==='upgrade'){document.getElementById('navUpgrade').classList.add('active');document.getElementById('tabUpgradeContent').classList.add('active');renderGrid();updateUI()}else if(tab==='cases'){document.getElementById('navCases').classList.add('active');document.getElementById('tabCasesContent').classList.add('active');renderCasesList()}else{document.getElementById('navProfile').classList.add('active');document.getElementById('tabProfileContent').classList.add('active');renderProfile()}}
 function switchCatalogTab(t){currentTab=t;['tabInventory','tabCatalogSkins','tabCatalogStickers','tabCatalogMusic'].forEach(x=>document.getElementById(x).classList.remove('active'));document.getElementById({inventory:'tabInventory',skins:'tabCatalogSkins',stickers:'tabCatalogStickers',music:'tabCatalogMusic'}[t]).classList.add('active');renderGrid()}
-function renderProfile(){const a=document.getElementById('profileContentArea'),s=currentUser.stats,b=currentUser.bestDrop;if(!a)return;a.innerHTML=`<div class="profile-main-card"><div class="profile-top-row"><div class="profile-username">${escapeHtml(currentUser.username)}</div><div class="profile-actions-top"><span onclick="logoutSteam()" style="color:#f87171">Выйти</span></div></div><div class="profile-center-row"><div class="profile-avatar-large">${currentUser.avatar?`<img src="${escapeAttr(currentUser.avatar)}">`:''}</div></div><div class="stats-grid"><div class="stat-card"><div class="stat-title">Апгрейды</div><div class="stat-value">${s.upgradesTotal}</div></div><div class="stat-card"><div class="stat-title">Кейсы</div><div class="stat-value">${s.casesOpened}</div></div><div class="stat-card"><div class="stat-title">Депозит</div><div class="stat-value">${s.totalDeposited} ₽</div></div></div><div class="profile-balance-row"><div><div class="balance-amount">${currentUser.balance.toFixed(2)} ₽</div><div class="balance-history">История</div></div><button class="topup-btn" onclick="topUpBalance()">Пополнить</button></div></div><div class="best-drop-card"><div class="best-drop-title">Лучший дроп</div><div class="best-drop-content"><div><div class="best-drop-name">${escapeHtml(b.name)}</div><div class="best-drop-price">${b.value>0?b.value.toFixed(2)+' ₽':'--'}</div></div>${b.img?`<img src="${escapeAttr(b.img)}" class="best-drop-img">`:''}</div></div><div class="profile-inventory-box"><div style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase">Инвентарь (${currentUser.inventory.length})</div><div class="items-grid" id="profileItemsGrid" style="max-height:250px"></div></div>`;renderProfileInventory()}
+
+function renderProfile(){
+  const a=document.getElementById('profileContentArea'),s=currentUser.stats,b=currentUser.bestDrop;
+  if(!a)return;
+  a.innerHTML=`<div class="profile-main-card"><div class="profile-top-row"><div class="profile-username">${escapeHtml(currentUser.username)}</div><div class="profile-actions-top"><span onclick="logoutSteam()" style="color:#f87171">Выйти</span></div></div><div class="profile-center-row"><div class="profile-avatar-large">${currentUser.avatar?`<img src="${escapeAttr(currentUser.avatar)}">`:''}</div></div><div class="stats-grid"><div class="stat-card"><div class="stat-title">Апгрейды</div><div class="stat-value">${s.upgradesTotal}</div></div><div class="stat-card"><div class="stat-title">Кейсы</div><div class="stat-value">${s.casesOpened}</div></div><div class="stat-card"><div class="stat-title">Депозит</div><div class="stat-value">${s.totalDeposited} ₽</div></div></div><div class="profile-balance-row"><div><div class="balance-amount">${currentUser.balance.toFixed(2)} ₽</div><div class="balance-history">История</div></div><button class="topup-btn" onclick="topUpBalance()">Пополнить</button></div></div><div class="best-drop-card"><div class="best-drop-title">Лучший дроп</div><div class="best-drop-content"><div><div class="best-drop-name">${escapeHtml(b.name)}</div><div class="best-drop-price">${b.value>0?b.value.toFixed(2)+' ₽':'--'}</div></div>${b.img?`<img src="${escapeAttr(b.img)}" class="best-drop-img">`:''}</div></div><div class="profile-inventory-box"><div style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase">Инвентарь (${currentUser.inventory.length})</div><div class="items-grid" id="profileItemsGrid" style="max-height:250px"></div></div>`;
+  renderProfileInventory();
+}
+
 function topUpBalance(){currentUser.balance+=1000;currentUser.stats.totalDeposited+=1000;saveUserData();renderProfile();alert('Баланс пополнен на 1 000 ₽')}
-function renderProfileInventory(){const g=document.getElementById('profileItemsGrid');if(!g)return;g.innerHTML='';currentUser.inventory.forEach(x=>g.appendChild(createCard(x,false,()=>{})))}
+
+function renderProfileInventory(){
+  const g = document.getElementById('profileItemsGrid');
+  if (!g) return;
+  g.innerHTML = '';
+  
+  if (currentUser.inventory.length === 0) {
+    g.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #6b7280; font-size: 12px; padding: 20px;">Инвентарь пуст</div>';
+    return;
+  }
+
+  currentUser.inventory.forEach((x, index) => {
+    const c = document.createElement('div');
+    c.className = 'item-card';
+    c.style.cursor = 'default';
+    
+    c.innerHTML = `
+      <img src="${escapeAttr(x.img)}" alt="">
+      <div class="iname">${escapeHtml(x.name)}</div>
+      <div class="iprice">${x.value.toFixed(2)} ₽</div>
+      <div class="item-card-actions">
+        <button class="mini-action-btn" title="В апгрейд" onclick="sendItemToUpgrade(${index})">⚡</button>
+        <button class="mini-action-btn" title="Продать" onclick="sellProfileItem(${index})">💰</button>
+        <button class="mini-action-btn" title="Вывести в Steam" onclick="withdrawSteamItem(${index})">
+          <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.84.57C20.565 21.795 24 17.31 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </button>
+      </div>
+    `;
+    g.appendChild(c);
+  });
+}
+
+function sendItemToUpgrade(index) {
+  const item = currentUser.inventory[index];
+  if (!item) return;
+  switchMainTab('upgrade');
+  const invIndex = currentUser.inventory.findIndex(x => x.id === item.id);
+  if (invIndex !== -1) {
+    selectedItemIndex = invIndex;
+    activeQuickChance = null;
+    targetWeapon = null;
+    renderQuickChances();
+    renderGrid();
+    updateUI();
+  }
+}
+
+function sellProfileItem(index) {
+  const item = currentUser.inventory[index];
+  if (!item) return;
+  currentUser.balance += item.value;
+  currentUser.inventory.splice(index, 1);
+  saveUserData();
+  renderProfile();
+}
+
+function withdrawSteamItem(index) {
+  const item = currentUser.inventory[index];
+  if (!item) return;
+  if (!currentUser.tradeUrl || currentUser.tradeUrl.trim() === '') {
+    const url = prompt('Введите вашу трейд-ссылку Steam для вывода:');
+    if (!url) return;
+    currentUser.tradeUrl = url;
+  }
+  currentUser.inventory.splice(index, 1);
+  saveUserData();
+  renderProfile();
+  alert(`Предмет "${item.name}" успешно отправлен на ваш аккаунт Steam!`);
+}
 
 function renderCasesList(){const g=document.getElementById('casesGrid');if(!g)return;g.innerHTML='';CASES_DATA.forEach(c=>{const d=document.createElement('div');d.className='case-card';const preview=c.items.find(x=>x.value>c.price*10)||c.items[0];d.innerHTML=`${preview?.img?`<img src="${escapeAttr(preview.img)}" alt="">`:''}<div class="case-title">${escapeHtml(c.name)}</div><div class="case-price">${c.price} ₽</div>`;d.onclick=()=>openCaseScreen(c);g.appendChild(d)})}
 function openCaseScreen(c){activeCase=c;document.getElementById('casesListContainer').style.display='none';document.getElementById('caseOpeningView').classList.add('active');document.getElementById('activeCaseTitle').textContent=c.name+' · '+c.price+' ₽';renderCaseContents();renderTrack();document.getElementById('actionButtons').style.display='none';document.getElementById('mainOpenBtn').style.display='block'}
