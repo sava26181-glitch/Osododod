@@ -1110,9 +1110,13 @@ function normalizeUser(user, steamId, name, avatar) {
     if (!user.bestDrop) user.bestDrop = { name: '--', value: 0, img: '' };
     if (!Array.isArray(user.inventory)) user.inventory = [];
     
+    // ПРИНУДИТЕЛЬНО обновляем все картинки в инвентаре для устранения битых старых ссылок
     user.inventory.forEach(item => {
-        if (!item.img) item.img = SkinLoader.generateVisual(item.name, item.category || 'skins', item.value);
+        item.img = SkinLoader.generateVisual(item.name, item.category || 'skins', item.value);
     });
+    if (user.bestDrop && user.bestDrop.name && user.bestDrop.name !== '--') {
+        user.bestDrop.img = SkinLoader.generateVisual(user.bestDrop.name, 'skins', user.bestDrop.value);
+    }
     return user;
 }
 
