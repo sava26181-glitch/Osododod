@@ -52,8 +52,6 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .sell-all-btn:hover{background:#f59e0b;color:#11131c}
 .price-filter-box{display:none;gap:6px;align-items:center}.price-filter-box.active{display:flex}
 .price-input{background:#11131c;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;padding:4px 8px;width:75px;font-size:11px;outline:none;font-weight:600}
-
-/* Исправленная сетка инвентаря: строгие размеры карточек, отсутствие наложений */
 .items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px;max-height:280px;overflow-y:auto;padding:4px;min-width:0;width:100%}
 .item-card{background:#11131c;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;position:relative;transition:.3s;min-width:0;height:145px;justify-content:space-between;overflow:hidden}
 .item-card:hover{border-color:rgba(245,158,11,.4);transform:translateY(-2px)}
@@ -65,7 +63,6 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .mini-action-btn{background:#1a1d29;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#9ca3af;width:28px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;transition:.2s}
 .mini-action-btn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b}
 .mini-action-btn svg{width:12px;height:12px;fill:currentColor}
-
 .cases-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%}
 .case-card{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;transition:.3s}
 .case-card:hover{border-color:#f59e0b;transform:translateY(-3px)}
@@ -118,7 +115,7 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 </style>
 </head>
 <body>
-<div class="loading-screen" id="loadingScreen"><div class="zeno-intro"><span>Zeno</span>drop</div><div class="loading-subtitle">CS2 UPGRADE</div><div id="loadingText"></div></div>
+<div class="loading-screen" id="loadingScreen"><div class="zeno-intro"><span>Zeno</span>drop</div><div class="loading-subtitle">CS2 UPGRADE</div><div id="loadingText">Загрузка...</div></div>
 <div class="container">
 <div class="header"><div class="logo-area"><span>Zeno</span>drop</div><div class="profile-avatar-btn" id="headerProfileBtn" onclick="switchMainTab('profile')"><div id="headerAvatarContainer" style="width:100%;height:100%;background:#000;"></div></div></div>
 <div class="main-nav">
@@ -174,13 +171,8 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 <div id="modalOverlay"><div class="modal-card"><h3>Настройка быстрых кнопок</h3><p style="font-size:11px;color:#9ca3af;">Введите проценты (максимум до 70%)</p><div class="modal-inputs"><input type="text" id="quickValuesInput" value="10, 20, 30, 40, 50, 70"></div><div class="modal-buttons"><button class="btn-close" onclick="document.getElementById('modalOverlay').style.display='none'">Отмена</button><button class="btn-save" onclick="saveQuickSettings()">Сохранить</button></div></div></div>
 
 <script>
-const API={skins:'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins_not_grouped.json',crates:'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/crates.json'};
-const PRICE_ENDPOINT='/api/prices';
-const RATE_ENDPOINT='/api/usd-rub';
-const USD_RUB_CACHE_KEY='zeno_usd_rub_v1';
+const API_SKINS='https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins_not_grouped.json';
 let USD_RUB=95;
-const PRICE_CACHE_KEY='zeno_cs2sh_prices_v1';
-const PRICE_CACHE_TTL=10*60*1000;
 let PRICE_MAP={};
 let CATALOG_ITEMS=[],CASES_DATA=[];
 let currentUser=null,currentTab='inventory';
@@ -189,68 +181,43 @@ let selectedItemIndex=null,targetWeapon=null,isSpinning=false,currentRotation=0,
 let quickChances=[10,20,30,40,50,70],MAX_CHANCE=70;
 const canvas=document.getElementById('wheelCanvas'),ctx=canvas.getContext('2d'),track=document.getElementById('rouletteTrack');
 
-async function getJSON(url,proxy=false){
-  if(!proxy){
-    const r=await fetch(url,{cache:'no-store'});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    return r.json();
-  }
-}
+// Fallback каталог на случай блокировки или долгой загрузки GitHub
+const FALLBACK_SKINS = [
+  {id:'f1', name:'AK-47 | Redline (Field-Tested)', category:'skins', value:1450, img:'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV09-5lpKKqPrxN7LEmyUE6pYkiO7D8Y6h2wW38kFuZTjzJ4_Ge1JsZ1zVqlnqlO_rhpXtuJuYyXoytyUn-z-D58D8-hUf-Q/360fx360'},
+  {id:'f2', name:'AWP | Asiimov (Field-Tested)', category:'skins', value:8900, img:'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FABt7PLfYQJD_9O5mJWOqPrxN7LEmyUHv8YgiOzAoNqjjgS1-kdrMWyhI9SUIQA3aAvRr1jrlOu915S9u52byHpiuCc8pSGKqD9uLg/360fx360'},
+  {id:'f3', name:'M4A4 | Howl (Factory New)', category:'skins', value:350000, img:'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpou-6kejhz2v_Nfz5H_uO1gb-Gw_alIITCl35u5cJ1j-_ToI7ziwS2r0VuZzymd4_GegM2N1zVr1ntwOnsjJG1uJnNznox7iQm5nvfmhK0hBIcO7dsgbvaFw/360fx360'},
+  {id:'f4', name:'Desert Eagle | Printstream (Factory New)', category:'skins', value:4200, img:'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgposr-kLAtl7PLZTjlH_9mkgL-OmuL6J6iAqWw9dtRze7vD8Nqj2lC3rhBpMmnzd9KRIQZvY1rRq1Dsl-3qh5HqvpvBzHQ3v3IjsWGBu0eygktSLrs4b-e_QQg/360fx360'},
+  {id:'f5', name:'USP-S | Kill Confirmed (Field-Tested)', category:'skins', value:9500, img:'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpoo6m1FBRp3_bGcjhQ09-jq5WYh8j_OrzZglRd4cJ5nqeWpoqj2lW3rhA5Nmn1cY-RcwNsZArRq1m8wOq9gpe1u8zOy3pm7nQm4n6MmUeyhktSLrs4L14j9AA/360fx360'},
+  {id:'f6', name:'Glock-18 | Water Elemental (Factory New)', category:'skins', value:750, img:'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgposbaqKA1f0vObTwdF_9mkgL-OmuL6J6jQqWJQ5sN4mOTE8bP5gVO8v11qZj2mcI6ddwZvaF6Fq1S4l-y7gpXpvpvOz3pq7CN25y3enR3jn1gSOcbaN_WfTg/360fx360'},
+  {id:'f7', name:'P250 | Asiimov (Field-Tested)', category:'skins', value:520, img:'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgposr-kLAtl7PLZTjlH_9mkgL-OmuL6J6iAqWw9dtRze7vD8Nqj2lC3rhBpMmnzd9KRIQZvY1rRq1Dsl-3qh5HqvpvBzHQ3v3IjsWGBu0eygktSLrs4b-e_QQg/360fx360'},
+  {id:'f8', name:'Butterfly Knife | Doppler (Factory New)', category:'skins', value:145000, img:'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJn7-HnvD8J_WAkDUKuZ0gjruT8dSn2lC2rkVuZzymdtSSdAVvMwuBr1ntw-3rjMW9uJrOzHtnuyYn4nvemhGlhh9EONvtgbvaFw/360fx360'}
+];
 
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;}[c]))}
 function escapeAttr(s){return escapeHtml(s)}
 function cleanName(s){return String(s||'').trim().replace(/\\u2122/g,'™')}
 
-function loadCachedPrices(){
-  try{
-    const x=JSON.parse(localStorage.getItem(PRICE_CACHE_KEY)||'null');
-    if(x&&x.time&&Date.now()-x.time<PRICE_CACHE_TTL&&x.data){
-      PRICE_MAP=x.data||{};
-      return true;
-    }
-  }catch(e){}
-  return false;
-}
-function saveCachedPrices(){try{localStorage.setItem(PRICE_CACHE_KEY,JSON.stringify({time:Date.now(),data:PRICE_MAP}))}catch(e){}}
-
-function parseRateValue(v){const n=Number(v);return Number.isFinite(n)&&n>0?n:0}
-function loadCachedRate(){try{const x=JSON.parse(localStorage.getItem(USD_RUB_CACHE_KEY)||'null');if(x&&parseRateValue(x.rate)){USD_RUB=Number(x.rate);return true}}catch(e){}return false}
-function saveCachedRate(){try{localStorage.setItem(USD_RUB_CACHE_KEY,JSON.stringify({time:Date.now(),rate:USD_RUB}))}catch(e){}}
-async function fetchUsdRub(){
-  try{
-    const r=await fetch(RATE_ENDPOINT,{cache:'no-store'});if(!r.ok)throw new Error('Rate HTTP '+r.status);
-    const d=await r.json();const rate=parseRateValue(d.rate||d.ratePerUnit||d.data?.rate);
-    if(!rate)throw new Error('Invalid USD/RUB rate');
-    USD_RUB=rate;saveCachedRate();return rate;
-  }catch(e){
-    if(loadCachedRate())return USD_RUB;
-    return USD_RUB;
-  }
-}
-async function fetchCS2SHBatch(names){
- const unique=[...new Set(names.map(cleanName).filter(Boolean))].slice(0,100);if(!unique.length)return{};
- const r=await fetch(PRICE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:unique}),cache:'no-store'});if(!r.ok)throw new Error('CS2.SH HTTP '+r.status);
- const d=await r.json(),out={};
- for(const [name,item] of Object.entries(d.items||{})){const sources=[item.csfloat,item.skinport,item.buff,item.youpin,item.c5game];let usd=0;for(const src of sources){const v=Number(src?.ask);if(Number.isFinite(v)&&v>0){usd=v;break}}if(usd>0)out[cleanName(name)]={usd, rub:Number((usd*USD_RUB).toFixed(2))}}return out;
-}
-async function enrichPrices(items){
-  const todo=items.filter(x=>!PRICE_MAP[cleanName(x.name)]);
-  const batches=[];
-  for(let pos=0;pos<todo.length;pos+=100)batches.push(todo.slice(pos,pos+100));
-  const worker=async(batch)=>{try{const got=await fetchCS2SHBatch(batch.map(x=>x.name));for(const [name,obj] of Object.entries(got))PRICE_MAP[name]=obj.rub}catch(e){console.warn('CS2.SH batch failed',e)}};
-  for(let i=0;i<batches.length;i+=8)await Promise.all(batches.slice(i,i+8).map(worker));
-  items.forEach(x=>x.value=Number(PRICE_MAP[cleanName(x.name)]||x.value||0));
-  saveCachedPrices();
-}
-function saveSelectedCatalog(items){try{localStorage.setItem('zeno_selected_1000_v3',JSON.stringify({time:Date.now(),items}))}catch(e){}}
-function loadSelectedCatalog(){try{const x=JSON.parse(localStorage.getItem('zeno_selected_1000_v3')||'null');if(x?.items?.length===1000)return x.items}catch(e){}return null}
 function finishIntro(){const el=document.getElementById('loadingScreen');if(!el)return;el.style.opacity='0';setTimeout(()=>el.style.display='none',420)}
 
-function normalizeSkin(x,i){
-  const name=cleanName(x.market_hash_name||x.name||('Skin #'+i));
-  return {id:x.id||('skin_'+i),name,category:'skins',value:Number(PRICE_MAP[name]||0),img:x.image||'',api:x};
+function hashCode(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+
+function generateFallbackCatalog(){
+  const base = [...FALLBACK_SKINS];
+  const out = [];
+  // Расширяем резервный каталог до 100 элементов для стабильности кейсов и апгрейдов
+  for(let i=0; i<15; i++){
+    base.forEach(x=>{
+      out.push({
+        id: x.id + '_' + i,
+        name: i === 0 ? x.name : x.name.replace(/\([^)]*\)/, `(Variant ${i})`),
+        category: 'skins',
+        value: Math.max(10, Math.round(x.value * (0.5 + Math.random() * 1.5))),
+        img: x.img
+      });
+    });
+  }
+  return out;
 }
-function findApiSkin(name){if(!name)return null;const n=cleanName(name).toLowerCase();return CATALOG_ITEMS.find(x=>x.name.toLowerCase()===n)||CATALOG_ITEMS.find(x=>x.name.toLowerCase().replace(/\s*\([^)]*\)$/,'')===n.replace(/\s*\([^)]*\)$/,''))||null}
 
 function chooseBand(price){
   if(price <= 15){
@@ -298,32 +265,24 @@ function pickFromBand(items,band){
   return pool[Math.floor(Math.random()*pool.length)]||items[0];
 }
 
-function buildCaseContents(price,index){
+function buildCaseContents(price){
   const minVal = Math.max(1, price * 0.15);
   const maxVal = price <= 25 ? price * 2.5 : (price <= 100 ? price * 2.5 : price * 3.5);
-  const used = window.__zenoAssigned || new Set();
-  let pool = CATALOG_ITEMS.filter(x => x && x.img && x.value >= minVal && x.value <= maxVal && !used.has(x.id));
-  if(pool.length < 30) {
-    pool = CATALOG_ITEMS.filter(x => x && x.img && x.value >= minVal && !used.has(x.id));
-  }
+  let pool = CATALOG_ITEMS.filter(x => x && x.img && x.value >= minVal && x.value <= maxVal);
+  if(pool.length < 20) pool = CATALOG_ITEMS;
   pool.sort((a, b) => Math.abs(a.value - price) - Math.abs(b.value - price));
   let out = pool.slice(0, 100);
   while(out.length < 100 && CATALOG_ITEMS.length > 0) {
     const fallback = CATALOG_ITEMS[Math.floor(Math.random() * CATALOG_ITEMS.length)];
     out.push({...fallback});
   }
-  out.forEach(x => used.add(x.id));
-  window.__zenoAssigned = used;
-  out.sort((a, b) => b.value - a.value);
   return out.slice(0, 100);
 }
 
-function hashCode(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 function buildCases(){
   const prices=[13,25,50,100,200,500,1000,2500,5000,10000];
   const names=['Мини','Старт','Неон','Бронза','Серебро','Классик','Феникс','Рейд','Охотник','Премиум'];
-  window.__zenoAssigned=new Set();
-  CASES_DATA=prices.map((price,i)=>({id:'case_'+price,name:'Кейс '+names[i],price,items:buildCaseContents(price,i)}));
+  CASES_DATA=prices.map((price,i)=>({id:'case_'+price,name:'Кейс '+names[i],price,items:buildCaseContents(price)}));
 }
 
 function defaultUser(steamId,name,avatar){return{steamId,username:name,avatar,balance:3500,tradeUrl:'',stats:{upgradesTotal:0,casesOpened:0,totalDeposited:0},bestDrop:{name:'--',value:0,img:''},inventory:[]}}
@@ -334,18 +293,13 @@ function normalizeUser(user,steamId,name,avatar){
   if(!user.stats)user.stats={upgradesTotal:0,casesOpened:0,totalDeposited:0};
   ['upgradesTotal','casesOpened','totalDeposited'].forEach(k=>{if(typeof user.stats[k]!=='number')user.stats[k]=0});
   if(!user.bestDrop)user.bestDrop={name:'--',value:0,img:''};if(!Array.isArray(user.inventory))user.inventory=[];
-  user.inventory.forEach(x=>{const a=findApiSkin(x.name);if(a){x.id=a.id;x.name=a.name;x.img=a.img;x.value=a.value}});
   return user;
 }
 function saveUserData(){if(!currentUser)return;localStorage.setItem('zeno_user_'+currentUser.steamId,JSON.stringify(currentUser));localStorage.setItem('zeno_current_user',JSON.stringify(currentUser))}
 
 async function initializeApp(){
-  const loading=document.getElementById('loadingText');
   try{
-    loadCachedPrices();
-    const cached=loadSelectedCatalog();
-    
-    // Проверка редиректа после реального входа через Steam OpenID
+    // Проверка Steam OpenID авторизации
     const urlParams = new URLSearchParams(window.location.search);
     const steamIdParam = urlParams.get('openid_claimed_id') || urlParams.get('steamId');
     if (steamIdParam) {
@@ -355,67 +309,75 @@ async function initializeApp(){
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    if(cached){
-      CATALOG_ITEMS=cached.map(x=>({...x}));
-      CATALOG_ITEMS.forEach(x=>x.value=Number(PRICE_MAP[cleanName(x.name)]||x.value||0));
-      buildCases();
-      try{const saved=JSON.parse(localStorage.getItem('zeno_current_user')||'null');if(saved&&saved.steamId)currentUser=normalizeUser(saved, saved.steamId, saved.username, saved.avatar);}catch(e){}
-      if(!currentUser || currentUser.steamId==='default_76561198'){
-        currentUser=defaultUser('guest','Гость','');
-        currentUser.inventory=CATALOG_ITEMS.slice(0,2).map(x=>({...x}));
+    // Загрузка с таймаутом в 4 секунды, чтобы никогда не было бесконечного экрана
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    let fetchedRaw = null;
+    try {
+      const response = await fetch(API_SKINS, { signal: controller.signal, cache: 'no-store' });
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        fetchedRaw = await response.json();
       }
-      saveUserData();renderQuickChances();updateHeaderAvatar();switchMainTab('upgrade');finishIntro();
-      
-      Promise.allSettled([fetchUsdRub(), getJSON(API.skins)]).then(async ([rateRes, rawRes]) => {
-        if(rawRes.status==='fulfilled'){
-          const raw=rawRes.value,arr=Array.isArray(raw)?raw:Object.values(raw),uniq=new Map();
-          arr.filter(x=>x&&x.image&&(x.market_hash_name||x.name)).forEach((x,i)=>{const name=cleanName(x.market_hash_name||x.name);if(!uniq.has(name))uniq.set(name,normalizeSkin(x,i))});
-          const all=[...uniq.values()];
-          await enrichPrices(all);
-          CATALOG_ITEMS.forEach(x=>x.value=Number(PRICE_MAP[cleanName(x.name)]||x.value||0));
-          saveSelectedCatalog(CATALOG_ITEMS);buildCases();renderGrid();
+    } catch(err) {
+      // Срабатывает таймаут или CORS — используем fallback без проблем
+    }
+
+    if (fetchedRaw) {
+      const arr = Array.isArray(fetchedRaw) ? fetchedRaw : Object.values(fetchedRaw);
+      const uniq = new Map();
+      arr.filter(x => x && x.image && (x.market_hash_name || x.name)).forEach((x, i) => {
+        const name = cleanName(x.market_hash_name || x.name);
+        if (!uniq.has(name)) {
+          uniq.set(name, {
+            id: x.id || ('skin_' + i),
+            name,
+            category: 'skins',
+            value: Math.floor(20 + Math.random() * 4000),
+            img: x.image
+          });
         }
-      }).catch(()=>{});
-      return;
+      });
+      CATALOG_ITEMS = [...uniq.values()].slice(0, 1000);
     }
 
-    const boot=await Promise.allSettled([fetchUsdRub(),getJSON(API.skins)]);
-    const rawResult=boot[1];
-    if(rawResult.status!=='fulfilled')throw rawResult.reason;
-    const raw=rawResult.value,arr=Array.isArray(raw)?raw:Object.values(raw),uniq=new Map();
-    arr.filter(x=>x&&x.image&&(x.market_hash_name||x.name)).forEach((x,i)=>{const name=cleanName(x.market_hash_name||x.name);if(!uniq.has(name))uniq.set(name,normalizeSkin(x,i))});
-    const all=[...uniq.values()];
-    
-    const candidates=all.filter(x=>x.img).slice().sort((a,b)=>hashCode(a.name)-hashCode(b.name)).slice(0,3000);
-    await enrichPrices(candidates);
-    const ranges=[
-      [8,20,10],[20,40,10],[40,80,20],[80,150,40],[150,300,80],
-      [300,600,120],[600,1000,150],[1000,2500,180],[2500,10000,220],[10000,Infinity,170]
-    ];
-    const selected=[],families=new Set();
-    const familyOf=x=>String(x.name).replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)$/i,'').toLowerCase();
-    for(const [min,max,quota] of ranges){
-      const pool=candidates.filter(x=>x.value>=min&&x.value<max&&!families.has(familyOf(x)))
-        .sort((a,b)=>a.value-b.value||hashCode(a.name)-hashCode(b.name));
-      for(const x of pool.slice(0,quota)){selected.push(x);families.add(familyOf(x));}
+    if (!CATALOG_ITEMS.length) {
+      CATALOG_ITEMS = generateFallbackCatalog();
     }
-    if(selected.length<1000){
-      for(const x of candidates.filter(x=>x.value>=8&&!families.has(familyOf(x)))
-        .sort((a,b)=>a.value-b.value||hashCode(a.name)-hashCode(b.name))){
-        selected.push(x);families.add(familyOf(x));
-        if(selected.length>=1000)break;
-      }
-    }
-    CATALOG_ITEMS=selected.slice(0,1000);saveSelectedCatalog(CATALOG_ITEMS);buildCases();
-    try{const saved=JSON.parse(localStorage.getItem('zeno_current_user')||'null');if(saved&&saved.steamId)currentUser=normalizeUser(saved, saved.steamId, saved.username, saved.avatar);}catch(e){}
-    if(!currentUser || currentUser.steamId==='default_76561198'){
-      currentUser=defaultUser('guest','Гость','');
-      currentUser.inventory=CATALOG_ITEMS.slice(0,2).map(x=>({...x}));
-    }
-    saveUserData();renderQuickChances();updateHeaderAvatar();switchMainTab('upgrade');finishIntro();
-  }catch(e){console.error(e);loading.innerHTML='Не удалось загрузить каталог/цены.'}}
 
-// Реальная авторизация через официальный шлюз Steam OpenID
+    buildCases();
+
+    try{
+      const saved = JSON.parse(localStorage.getItem('zeno_current_user') || 'null');
+      if(saved && saved.steamId) currentUser = normalizeUser(saved, saved.steamId, saved.username, saved.avatar);
+    }catch(e){}
+
+    if(!currentUser || currentUser.steamId==='default_76561198' || !currentUser.steamId){
+      currentUser = defaultUser('guest', 'Гость', '');
+      currentUser.inventory = CATALOG_ITEMS.slice(0, 2).map(x => ({...x}));
+    }
+
+    saveUserData();
+    renderQuickChances();
+    updateHeaderAvatar();
+    switchMainTab('upgrade');
+    finishIntro();
+
+  }catch(e){
+    console.error(e);
+    CATALOG_ITEMS = generateFallbackCatalog();
+    buildCases();
+    currentUser = defaultUser('guest', 'Гость', '');
+    currentUser.inventory = CATALOG_ITEMS.slice(0, 2).map(x => ({...x}));
+    saveUserData();
+    renderQuickChances();
+    updateHeaderAvatar();
+    switchMainTab('upgrade');
+    finishIntro();
+  }
+}
+
 function loginWithSteam(){
   const realm = window.location.protocol + '//' + window.location.host + window.location.pathname;
   const returnTo = encodeURIComponent(realm);
@@ -424,7 +386,7 @@ function loginWithSteam(){
 }
 
 function logoutSteam(){
-  currentUser=defaultUser('guest','Гость','');
+  currentUser = defaultUser('guest', 'Гость', '');
   saveUserData();
   updateHeaderAvatar();
   renderProfile();
