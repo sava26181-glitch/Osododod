@@ -367,17 +367,18 @@ gap:8px
 
 .inv-tabs{
 display:flex;
-gap:6px
+gap:6px;
+flex-wrap:wrap
 }
 
 .inv-tab{
 background:#11131c;
 border:1px solid rgba(255,255,255,.06);
 color:#9ca3af;
-padding:6px 12px;
+padding:6px 10px;
 border-radius:8px;
 font-weight:700;
-font-size:12px;
+font-size:11px;
 cursor:pointer
 }
 
@@ -954,10 +955,47 @@ color:#11131c
 background:#272a37;
 color:#9ca3af
 }
+
+.loading-screen{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:#0d0f17;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+z-index:999;
+color:#fff;
+font-weight:800;
+gap:12px;
+transition:opacity 0.5s ease
+}
+
+.spinner {
+width: 40px;
+height: 40px;
+border: 4px solid rgba(245,158,11,0.2);
+border-top: 4px solid #f59e0b;
+border-radius: 50%;
+animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+0% { transform: rotate(0deg); }
+100% { transform: rotate(360deg); }
+}
 </style>
 </head>
 
 <body>
+
+<div class="loading-screen" id="loadingScreen">
+    <div class="spinner"></div>
+    <div id="loadingText">Загружаем реальные цены и базу CS2...</div>
+</div>
 
 <div class="container">
 
@@ -1029,14 +1067,16 @@ color:#9ca3af
 <div class="inventory-section">
 <div class="inv-header-row">
 <div class="inv-tabs">
-<button class="inv-tab active" id="tabInventory">Мои предметы</button>
-<button class="inv-tab" id="tabCatalog">Каталог</button>
+<button class="inv-tab active" id="tabInventory" onclick="switchCatalogTab('inventory')">Мои</button>
+<button class="inv-tab" id="tabCatalogSkins" onclick="switchCatalogTab('skins')">Скины</button>
+<button class="inv-tab" id="tabCatalogStickers" onclick="switchCatalogTab('stickers')">Наклейки</button>
+<button class="inv-tab" id="tabCatalogMusic" onclick="switchCatalogTab('music')">Музыка</button>
 </div>
 
 <div class="price-filter-box" id="priceFilterBox">
 <input type="number" id="minPriceInput" class="price-input" placeholder="От" value="0">
 <span style="color:#6b7280;font-size:11px;">-</span>
-<input type="number" id="maxPriceInput" class="price-input" placeholder="До" value="100000">
+<input type="number" id="maxPriceInput" class="price-input" placeholder="До" value="1000000">
 </div>
 </div>
 
@@ -1106,874 +1146,930 @@ color:#9ca3af
 </div>
 
 <script>
+let CATALOG_ITEMS = [];
+const FALLBACK_IMG = 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV09-5lpKKqPrxN7LEmyUHv58kj-rDoNis2gLjqBFrMWiicNKTegRvNQ2B-FW4kObojZXoucvOn3JjpGB8so8u3a1j/360fx360f';
 
-const IMG={
-redline:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV09-5lpKKqPrxN7LEmyUHv58kj-rDoNis2gLjqBFrMWiicNKTegRvNQ2B-FW4kObojZXoucvOn3JjpGB8so8u3a1j/360fx360f',
-asiimov:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVsNsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FABz7PLfYQJD_9O7m5O0m_7zO6_umntd8-ppj-v--In3jla3rRFtMTqmJdSWfQVsYF-E-FG7xrjng5XpvsmdwXZlvCEq5n3UmBa1hhwfcOAz2_uAB-E/360fx360f',
-cortex:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVsNsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpoo6m1FBRp3_bGcjhQ09-jq5WYh8j3KqnUqWZU7Mxkh6fDo9ii2wfh_kA_ZGHxIteWdFU3YQvQ-VPslea505W6vZ3InXtr7nUh2H7VnBexhBhSLrs-1_vWHAiA/360fx360f',
-codeRed:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVsNsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgposr-kLAtl7PLZTjlH_9mkgL-OkvLnNoTdn2xZ_Iso07rFrN2n2Qbj_BM9Z2n1JNSecVJsNwnYrlm6w-e90JXquMnNynVpvXMj5HzD30W0h00Zbrc4m-6XWwI/360fx360f'
-};
-
-const CATALOG_WEAPONS=[
-{id:101,name:'P250 | Sand Dune',value:25,img:IMG.cortex},
-{id:102,name:'Glock-18 | Water Elemental',value:850,img:IMG.cortex},
-{id:103,name:'USP-S | Cortex',value:950,img:IMG.cortex},
-{id:104,name:'M4A4 | Desolate Space',value:2100,img:IMG.codeRed},
-{id:105,name:'AK-47 | Neon Rider',value:3800,img:IMG.redline},
-{id:106,name:'Desert Eagle | Printstream',value:4500,img:IMG.codeRed},
-{id:107,name:'AWP | Asiimov',value:7500,img:IMG.asiimov},
-{id:108,name:'AK-47 | Vulcan',value:11000,img:IMG.redline},
-{id:109,name:'★ Karambit | Fade',value:42000,img:IMG.codeRed}
+const CASES_DATA = [
+    {
+        id: 'archimedes',
+        name: 'Кейс: Архимед',
+        price: 250,
+        items: []
+    },
+    {
+        id: 'tesla',
+        name: 'Кейс: Никола Тесла',
+        price: 1200,
+        items: []
+    }
 ];
 
-const CASES_DATA=[
-{
-id:'archimedes',
-name:'Кейс: Архимед',
-price:85,
-items:[
-{id:1,name:'Sawed-Off',price:131,img:IMG.codeRed},
-{id:2,name:'Glock-18 AXIA',price:2150,img:IMG.asiimov},
-{id:3,name:'MP7 Облако',price:56,img:IMG.cortex},
-{id:4,name:'Galil AR',price:53,img:IMG.redline}
-]
-},
-{
-id:'tesla',
-name:'Кейс: Никола Тесла',
-price:1299,
-items:[
-{id:201,name:'FAMAS | Истребитель',price:1636,img:IMG.cortex},
-{id:202,name:'StatTrak™ AUG',price:866,img:IMG.redline},
-{id:203,name:'M4A1-S | Чёрный лотос',price:319,img:IMG.codeRed},
-{id:204,name:'★ Butterfly Knife',price:58000,img:IMG.asiimov}
-]
-}
-];
+let currentUser = null;
 
-let currentUser=null;
-
-function defaultUser(steamId, name, avatar){
-return{
-steamId:steamId,
-username:name,
-avatar:avatar,
-balance:1450,
-tradeUrl:'',
-stats:{
-upgradesTotal:0,
-casesOpened:0,
-totalDeposited:0
-},
-bestDrop:{
-name:'--',
-value:0,
-img:''
-},
-inventory:[
-{id:1,name:'AK-47 | Redline',value:1800,img:IMG.redline},
-{id:2,name:'AWP | Asiimov',value:7500,img:IMG.asiimov},
-{id:3,name:'USP-S | Cortex',value:950,img:IMG.cortex},
-{id:4,name:'Desert Eagle | Code Red',value:3400,img:IMG.codeRed}
-]
-};
+function defaultUser(steamId, name, avatar) {
+    return {
+        steamId: steamId,
+        username: name,
+        avatar: avatar,
+        balance: 2500,
+        tradeUrl: '',
+        stats: {
+            upgradesTotal: 0,
+            casesOpened: 0,
+            totalDeposited: 0
+        },
+        bestDrop: {
+            name: '--',
+            value: 0,
+            img: ''
+        },
+        inventory: [
+            { id: 1, name: 'AK-47 | Красная линия (После полевых испытаний)', value: 1800, img: FALLBACK_IMG },
+            { id: 2, name: 'AWP | Азимов (После полевых испытаний)', value: 7500, img: FALLBACK_IMG }
+        ]
+    };
 }
 
-function normalizeUser(user,steamId,name,avatar){
-if(!user||typeof user!=='object'){
-user=defaultUser(steamId,name,avatar);
-}
-user.steamId=user.steamId||steamId;
-user.username=user.username||name;
-user.avatar=user.avatar||avatar;
+function normalizeUser(user, steamId, name, avatar) {
+    if (!user || typeof user !== 'object') {
+        user = defaultUser(steamId, name, avatar);
+    }
+    user.steamId = user.steamId || steamId;
+    user.username = user.username || name;
+    user.avatar = user.avatar || avatar;
 
-if(typeof user.balance!=='number'||isNaN(user.balance)){
-user.balance=1450;
-}
-user.tradeUrl=typeof user.tradeUrl==='string'?user.tradeUrl:'';
+    if (typeof user.balance !== 'number' || isNaN(user.balance)) {
+        user.balance = 2500;
+    }
+    user.tradeUrl = typeof user.tradeUrl === 'string' ? user.tradeUrl : '';
 
-if(!user.stats||typeof user.stats!=='object'){
-user.stats={};
-}
-user.stats.upgradesTotal=Number(user.stats.upgradesTotal)||0;
-user.stats.casesOpened=Number(user.stats.casesOpened)||0;
-user.stats.totalDeposited=Number(user.stats.totalDeposited)||0;
+    if (!user.stats || typeof user.stats !== 'object') {
+        user.stats = {};
+    }
+    user.stats.upgradesTotal = Number(user.stats.upgradesTotal) || 0;
+    user.stats.casesOpened = Number(user.stats.casesOpened) || 0;
+    user.stats.totalDeposited = Number(user.stats.totalDeposited) || 0;
 
-if(!user.bestDrop||typeof user.bestDrop!=='object'){
-user.bestDrop={name:'--',value:0,img:''};
-}
-user.bestDrop.name=user.bestDrop.name||'--';
-user.bestDrop.value=Number(user.bestDrop.value)||0;
-user.bestDrop.img=user.bestDrop.img||'';
+    if (!user.bestDrop || typeof user.bestDrop !== 'object') {
+        user.bestDrop = { name: '--', value: 0, img: '' };
+    }
 
-if(!Array.isArray(user.inventory)){
-user.inventory=[];
-}
-user.inventory=user.inventory
-.filter(x=>x&&typeof x==='object')
-.map((x,i)=>({
-id:x.id??Date.now()+i,
-name:x.name||'Предмет',
-value:Number(x.value)||0,
-img:x.img||IMG.cortex
-}));
-
-return user;
+    if (!Array.isArray(user.inventory)) {
+        user.inventory = [];
+    }
+    return user;
 }
 
-function saveUserData(){
-if(!currentUser)return;
-currentUser=normalizeUser(currentUser,currentUser.steamId,currentUser.username,currentUser.avatar);
-localStorage.setItem('zeno_user_'+currentUser.steamId,JSON.stringify(currentUser));
-localStorage.setItem('zeno_current_user',JSON.stringify(currentUser));
+function saveUserData() {
+    if (!currentUser) return;
+    localStorage.setItem('zeno_user_' + currentUser.steamId, JSON.stringify(currentUser));
+    localStorage.setItem('zeno_current_user', JSON.stringify(currentUser));
 }
 
-function loadUserData(steamId,name,avatar){
-let user=null;
-try{
-const saved=localStorage.getItem('zeno_user_'+steamId);
-if(saved)user=JSON.parse(saved);
-}catch(e){
-user=null;
-}
-currentUser=normalizeUser(user,steamId,name,avatar);
-saveUserData();
+function loadUserData(steamId, name, avatar) {
+    let user = null;
+    try {
+        const saved = localStorage.getItem('zeno_user_' + steamId);
+        if (saved) user = JSON.parse(saved);
+    } catch (e) {
+        user = null;
+    }
+    currentUser = normalizeUser(user, steamId, name, avatar);
+    saveUserData();
 }
 
-const urlParams = new URLSearchParams(window.location.search);
-const steamIdParam = urlParams.get('steamId');
-
-if (steamIdParam) {
-    const realName = decodeURIComponent(urlParams.get('name') || 'Steam User');
-    const realAvatar = decodeURIComponent(urlParams.get('avatar') || '');
-    loadUserData(steamIdParam, realName, realAvatar);
-    window.history.replaceState({}, document.title, window.location.pathname);
-} else {
-    try{
-        const saved=localStorage.getItem('zeno_current_user');
-        if(saved){
-            const parsed=JSON.parse(saved);
-            if(parsed&&parsed.steamId){
-                loadUserData(parsed.steamId,parsed.username,parsed.avatar);
-            }
+// Загрузка всех предметов и реальных цен в рублях через Skinport API
+async function loadFullDatabaseWithRealPrices() {
+    const loadingText = document.getElementById('loadingText');
+    try {
+        loadingText.textContent = 'Подгружаем реальные цены в рублях (Skinport)...';
+        const priceRes = await fetch('https://api.skinport.com/v1/items?app_id=730&currency=RUB');
+        const priceData = await priceRes.json();
+        
+        const priceMap = {};
+        if (Array.isArray(priceData)) {
+            priceData.forEach(item => {
+                const p = item.min_price || item.suggested_price || 0;
+                priceMap[item.market_hash_name] = p;
+            });
         }
-    }catch(e){
-        currentUser=null;
+
+        loadingText.textContent = 'Загружаем скины, наклейки и музыку CS2...';
+        const resSkins = await fetch('https://bymykel.github.io/csgo-api/api/en/skins.json');
+        const skins = await resSkins.json();
+
+        const resStickers = await fetch('https://bymykel.github.io/csgo-api/api/en/stickers.json');
+        const stickers = await resStickers.json();
+
+        const resMusic = await fetch('https://bymykel.github.io/csgo-api/api/en/music_kits.json');
+        const music = await resMusic.json();
+
+        CATALOG_ITEMS = [];
+
+        // Обработка скинов (с качеством После полевых испытаний)
+        skins.forEach(item => {
+            const fullName = `${item.name} (После полевых испытаний)`;
+            // Берем реальную цену из API или ставим запасную
+            let price = priceMap[fullName] !== undefined ? priceMap[fullName] : (priceMap[item.name] !== undefined ? priceMap[item.name] : 150);
+
+            CATALOG_ITEMS.push({
+                id: 'skin_' + item.id,
+                name: fullName,
+                category: 'skins',
+                value: price,
+                img: item.image || FALLBACK_IMG
+            });
+        });
+
+        // Обработка наклеек
+        stickers.forEach(item => {
+            let price = priceMap[item.name] !== undefined ? priceMap[item.name] : 50;
+            CATALOG_ITEMS.push({
+                id: 'sticker_' + item.id,
+                name: item.name,
+                category: 'stickers',
+                value: price,
+                img: item.image || FALLBACK_IMG
+            });
+        });
+
+        // Обработка музыки
+        music.forEach(item => {
+            const musicName = `Набор музыки | ${item.name}`;
+            let price = priceMap[musicName] !== undefined ? priceMap[musicName] : (priceMap[item.name] !== undefined ? priceMap[item.name] : 350);
+            CATALOG_ITEMS.push({
+                id: 'music_' + item.id,
+                name: musicName,
+                category: 'music',
+                value: price,
+                img: item.image || FALLBACK_IMG
+            });
+        });
+
+        // Наполняем кейсы предметами из загруженной базы
+        if (CATALOG_ITEMS.length > 0) {
+            CASES_DATA[0].items = CATALOG_ITEMS.filter(i => i.value >= 50 && i.value <= 1000).slice(0, 20);
+            CASES_DATA[1].items = CATALOG_ITEMS.filter(i => i.value >= 1000).slice(0, 20);
+            if(CASES_DATA[0].items.length === 0) CASES_DATA[0].items = CATALOG_ITEMS.slice(10, 30);
+            if(CASES_DATA[1].items.length === 0) CASES_DATA[1].items = CATALOG_ITEMS.slice(30, 50);
+        }
+
+        document.getElementById('loadingScreen').style.opacity = '0';
+        setTimeout(() => {
+            document.getElementById('loadingScreen').style.display = 'none';
+        }, 500);
+
+        initializeApp();
+
+    } catch (e) {
+        console.error('Ошибка загрузки базы:', e);
+        loadingText.textContent = 'Ошибка загрузки сети. Проверьте интернет.';
     }
 }
 
-function openSteamModal(){
+function initializeApp() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const steamIdParam = urlParams.get('steamId');
+
+    if (steamIdParam) {
+        const realName = decodeURIComponent(urlParams.get('name') || 'Steam User');
+        const realAvatar = decodeURIComponent(urlParams.get('avatar') || '');
+        loadUserData(steamIdParam, realName, realAvatar);
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+        try {
+            const saved = localStorage.getItem('zeno_current_user');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && parsed.steamId) {
+                    loadUserData(parsed.steamId, parsed.username, parsed.avatar);
+                }
+            }
+        } catch (e) {
+            currentUser = null;
+        }
+    }
+
+    if (!currentUser) {
+        switchMainTab('profile');
+    } else {
+        currentUser = normalizeUser(currentUser, currentUser.steamId, currentUser.username, currentUser.avatar);
+        saveUserData();
+        updateHeaderAvatar();
+        switchMainTab('upgrade');
+    }
+
+    renderQuickChances();
+    updateUI();
+    updateHeaderAvatar();
+}
+
+function openSteamModal() {
     window.location.href = '/auth/steam';
 }
 
-function logoutSteam(){
-if(currentUser){
-localStorage.removeItem('zeno_current_user');
-}
-currentUser=null;
-updateHeaderAvatar();
-switchMainTab('profile');
-}
-
-function updateHeaderAvatar(){
-const box=document.getElementById('headerAvatarContainer');
-if(!box)return;
-if(currentUser&&currentUser.avatar){
-box.innerHTML='<img src="'+currentUser.avatar+'" alt="Avatar">';
-}else{
-box.innerHTML='<div style="width:100%;height:100%;background:#333;"></div>';
-}
+function logoutSteam() {
+    if (currentUser) {
+        localStorage.removeItem('zeno_current_user');
+    }
+    currentUser = null;
+    updateHeaderAvatar();
+    switchMainTab('profile');
 }
 
-function switchMainTab(tab){
-document.getElementById('navUpgrade').classList.remove('active');
-document.getElementById('navCases').classList.remove('active');
-document.getElementById('navProfile').classList.remove('active');
-
-document.getElementById('tabUpgradeContent').classList.remove('active');
-document.getElementById('tabCasesContent').classList.remove('active');
-document.getElementById('tabProfileContent').classList.remove('active');
-
-if(tab==='upgrade'){
-document.getElementById('navUpgrade').classList.add('active');
-document.getElementById('tabUpgradeContent').classList.add('active');
-if(currentUser){
-renderGrid();
-updateUI();
-}
-}else if(tab==='cases'){
-document.getElementById('navCases').classList.add('active');
-document.getElementById('tabCasesContent').classList.add('active');
-renderCasesList();
-}else{
-document.getElementById('navProfile').classList.add('active');
-document.getElementById('tabProfileContent').classList.add('active');
-renderProfile();
-}
+function updateHeaderAvatar() {
+    const box = document.getElementById('headerAvatarContainer');
+    if (!box) return;
+    if (currentUser && currentUser.avatar) {
+        box.innerHTML = '<img src="' + currentUser.avatar + '" alt="Avatar">';
+    } else {
+        box.innerHTML = '<div style="width:100%;height:100%;background:#333;"></div>';
+    }
 }
 
-function renderProfile(){
-const area=document.getElementById('profileContentArea');
-if(!area)return;
+function switchMainTab(tab) {
+    document.getElementById('navUpgrade').classList.remove('active');
+    document.getElementById('navCases').classList.remove('active');
+    document.getElementById('navProfile').classList.remove('active');
 
-if(!currentUser){
-area.innerHTML=`
-<div class="profile-main-card steam-login-box">
-<div style="font-size:16px;font-weight:900;color:#fff;">
-Авторизация Steam
-</div>
-<p style="font-size:12px;color:#9ca3af;">
-Войдите через защищенный OpenID Steam для синхронизации аккаунта, инвентаря и статистики.
-</p>
-<button class="btn-steam" onclick="openSteamModal()">
-<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-<path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.43 9.79 8.21 11.37.6.11.82-.26.82-.58 0-.28-.01-1.02-.02-2.00-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.34-1.77-1.34-1.77-1.09-.75.08-.74.08-.74 1.2.09 1.83 1.24 1.83 1.24 1.07 1.83 2.81 1.3 3.5 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23.96-.27 1.98-.4 3-.4s2.04.13 3 .4c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.25 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22 0 1.6-.01 2.89-.01 3.28 0 .32.22.69.83.57C20.57 21.79 24 17.31 24 12c0-6.63-5.37-12-12-12z"/>
-</svg>
-Войти через Steam
-</button>
-</div>
-`;
-return;
+    document.getElementById('tabUpgradeContent').classList.remove('active');
+    document.getElementById('tabCasesContent').classList.remove('active');
+    document.getElementById('tabProfileContent').classList.remove('active');
+
+    if (tab === 'upgrade') {
+        document.getElementById('navUpgrade').classList.add('active');
+        document.getElementById('tabUpgradeContent').classList.add('active');
+        if (currentUser) {
+            renderGrid();
+            updateUI();
+        }
+    } else if (tab === 'cases') {
+        document.getElementById('navCases').classList.add('active');
+        document.getElementById('tabCasesContent').classList.add('active');
+        renderCasesList();
+    } else {
+        document.getElementById('navProfile').classList.add('active');
+        document.getElementById('tabProfileContent').classList.add('active');
+        renderProfile();
+    }
 }
 
-currentUser=normalizeUser(currentUser,currentUser.steamId,currentUser.username,currentUser.avatar);
+let currentTab = 'inventory';
 
-const stats=currentUser.stats||{};
-const best=currentUser.bestDrop||{name:'--',value:0,img:''};
+function switchCatalogTab(tabName) {
+    currentTab = tabName;
+    document.getElementById('tabInventory').classList.remove('active');
+    document.getElementById('tabCatalogSkins').classList.remove('active');
+    document.getElementById('tabCatalogStickers').classList.remove('active');
+    document.getElementById('tabCatalogMusic').classList.remove('active');
 
-area.innerHTML=`
-<div class="profile-main-card">
-<div class="profile-top-row">
-<div class="profile-username">${currentUser.username}</div>
-<div class="profile-actions-top">
-<span onclick="logoutSteam()" style="color:#f87171;">Выйти</span>
-</div>
-</div>
+    if (tabName === 'inventory') document.getElementById('tabInventory').classList.add('active');
+    if (tabName === 'skins') document.getElementById('tabCatalogSkins').classList.add('active');
+    if (tabName === 'stickers') document.getElementById('tabCatalogStickers').classList.add('active');
+    if (tabName === 'music') document.getElementById('tabCatalogMusic').classList.add('active');
 
-<div class="profile-center-row">
-<div class="profile-avatar-large">
-<img src="${currentUser.avatar}" alt="Avatar" onerror="this.style.display='none'">
-</div>
-</div>
-
-<div class="stats-grid">
-<div class="stat-card">
-<div class="stat-title">Всего апгрейдов</div>
-<div class="stat-value">${stats.upgradesTotal}</div>
-</div>
-<div class="stat-card">
-<div class="stat-title">Кейсов открыто</div>
-<div class="stat-value">${stats.casesOpened}</div>
-</div>
-<div class="stat-card">
-<div class="stat-title">Введено в Steam</div>
-<div class="stat-value">${Number(stats.totalDeposited).toFixed(0)} ₽</div>
-</div>
-</div>
-
-<div class="profile-balance-row">
-<div class="balance-info">
-<div class="balance-amount">${Number(currentUser.balance).toFixed(2)} ₽</div>
-<div class="balance-history" onclick="alert('История операций пуста')">История операций</div>
-</div>
-<button class="topup-btn" onclick="topUpBalance()">Пополнить</button>
-</div>
-</div>
-
-<div class="best-drop-card">
-<div class="best-drop-title">Лучший дроп</div>
-<div class="best-drop-content">
-<div class="best-drop-info">
-<div class="best-drop-name">${best.name}</div>
-<div class="best-drop-price">${best.value>0?Number(best.value).toFixed(2)+' ₽':'--'}</div>
-</div>
-${best.img?`<img src="${best.img}" class="best-drop-img" alt="Drop">`:''}
-</div>
-</div>
-
-<div class="profile-card-item">
-<div class="profile-card-header">
-<div>
-<div>TRADE URL</div>
-<div class="profile-card-sub" id="tradeStatusText">
-${currentUser.tradeUrl?'Трейд-ссылка сохранена':'Введите вашу трейд-ссылку'}
-</div>
-</div>
-</div>
-<div class="trade-input-row">
-<input type="text" class="trade-input" id="tradeUrlInput" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=..." value="${currentUser.tradeUrl}">
-<button class="trade-save-btn" onclick="saveTradeUrl()">Сохранить</button>
-</div>
-</div>
-
-<div class="profile-inventory-box">
-<div style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;">
-Ваши предметы (${currentUser.inventory.length})
-</div>
-<div class="items-grid" id="profileItemsGrid" style="max-height:250px;"></div>
-</div>
-`;
-
-renderProfileInventory();
+    renderGrid();
 }
 
-function topUpBalance(){
-if(!currentUser)return;
-currentUser.balance+=1000;
-currentUser.stats.totalDeposited+=1000;
-saveUserData();
-renderProfile();
-updateHeaderAvatar();
-alert('Баланс пополнен на 1,000 ₽!');
+function renderProfile() {
+    const area = document.getElementById('profileContentArea');
+    if (!area) return;
+
+    if (!currentUser) {
+        area.innerHTML = `
+        <div class="profile-main-card steam-login-box">
+        <div style="font-size:16px;font-weight:900;color:#fff;">
+        Авторизация Steam
+        </div>
+        <p style="font-size:12px;color:#9ca3af;">
+        Войдите через защищенный OpenID Steam для синхронизации аккаунта, инвентаря и статистики.
+        </p>
+        <button class="btn-steam" onclick="openSteamModal()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.43 9.79 8.21 11.37.6.11.82-.26.82-.58 0-.28-.01-1.02-.02-2.00-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.34-1.77-1.34-1.77-1.09-.75.08-.74.08-.74 1.2.09 1.83 1.24 1.83 1.24 1.07 1.83 2.81 1.3 3.5 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23.96-.27 1.98-.4 3-.4s2.04.13 3 .4c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.25 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22 0 1.6-.01 2.89-.01 3.28 0 .32.22.69.83.57C20.57 21.79 24 17.31 24 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+        Войти через Steam
+        </button>
+        </div>
+        `;
+        return;
+    }
+
+    currentUser = normalizeUser(currentUser, currentUser.steamId, currentUser.username, currentUser.avatar);
+    const stats = currentUser.stats || {};
+    const best = currentUser.bestDrop || { name: '--', value: 0, img: '' };
+
+    area.innerHTML = `
+    <div class="profile-main-card">
+    <div class="profile-top-row">
+    <div class="profile-username">${currentUser.username}</div>
+    <div class="profile-actions-top">
+    <span onclick="logoutSteam()" style="color:#f87171;">Выйти</span>
+    </div>
+    </div>
+
+    <div class="profile-center-row">
+    <div class="profile-avatar-large">
+    <img src="${currentUser.avatar}" alt="Avatar" onerror="this.style.display='none'">
+    </div>
+    </div>
+
+    <div class="stats-grid">
+    <div class="stat-card">
+    <div class="stat-title">Всего апгрейдов</div>
+    <div class="stat-value">${stats.upgradesTotal}</div>
+    </div>
+    <div class="stat-card">
+    <div class="stat-title">Кейсов открыто</div>
+    <div class="stat-value">${stats.casesOpened}</div>
+    </div>
+    <div class="stat-card">
+    <div class="stat-title">Введено в Steam</div>
+    <div class="stat-value">${Number(stats.totalDeposited).toFixed(0)} ₽</div>
+    </div>
+    </div>
+
+    <div class="profile-balance-row">
+    <div class="balance-info">
+    <div class="balance-amount">${Number(currentUser.balance).toFixed(2)} ₽</div>
+    <div class="balance-history" onclick="alert('История операций пуста')">История операций</div>
+    </div>
+    <button class="topup-btn" onclick="topUpBalance()">Пополнить</button>
+    </div>
+    </div>
+
+    <div class="best-drop-card">
+    <div class="best-drop-title">Лучший дроп</div>
+    <div class="best-drop-content">
+    <div class="best-drop-info">
+    <div class="best-drop-name">${best.name}</div>
+    <div class="best-drop-price">${best.value > 0 ? Number(best.value).toFixed(2) + ' ₽' : '--'}</div>
+    </div>
+    ${best.img ? `<img src="${best.img}" class="best-drop-img" alt="Drop">` : ''}
+    </div>
+    </div>
+
+    <div class="profile-card-item">
+    <div class="profile-card-header">
+    <div>
+    <div>TRADE URL</div>
+    <div class="profile-card-sub" id="tradeStatusText">
+    ${currentUser.tradeUrl ? 'Трейд-ссылка сохранена' : 'Введите вашу трейд-ссылку'}
+    </div>
+    </div>
+    </div>
+    <div class="trade-input-row">
+    <input type="text" class="trade-input" id="tradeUrlInput" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=..." value="${currentUser.tradeUrl}">
+    <button class="trade-save-btn" onclick="saveTradeUrl()">Сохранить</button>
+    </div>
+    </div>
+
+    <div class="profile-inventory-box">
+    <div style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;">
+    Ваши предметы (${currentUser.inventory.length})
+    </div>
+    <div class="items-grid" id="profileItemsGrid" style="max-height:250px;"></div>
+    </div>
+    `;
+
+    renderProfileInventory();
 }
 
-function saveTradeUrl(){
-if(!currentUser)return;
-const input=document.getElementById('tradeUrlInput');
-if(!input)return;
-const val=input.value.trim();
-if(val.length>10){
-currentUser.tradeUrl=val;
-saveUserData();
-const status=document.getElementById('tradeStatusText');
-if(status){
-status.textContent='Трейд-ссылка успешно сохранена';
-status.style.color='#4ade80';
-}
-alert('Трейд-ссылка сохранена!');
-}else{
-alert('Введите корректную ссылку');
-}
+function topUpBalance() {
+    if (!currentUser) return;
+    currentUser.balance += 1000;
+    currentUser.stats.totalDeposited += 1000;
+    saveUserData();
+    renderProfile();
+    updateHeaderAvatar();
+    alert('Баланс пополнен на 1,000 ₽!');
 }
 
-function renderProfileInventory(){
-const grid=document.getElementById('profileItemsGrid');
-if(!grid||!currentUser)return;
-grid.innerHTML='';
-currentUser.inventory.forEach(item=>{
-const card=document.createElement('div');
-card.className='item-card';
-card.innerHTML=`
-<img src="${item.img}" alt="">
-<div class="iname">${item.name}</div>
-<div class="iprice">${Number(item.value).toFixed(2)} ₽</div>
-`;
-grid.appendChild(card);
-});
+function saveTradeUrl() {
+    if (!currentUser) return;
+    const input = document.getElementById('tradeUrlInput');
+    if (!input) return;
+    const val = input.value.trim();
+    if (val.length > 10) {
+        currentUser.tradeUrl = val;
+        saveUserData();
+        const status = document.getElementById('tradeStatusText');
+        if (status) {
+            status.textContent = 'Трейд-ссылка успешно сохранена';
+            status.style.color = '#4ade80';
+        }
+        alert('Трейд-ссылка сохранена!');
+    } else {
+        alert('Введите корректную ссылку');
+    }
 }
 
-let activeCase=null;
-let isCaseSpinning=false;
-let currentWonItem=null;
-
-function renderCasesList(){
-const grid=document.getElementById('casesGrid');
-grid.innerHTML='';
-CASES_DATA.forEach(c=>{
-const card=document.createElement('div');
-card.className='case-card';
-card.innerHTML=`
-<div class="case-title">${c.name}</div>
-<div class="case-price">${c.price} ₽</div>
-`;
-card.addEventListener('click',()=>openCaseScreen(c));
-grid.appendChild(card);
-});
+function renderProfileInventory() {
+    const grid = document.getElementById('profileItemsGrid');
+    if (!grid || !currentUser) return;
+    grid.innerHTML = '';
+    currentUser.inventory.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
+        <img src="${item.img || FALLBACK_IMG}" alt="">
+        <div class="iname">${item.name}</div>
+        <div class="iprice">${Number(item.value).toFixed(2)} ₽</div>
+        `;
+        grid.appendChild(card);
+    });
 }
 
-function openCaseScreen(c){
-if(!currentUser){
-alert('Сначала войдите через Steam!');
-switchMainTab('profile');
-return;
-}
-activeCase=c;
-document.getElementById('casesListContainer').style.display='none';
-document.getElementById('caseOpeningView').classList.add('active');
-document.getElementById('activeCaseTitle').textContent=c.name;
-renderCaseContents();
-renderTrack();
-document.getElementById('actionButtons').style.display='none';
-document.getElementById('mainOpenBtn').style.display='block';
-}
+let activeCase = null;
+let isCaseSpinning = false;
+let currentWonItem = null;
 
-function closeCaseOpening(){
-if(isCaseSpinning)return;
-activeCase=null;
-document.getElementById('caseOpeningView').classList.remove('active');
-document.getElementById('casesListContainer').style.display='flex';
+function renderCasesList() {
+    const grid = document.getElementById('casesGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    CASES_DATA.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'case-card';
+        card.innerHTML = `
+        <div class="case-title">${c.name}</div>
+        <div class="case-price">${c.price} ₽</div>
+        `;
+        card.addEventListener('click', () => openCaseScreen(c));
+        grid.appendChild(card);
+    });
 }
 
-const track=document.getElementById('rouletteTrack');
-
-function renderCaseContents(){
-const grid=document.getElementById('caseContentsGrid');
-grid.innerHTML='';
-activeCase.items.forEach(item=>{
-const card=document.createElement('div');
-card.className='item-card';
-card.innerHTML=`
-<img src="${item.img||IMG.cortex}" alt="">
-<div class="iname">${item.name}</div>
-<div class="iprice">${item.price} ₽</div>
-`;
-grid.appendChild(card);
-});
+function openCaseScreen(c) {
+    if (!currentUser) {
+        alert('Сначала войдите через Steam!');
+        switchMainTab('profile');
+        return;
+    }
+    activeCase = c;
+    document.getElementById('casesListContainer').style.display = 'none';
+    document.getElementById('caseOpeningView').classList.add('active');
+    document.getElementById('activeCaseTitle').textContent = c.name;
+    renderCaseContents();
+    renderTrack();
+    document.getElementById('actionButtons').style.display = 'none';
+    document.getElementById('mainOpenBtn').style.display = 'block';
 }
 
-function renderTrack(){
-let html='';
-for(let loop=0;loop<10;loop++){
-activeCase.items.forEach(item=>{
-html+=`
-<div class="roulette-item">
-<img src="${item.img||IMG.cortex}" style="width:60px;height:40px;object-fit:contain;" alt="">
-<strong>${item.name}</strong>
-<span>${item.price} ₽</span>
-</div>
-`;
-});
-}
-track.innerHTML=html;
+function closeCaseOpening() {
+    if (isCaseSpinning) return;
+    activeCase = null;
+    document.getElementById('caseOpeningView').classList.remove('active');
+    document.getElementById('casesListContainer').style.display = 'flex';
 }
 
-function startOpening(){
-if(isCaseSpinning||!activeCase||!currentUser)return;
-if(currentUser.balance<activeCase.price){
-alert('Недостаточно средств на балансе!');
-return;
+const track = document.getElementById('rouletteTrack');
+
+function renderCaseContents() {
+    const grid = document.getElementById('caseContentsGrid');
+    if (!grid || !activeCase) return;
+    grid.innerHTML = '';
+    activeCase.items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
+        <img src="${item.img || FALLBACK_IMG}" alt="">
+        <div class="iname">${item.name}</div>
+        <div class="iprice">${item.value} ₽</div>
+        `;
+        grid.appendChild(card);
+    });
 }
 
-currentUser.balance-=activeCase.price;
-currentUser.stats.casesOpened++;
-saveUserData();
-
-isCaseSpinning=true;
-currentWonItem=null;
-
-document.getElementById('actionButtons').style.display='none';
-document.getElementById('mainOpenBtn').style.display='none';
-
-const items=track.querySelectorAll('.roulette-item');
-track.style.transition='none';
-track.style.transform='translate3d(0,0,0)';
-
-const randomIndex=Math.floor(Math.random()*activeCase.items.length);
-currentWonItem=activeCase.items[randomIndex];
-
-const targetLoop=5;
-const targetIndex=targetLoop*activeCase.items.length+randomIndex;
-const targetElement=items[targetIndex];
-
-if(!targetElement){
-isCaseSpinning=false;
-document.getElementById('mainOpenBtn').style.display='block';
-return;
+function renderTrack() {
+    if (!activeCase || !activeCase.items.length) return;
+    let html = '';
+    for (let loop = 0; loop < 10; loop++) {
+        activeCase.items.forEach(item => {
+            html += `
+            <div class="roulette-item">
+            <img src="${item.img || FALLBACK_IMG}" style="width:60px;height:40px;object-fit:contain;" alt="">
+            <strong>${item.name}</strong>
+            <span>${item.value} ₽</span>
+            </div>
+            `;
+        });
+    }
+    track.innerHTML = html;
 }
 
-requestAnimationFrame(()=>{
-const container=document.querySelector('.roulette-container');
-const containerCenter=container.getBoundingClientRect().width/2;
-const itemRect=targetElement.getBoundingClientRect();
-const trackRect=track.getBoundingClientRect();
-const itemCenter=(itemRect.left-trackRect.left)+(itemRect.width/2);
-const targetX=itemCenter-containerCenter;
-const offset=Math.random()*8-4;
-const finalX=targetX+offset;
+function startOpening() {
+    if (isCaseSpinning || !activeCase || !currentUser) return;
+    if (currentUser.balance < activeCase.price) {
+        alert('Недостаточно средств на балансе!');
+        return;
+    }
 
-setTimeout(()=>{
-track.style.transition='transform 4s cubic-bezier(0.15,0.85,0.35,1)';
-track.style.transform=`translate3d(${-finalX}px,0,0)`;
-},50);
+    currentUser.balance -= activeCase.price;
+    currentUser.stats.casesOpened++;
+    saveUserData();
 
-setTimeout(()=>{
-document.getElementById('sellBtn').textContent=`Продать за ${currentWonItem.price} ₽`;
-document.getElementById('actionButtons').style.display='flex';
-isCaseSpinning=false;
+    isCaseSpinning = true;
+    currentWonItem = null;
 
-const newItem={
-id:Date.now()+Math.random(),
-name:currentWonItem.name,
-value:currentWonItem.price,
-img:currentWonItem.img||IMG.cortex
-};
-currentUser.inventory.push(newItem);
-checkBestDrop(newItem);
-saveUserData();
-},4200);
-});
+    document.getElementById('actionButtons').style.display = 'none';
+    document.getElementById('mainOpenBtn').style.display = 'none';
+
+    const items = track.querySelectorAll('.roulette-item');
+    track.style.transition = 'none';
+    track.style.transform = 'translate3d(0,0,0)';
+
+    const randomIndex = Math.floor(Math.random() * activeCase.items.length);
+    currentWonItem = activeCase.items[randomIndex];
+
+    const targetLoop = 5;
+    const targetIndex = targetLoop * activeCase.items.length + randomIndex;
+    const targetElement = items[targetIndex];
+
+    if (!targetElement) {
+        isCaseSpinning = false;
+        document.getElementById('mainOpenBtn').style.display = 'block';
+        return;
+    }
+
+    requestAnimationFrame(() => {
+        const container = document.querySelector('.roulette-container');
+        const containerCenter = container.getBoundingClientRect().width / 2;
+        const itemRect = targetElement.getBoundingClientRect();
+        const trackRect = track.getBoundingClientRect();
+        const itemCenter = (itemRect.left - trackRect.left) + (itemRect.width / 2);
+        const targetX = itemCenter - containerCenter;
+        const offset = Math.random() * 8 - 4;
+        const finalX = targetX + offset;
+
+        setTimeout(() => {
+            track.style.transition = 'transform 4s cubic-bezier(0.15,0.85,0.35,1)';
+            track.style.transform = `translate3d(${-finalX}px,0,0)`;
+        }, 50);
+
+        setTimeout(() => {
+            document.getElementById('sellBtn').textContent = `Продать за ${currentWonItem.value} ₽`;
+            document.getElementById('actionButtons').style.display = 'flex';
+            isCaseSpinning = false;
+
+            const newItem = {
+                id: Date.now() + Math.random(),
+                name: currentWonItem.name,
+                value: currentWonItem.value,
+                img: currentWonItem.img || FALLBACK_IMG
+            };
+            currentUser.inventory.push(newItem);
+            checkBestDrop(newItem);
+            saveUserData();
+        }, 4200);
+    });
 }
 
-function sellCurrentItem(){
-if(!currentWonItem||!currentUser)return;
-currentUser.balance+=currentWonItem.price;
-saveUserData();
-document.getElementById('actionButtons').style.display='none';
-document.getElementById('mainOpenBtn').style.display='block';
-currentWonItem=null;
-track.style.transition='none';
-track.style.transform='translate3d(0,0,0)';
+function sellCurrentItem() {
+    if (!currentWonItem || !currentUser) return;
+    currentUser.balance += currentWonItem.value;
+    saveUserData();
+    document.getElementById('actionButtons').style.display = 'none';
+    document.getElementById('mainOpenBtn').style.display = 'block';
+    currentWonItem = null;
+    track.style.transition = 'none';
+    track.style.transform = 'translate3d(0,0,0)';
 }
 
-let currentTab='inventory';
-let selectedItemIndex=null;
-let targetWeapon=null;
-let isSpinning=false;
-let currentRotation=0;
-let activeQuickChance=null;
+let selectedItemIndex = null;
+let targetWeapon = null;
+let isSpinning = false;
+let currentRotation = 0;
+let activeQuickChance = null;
 
-let quickChances=[10,20,30,40,50,70];
-const MAX_CHANCE=70;
+let quickChances = [10, 20, 30, 40, 50, 70];
+const MAX_CHANCE = 70;
 
-const canvas=document.getElementById('wheelCanvas');
-const wheelCanvasElement=canvas;
-const ctx=canvas.getContext('2d');
+const canvas = document.getElementById('wheelCanvas');
+const ctx = canvas.getContext('2d');
 
-const wheelPercentEl=document.getElementById('wheelPercent');
-const upgradeBtn=document.getElementById('upgradeBtn');
-const itemsGrid=document.getElementById('itemsGrid');
+const wheelPercentEl = document.getElementById('wheelPercent');
+const upgradeBtn = document.getElementById('upgradeBtn');
+const itemsGrid = document.getElementById('itemsGrid');
 
-const wheelOverlay=document.getElementById('wheelOverlay');
-const resultOverlay=document.getElementById('resultOverlay');
-const resultText=document.getElementById('resultText');
+const wheelOverlay = document.getElementById('wheelOverlay');
+const resultOverlay = document.getElementById('resultOverlay');
+const resultText = document.getElementById('resultText');
 
-const priceFilterBox=document.getElementById('priceFilterBox');
-const minPriceInput=document.getElementById('minPriceInput');
-const maxPriceInput=document.getElementById('maxPriceInput');
-const quickChancePanel=document.getElementById('quickChancePanel');
-const modalOverlay=document.getElementById('modalOverlay');
-const quickValuesInput=document.getElementById('quickValuesInput');
+const priceFilterBox = document.getElementById('priceFilterBox');
+const minPriceInput = document.getElementById('minPriceInput');
+const maxPriceInput = document.getElementById('maxPriceInput');
+const quickChancePanel = document.getElementById('quickChancePanel');
+const modalOverlay = document.getElementById('modalOverlay');
+const quickValuesInput = document.getElementById('quickValuesInput');
 
-function renderQuickChances(){
-quickChancePanel.innerHTML='';
-quickChances.forEach(ch=>{
-if(ch<=MAX_CHANCE){
-const btn=document.createElement('button');
-btn.className=`q-btn ${activeQuickChance===ch?'active':''}`;
-btn.textContent=ch+'%';
-btn.addEventListener('click',()=>applyChance(ch));
-quickChancePanel.appendChild(btn);
-}
-});
+function renderQuickChances() {
+    quickChancePanel.innerHTML = '';
+    quickChances.forEach(ch => {
+        if (ch <= MAX_CHANCE) {
+            const btn = document.createElement('button');
+            btn.className = `q-btn ${activeQuickChance === ch ? 'active' : ''}`;
+            btn.textContent = ch + '%';
+            btn.addEventListener('click', () => applyChance(ch));
+            quickChancePanel.appendChild(btn);
+        }
+    });
 
-const settingsBtn=document.createElement('button');
-settingsBtn.className='q-btn settings-btn';
-settingsBtn.textContent='⚙';
-settingsBtn.addEventListener('click',()=>{
-quickValuesInput.value=quickChances.join(', ');
-modalOverlay.style.display='flex';
-});
-quickChancePanel.appendChild(settingsBtn);
+    const settingsBtn = document.createElement('button');
+    settingsBtn.className = 'q-btn settings-btn';
+    settingsBtn.textContent = '⚙';
+    settingsBtn.addEventListener('click', () => {
+        quickValuesInput.value = quickChances.join(', ');
+        modalOverlay.style.display = 'flex';
+    });
+    quickChancePanel.appendChild(settingsBtn);
 }
 
-function applyChance(targetChance){
-if(!currentUser){
-alert('Сначала войдите через Steam!');
-switchMainTab('profile');
-return;
-}
-if(selectedItemIndex===null||!currentUser.inventory[selectedItemIndex]){
-alert('Сначала выберите ваш скин в инвентаре!');
-return;
-}
+function applyChance(targetChance) {
+    if (!currentUser) {
+        alert('Сначала войдите через Steam!');
+        switchMainTab('profile');
+        return;
+    }
+    if (selectedItemIndex === null || !currentUser.inventory[selectedItemIndex]) {
+        alert('Сначала выберите ваш скин в инвентаре!');
+        return;
+    }
 
-const sourcePrice=currentUser.inventory[selectedItemIndex].value;
-const desiredPrice=sourcePrice/(targetChance/100);
+    const sourcePrice = currentUser.inventory[selectedItemIndex].value;
+    const desiredPrice = sourcePrice / (targetChance / 100);
 
-let bestMatch=null;
-let minDiff=Infinity;
+    let bestMatch = null;
+    let minDiff = Infinity;
 
-CATALOG_WEAPONS.forEach(item=>{
-if(item.value<=sourcePrice)return;
-const diff=Math.abs(item.value-desiredPrice);
-if(diff<minDiff){
-minDiff=diff;
-bestMatch=item;
-}
-});
+    CATALOG_ITEMS.forEach(item => {
+        if (item.value <= sourcePrice) return;
+        const diff = Math.abs(item.value - desiredPrice);
+        if (diff < minDiff) {
+            minDiff = diff;
+            bestMatch = item;
+        }
+    });
 
-if(bestMatch){
-targetWeapon=bestMatch;
-activeQuickChance=targetChance;
-renderQuickChances();
-renderGrid();
-updateUI();
-}else{
-alert('В каталоге нет подходящего скина');
-}
-}
-
-document.getElementById('modalCloseBtn').addEventListener('click',()=>{
-modalOverlay.style.display='none';
-});
-
-document.getElementById('modalSaveBtn').addEventListener('click',()=>{
-const vals=quickValuesInput.value.split(',').map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v)&&v>0&&v<=MAX_CHANCE);
-if(vals.length>0){
-quickChances=[...new Set(vals)];
-renderQuickChances();
-}
-modalOverlay.style.display='none';
-});
-
-function drawWheel(percent){
-const w=canvas.width;
-const h=canvas.height;
-const cx=w/2;
-const cy=h/2;
-const r=w/2-10;
-
-ctx.clearRect(0,0,w,h);
-ctx.beginPath();
-ctx.arc(cx,cy,r,0,2*Math.PI);
-ctx.fillStyle='#161924';
-ctx.fill();
-
-if(percent>0){
-const successAngle=(percent/100)*2*Math.PI;
-ctx.beginPath();
-ctx.moveTo(cx,cy);
-ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+successAngle);
-ctx.closePath();
-
-const grad=ctx.createRadialGradient(cx,cy,20,cx,cy,r);
-grad.addColorStop(0,'#d97706');
-grad.addColorStop(1,'#f59e0b');
-ctx.fillStyle=grad;
-ctx.fill();
+    if (bestMatch) {
+        targetWeapon = bestMatch;
+        activeQuickChance = targetChance;
+        renderQuickChances();
+        renderGrid();
+        updateUI();
+    } else {
+        alert('В каталоге нет подходящего скина под этот шанс');
+    }
 }
 
-ctx.beginPath();
-ctx.arc(cx,cy,r-26,0,2*Math.PI);
-ctx.fillStyle='#11131c';
-ctx.fill();
-}
-
-function updateUI(){
-if(!currentUser)return;
-currentUser=normalizeUser(currentUser,currentUser.steamId,currentUser.username,currentUser.avatar);
-
-let sourcePrice=0;
-if(selectedItemIndex!==null&&currentUser.inventory[selectedItemIndex]){
-const item=currentUser.inventory[selectedItemIndex];
-sourcePrice=item.value;
-document.getElementById('selectedSkinName').textContent=item.name;
-document.getElementById('selectedSkinPrice').textContent=item.value.toFixed(2);
-document.getElementById('selectedSkinImg').src=item.img;
-document.getElementById('selectedSkinImg').style.display='block';
-document.getElementById('selectedSkinPlaceholder').style.display='none';
-}else{
-document.getElementById('selectedSkinName').textContent='--';
-document.getElementById('selectedSkinPrice').textContent='0.00';
-document.getElementById('selectedSkinImg').style.display='none';
-document.getElementById('selectedSkinPlaceholder').style.display='block';
-}
-
-let targetPrice=0;
-if(targetWeapon){
-targetPrice=targetWeapon.value;
-document.getElementById('targetSkinName').textContent=targetWeapon.name;
-document.getElementById('targetSkinPrice').textContent=targetWeapon.value.toFixed(2);
-document.getElementById('targetSkinImg').src=targetWeapon.img;
-document.getElementById('targetSkinImg').style.display='block';
-document.getElementById('targetSkinPlaceholder').style.display='none';
-}else{
-document.getElementById('targetSkinName').textContent='--';
-document.getElementById('targetSkinPrice').textContent='0.00';
-document.getElementById('targetSkinImg').style.display='none';
-document.getElementById('targetSkinPlaceholder').style.display='block';
-}
-
-let chance=0;
-if(sourcePrice>0&&targetPrice>sourcePrice){
-if(activeQuickChance!==null){
-chance=activeQuickChance;
-}else{
-chance=Math.min(sourcePrice/targetPrice*100,MAX_CHANCE);
-}
-}
-
-wheelPercentEl.textContent=chance.toFixed(2)+'%';
-drawWheel(chance);
-
-const valid=sourcePrice>0&&targetPrice>sourcePrice&&chance>0&&chance<=MAX_CHANCE;
-upgradeBtn.disabled=!valid||isSpinning;
-}
-
-function renderGrid(){
-if(!currentUser)return;
-itemsGrid.innerHTML='';
-
-if(currentTab==='inventory'){
-priceFilterBox.classList.remove('active');
-currentUser.inventory.forEach((item,index)=>{
-const card=createCard(item,selectedItemIndex===index,()=>{
-if(isSpinning)return;
-selectedItemIndex=selectedItemIndex===index?null:index;
-activeQuickChance=null;
-renderQuickChances();
-renderGrid();
-updateUI();
-});
-itemsGrid.appendChild(card);
-});
-}else{
-priceFilterBox.classList.add('active');
-const minP=parseFloat(minPriceInput.value)||0;
-const maxP=parseFloat(maxPriceInput.value)||Infinity;
-
-CATALOG_WEAPONS.filter(item=>item.value>=minP&&item.value<=maxP).forEach(item=>{
-const card=createCard(item,targetWeapon&&targetWeapon.id===item.id,()=>{
-if(isSpinning)return;
-targetWeapon=targetWeapon&&targetWeapon.id===item.id?null:item;
-activeQuickChance=null;
-renderQuickChances();
-renderGrid();
-updateUI();
-});
-itemsGrid.appendChild(card);
-});
-}
-}
-
-function createCard(item,isSelected,onClick){
-const card=document.createElement('div');
-card.className=`item-card ${isSelected?'selected':''}`;
-card.innerHTML=`
-<img src="${item.img}" alt="">
-<div class="iname">${item.name}</div>
-<div class="iprice">${Number(item.value).toFixed(2)} ₽</div>
-`;
-card.addEventListener('click',onClick);
-return card;
-}
-
-document.getElementById('tabInventory').addEventListener('click',()=>{
-currentTab='inventory';
-document.getElementById('tabInventory').classList.add('active');
-document.getElementById('tabCatalog').classList.remove('active');
-renderGrid();
+document.getElementById('modalCloseBtn').addEventListener('click', () => {
+    modalOverlay.style.display = 'none';
 });
 
-document.getElementById('tabCatalog').addEventListener('click',()=>{
-currentTab='catalog';
-document.getElementById('tabCatalog').classList.add('active');
-document.getElementById('tabInventory').classList.remove('active');
-renderGrid();
+document.getElementById('modalSaveBtn').addEventListener('click', () => {
+    const vals = quickValuesInput.value.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0 && v <= MAX_CHANCE);
+    if (vals.length > 0) {
+        quickChances = [...new Set(vals)];
+        renderQuickChances();
+    }
+    modalOverlay.style.display = 'none';
 });
 
-minPriceInput.addEventListener('input',renderGrid);
-maxPriceInput.addEventListener('input',renderGrid);
+function drawWheel(percent) {
+    const w = canvas.width;
+    const h = canvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = w / 2 - 10;
 
-upgradeBtn.addEventListener('click',()=>{
-if(isSpinning||!currentUser)return;
-if(selectedItemIndex===null||!currentUser.inventory[selectedItemIndex]||!targetWeapon)return;
+    ctx.clearRect(0, 0, w, h);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+    ctx.fillStyle = '#161924';
+    ctx.fill();
 
-isSpinning=true;
-upgradeBtn.disabled=true;
-wheelOverlay.style.display='block';
-resultOverlay.style.display='none';
+    if (percent > 0) {
+        const successAngle = (percent / 100) * 2 * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + successAngle);
+        ctx.closePath();
 
-const sourcePrice=currentUser.inventory[selectedItemIndex].value;
-const targetPrice=targetWeapon.value;
-const chance=activeQuickChance!==null?activeQuickChance:Math.min((sourcePrice/targetPrice)*100,MAX_CHANCE);
-const isSuccess=Math.random()*100<chance;
+        const grad = ctx.createRadialGradient(cx, cy, 20, cx, cy, r);
+        grad.addColorStop(0, '#d97706');
+        grad.addColorStop(1, '#f59e0b');
+        ctx.fillStyle = grad;
+        ctx.fill();
+    }
 
-currentUser.stats.upgradesTotal++;
-saveUserData();
-
-let pointerPercent;
-if(chance>=100){
-pointerPercent=Math.random()*100;
-}else if(isSuccess){
-const margin=Math.min(0.8,Math.max(0.05,chance/5));
-const max=Math.max(margin,chance-margin);
-pointerPercent=margin+Math.random()*(max-margin);
-}else{
-const margin=0.8;
-const min=Math.min(99.2,chance+margin);
-const max=99.2;
-if(min>=max){
-pointerPercent=Math.min(99.5,chance+0.1);
-}else{
-pointerPercent=min+Math.random()*(max-min);
-}
+    ctx.beginPath();
+    ctx.arc(cx, cy, r - 26, 0, 2 * Math.PI);
+    ctx.fillStyle = '#11131c';
+    ctx.fill();
 }
 
-const pointAngle=(pointerPercent/100)*360;
-const neededRotation=-pointAngle;
-const currentMod=((currentRotation%360)+360)%360;
-const desiredMod=((neededRotation%360)+360)%360;
-let delta=desiredMod-currentMod;
-if(delta<0){delta+=360;}
+function updateUI() {
+    if (!currentUser) return;
+    currentUser = normalizeUser(currentUser, currentUser.steamId, currentUser.username, currentUser.avatar);
 
-const finalRotation=currentRotation+360*5+delta;
-wheelCanvasElement.style.transition='transform 3.5s cubic-bezier(0.15,0.85,0.35,1)';
-wheelCanvasElement.style.transform=`rotate(${finalRotation}deg)`;
-currentRotation=finalRotation;
+    let sourcePrice = 0;
+    if (selectedItemIndex !== null && currentUser.inventory[selectedItemIndex]) {
+        const item = currentUser.inventory[selectedItemIndex];
+        sourcePrice = item.value;
+        document.getElementById('selectedSkinName').textContent = item.name;
+        document.getElementById('selectedSkinPrice').textContent = item.value.toFixed(2);
+        document.getElementById('selectedSkinImg').src = item.img || FALLBACK_IMG;
+        document.getElementById('selectedSkinImg').style.display = 'block';
+        document.getElementById('selectedSkinPlaceholder').style.display = 'none';
+    } else {
+        document.getElementById('selectedSkinName').textContent = '--';
+        document.getElementById('selectedSkinPrice').textContent = '0.00';
+        document.getElementById('selectedSkinImg').style.display = 'none';
+        document.getElementById('selectedSkinPlaceholder').style.display = 'block';
+    }
 
-setTimeout(()=>{
-resultOverlay.style.display='flex';
-if(isSuccess){
-resultText.textContent='Успех!';
-resultText.style.color='#4ade80';
+    let targetPrice = 0;
+    if (targetWeapon) {
+        targetPrice = targetWeapon.value;
+        document.getElementById('targetSkinName').textContent = targetWeapon.name;
+        document.getElementById('targetSkinPrice').textContent = targetWeapon.value.toFixed(2);
+        document.getElementById('targetSkinImg').src = targetWeapon.img || FALLBACK_IMG;
+        document.getElementById('targetSkinImg').style.display = 'block';
+        document.getElementById('targetSkinPlaceholder').style.display = 'none';
+    } else {
+        document.getElementById('targetSkinName').textContent = '--';
+        document.getElementById('targetSkinPrice').textContent = '0.00';
+        document.getElementById('targetSkinImg').style.display = 'none';
+        document.getElementById('targetSkinPlaceholder').style.display = 'block';
+    }
 
-const wonItem={
-id:Date.now(),
-name:targetWeapon.name,
-value:targetWeapon.value,
-img:targetWeapon.img
-};
-currentUser.inventory.splice(selectedItemIndex,1);
-currentUser.inventory.push(wonItem);
-checkBestDrop(wonItem);
-saveUserData();
-}else{
-resultText.textContent='Неудача';
-resultText.style.color='#f87171';
-currentUser.inventory.splice(selectedItemIndex,1);
-saveUserData();
+    let chance = 0;
+    if (sourcePrice > 0 && targetPrice > sourcePrice) {
+        if (activeQuickChance !== null) {
+            chance = activeQuickChance;
+        } else {
+            chance = Math.min(sourcePrice / targetPrice * 100, MAX_CHANCE);
+        }
+    }
+
+    wheelPercentEl.textContent = chance.toFixed(2) + '%';
+    drawWheel(chance);
+
+    const valid = sourcePrice > 0 && targetPrice > sourcePrice && chance > 0 && chance <= MAX_CHANCE;
+    upgradeBtn.disabled = !valid || isSpinning;
 }
 
-setTimeout(()=>{
-resultOverlay.style.display='none';
-wheelOverlay.style.display='none';
-isSpinning=false;
-selectedItemIndex=null;
-targetWeapon=null;
-activeQuickChance=null;
-renderQuickChances();
-renderGrid();
-updateUI();
-},2000);
-},3600);
+function renderGrid() {
+    if (!currentUser) return;
+    itemsGrid.innerHTML = '';
+
+    if (currentTab === 'inventory') {
+        priceFilterBox.classList.remove('active');
+        currentUser.inventory.forEach((item, index) => {
+            const card = createCard(item, selectedItemIndex === index, () => {
+                if (isSpinning) return;
+                selectedItemIndex = selectedItemIndex === index ? null : index;
+                activeQuickChance = null;
+                renderQuickChances();
+                renderGrid();
+                updateUI();
+            });
+            itemsGrid.appendChild(card);
+        });
+    } else {
+        priceFilterBox.classList.add('active');
+        const minP = parseFloat(minPriceInput.value) || 0;
+        const maxP = parseFloat(maxPriceInput.value) || Infinity;
+
+        CATALOG_ITEMS
+            .filter(item => item.category === currentTab && item.value >= minP && item.value <= maxP)
+            .forEach(item => {
+                const card = createCard(item, targetWeapon && targetWeapon.id === item.id, () => {
+                    if (isSpinning) return;
+                    targetWeapon = targetWeapon && targetWeapon.id === item.id ? null : item;
+                    activeQuickChance = null;
+                    renderQuickChances();
+                    renderGrid();
+                    updateUI();
+                });
+                itemsGrid.appendChild(card);
+            });
+    }
+}
+
+function createCard(item, isSelected, onClick) {
+    const card = document.createElement('div');
+    card.className = `item-card ${isSelected ? 'selected' : ''}`;
+    card.innerHTML = `
+    <img src="${item.img || FALLBACK_IMG}" alt="">
+    <div class="iname">${item.name}</div>
+    <div class="iprice">${Number(item.value).toFixed(2)} ₽</div>
+    `;
+    card.addEventListener('click', onClick);
+    return card;
+}
+
+minPriceInput.addEventListener('input', renderGrid);
+maxPriceInput.addEventListener('input', renderGrid);
+
+upgradeBtn.addEventListener('click', () => {
+    if (isSpinning || !currentUser) return;
+    if (selectedItemIndex === null || !currentUser.inventory[selectedItemIndex] || !targetWeapon) return;
+
+    isSpinning = true;
+    upgradeBtn.disabled = true;
+    wheelOverlay.style.display = 'block';
+    resultOverlay.style.display = 'none';
+
+    const sourcePrice = currentUser.inventory[selectedItemIndex].value;
+    const targetPrice = targetWeapon.value;
+    const chance = activeQuickChance !== null ? activeQuickChance : Math.min((sourcePrice / targetPrice) * 100, MAX_CHANCE);
+    const isSuccess = Math.random() * 100 < chance;
+
+    currentUser.stats.upgradesTotal++;
+    saveUserData();
+
+    let pointerPercent;
+    if (chance >= 100) {
+        pointerPercent = Math.random() * 100;
+    } else if (isSuccess) {
+        const margin = Math.min(0.8, Math.max(0.05, chance / 5));
+        const max = Math.max(margin, chance - margin);
+        pointerPercent = margin + Math.random() * (max - margin);
+    } else {
+        const margin = 0.8;
+        const min = Math.min(99.2, chance + margin);
+        const max = 99.2;
+        if (min >= max) {
+            pointerPercent = Math.min(99.5, chance + 0.1);
+        } else {
+            pointerPercent = min + Math.random() * (max - min);
+        }
+    }
+
+    const pointAngle = (pointerPercent / 100) * 360;
+    const neededRotation = -pointAngle;
+    const currentMod = ((currentRotation % 360) + 360) % 360;
+    const desiredMod = ((neededRotation % 360) + 360) % 360;
+    let delta = desiredMod - currentMod;
+    if (delta < 0) { delta += 360; }
+
+    const finalRotation = currentRotation + 360 * 5 + delta;
+    canvas.style.transition = 'transform 3.5s cubic-bezier(0.15,0.85,0.35,1)';
+    canvas.style.transform = `rotate(${finalRotation}deg)`;
+    currentRotation = finalRotation;
+
+    setTimeout(() => {
+        resultOverlay.style.display = 'flex';
+        if (isSuccess) {
+            resultText.textContent = 'Успех!';
+            resultText.style.color = '#4ade80';
+
+            const wonItem = {
+                id: Date.now(),
+                name: targetWeapon.name,
+                value: targetWeapon.value,
+                img: targetWeapon.img || FALLBACK_IMG
+            };
+            currentUser.inventory.splice(selectedItemIndex, 1);
+            currentUser.inventory.push(wonItem);
+            checkBestDrop(wonItem);
+            saveUserData();
+        } else {
+            resultText.textContent = 'Неудача';
+            resultText.style.color = '#f87171';
+            currentUser.inventory.splice(selectedItemIndex, 1);
+            saveUserData();
+        }
+
+        setTimeout(() => {
+            resultOverlay.style.display = 'none';
+            wheelOverlay.style.display = 'none';
+            isSpinning = false;
+            selectedItemIndex = null;
+            targetWeapon = null;
+            activeQuickChance = null;
+            renderQuickChances();
+            renderGrid();
+            updateUI();
+        }, 2000);
+    }, 3600);
 });
 
-function checkBestDrop(item){
-if(!currentUser)return;
-if(!currentUser.bestDrop||item.value>currentUser.bestDrop.value){
-currentUser.bestDrop={
-name:item.name,
-value:item.value,
-img:item.img
-};
-saveUserData();
-}
-}
-
-if(!currentUser){
-switchMainTab('profile');
-}else{
-currentUser=normalizeUser(currentUser,currentUser.steamId,currentUser.username,currentUser.avatar);
-saveUserData();
-updateHeaderAvatar();
-switchMainTab('upgrade');
+function checkBestDrop(item) {
+    if (!currentUser) return;
+    if (!currentUser.bestDrop || item.value > currentUser.bestDrop.value) {
+        currentUser.bestDrop = {
+            name: item.name,
+            value: item.value,
+            img: item.img || FALLBACK_IMG
+        };
+        saveUserData();
+    }
 }
 
-renderQuickChances();
-updateUI();
-updateHeaderAvatar();
-
+// Запуск загрузки всей базы и цен в рублях
+loadFullDatabaseWithRealPrices();
 </script>
 
 </body>
