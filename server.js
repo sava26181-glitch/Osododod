@@ -24,7 +24,7 @@ passport.deserializeUser((obj, done) => {
     done(null, obj);
 });
 
-// Настройка Steam Strategy (использует ваш домен и ключ из переменных Render)
+// Настройка Steam Strategy
 passport.use(new SteamStrategy({
     returnURL: 'https://osododod.onrender.com/auth/steam/return',
     realm: 'https://osododod.onrender.com/',
@@ -36,24 +36,51 @@ passport.use(new SteamStrategy({
     });
 }));
 
-// Раздаем статические файлы (ваш index.html будет работать как главная страница)
+// Раздаем статические файлы
 app.use(express.static(path.join(__dirname)));
 
-// Маршрут авторизации через Steam
+// --- НАСТРОЙКА ЦЕН (SKINTICK) ---
+let livePrices = {};
+
+async function updatePricesFromSkintick() {
+    try {
+        const response = await fetch('https://api.skintick.io/v1/prices', {
+            headers: { 
+                'Authorization': 'Bearer free user_3IxAFNJMcB7ANaJBPoOokBF4rdj' 
+            }
+        });
+        const data = await response.json();
+        
+        if (data && data.success) {
+            livePrices = data.prices || data; 
+            console.log("Цены успешно обновлены со Skintick:", new Date().toLocaleTimeString());
+        }
+    } catch (e) {
+        console.error("Ошибка при обновлении цен со Skintick:", e.message);
+    }
+}
+
+// Запускаем сразу при старте и каждые 15 минут
+updatePricesFromSkintick();
+setInterval(updatePricesFromSkintick, 900000);
+
+// Эндпоинт для фронтенда
+app.get('/api/live-prices', (req, res) => {
+    res.json({ success: true, prices: livePrices });
+});
+// ---------------------------------
+
+// Маршруты авторизации через Steam
 app.get('/auth/steam',
     passport.authenticate('steam', { failureRedirect: '/' })
 );
 
-// Маршрут возврата после успешного входа в Steam
 app.get('/auth/steam/return',
     passport.authenticate('steam', { failureRedirect: '/' }),
     (req, res) => {
-        // Передаем данные пользователя обратно на фронтенд через параметры URL
         const steamId = req.user.id;
         const name = encodeURIComponent(req.user.displayName);
         const avatar = encodeURIComponent(req.user.photos[2]?.value || req.user.photos[0]?.value || '');
-        
-        // Перенаправляем пользователя на главную страницу с его данными
         res.redirect(`/?steamId=${steamId}&name=${name}&avatar=${avatar}`);
     }
 );
