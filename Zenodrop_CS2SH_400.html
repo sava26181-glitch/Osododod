@@ -266,13 +266,13 @@ function findApiSkin(name){if(!name)return null;const n=cleanName(name).toLowerC
 function getCaseBands(price){
   const m=price/100;
   return [
-    {min:12*m,max:Infinity,p:1.2},
-    {min:6*m,max:12*m,p:6},
-    {min:4.5*m,max:6*m,p:12},
-    {min:3*m,max:4.5*m,p:20},
-    {min:1.8*m,max:3*m,p:25},
-    {min:0.8*m,max:1.8*m,p:20},
-    {min:0,max:0.8*m,p:15.8}
+    {min:15*m,max:Infinity,p:3.5},
+    {min:8*m,max:15*m,p:10},
+    {min:5*m,max:8*m,p:16},
+    {min:3*m,max:5*m,p:24},
+    {min:1.5*m,max:3*m,p:25},
+    {min:0.7*m,max:1.5*m,p:15},
+    {min:0,max:0.7*m,p:5.5}
   ];
 }
 function chooseBand(price){let r=Math.random()*100;for(const b of getCaseBands(price)){if(r<b.p)return b;r-=b.p}return getCaseBands(price).at(-1)}
@@ -310,6 +310,8 @@ function buildCaseContents(price,index){
   }
   out.forEach(x=>used.add(x.id));
   window.__zenoAssigned=used;
+  // Сортируем содержимое: сначала самые дорогие скины для привлечения внимания
+  out.sort((a, b) => b.value - a.value);
   return out.slice(0,100);
 }
 function hashCode(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
@@ -332,7 +334,6 @@ function normalizeUser(user,steamId,name,avatar){
   return user;
 }
 function saveUserData(){if(!currentUser)return;localStorage.setItem('zeno_user_'+currentUser.steamId,JSON.stringify(currentUser));localStorage.setItem('zeno_current_user',JSON.stringify(currentUser))}
-function loadUserData(id,n,a){let u=null;try{u=JSON.parse(localStorage.getItem('zeno_user_'+id)||'null')}catch(e){}currentUser=normalizeUser(u,id,n,a);saveUserData()}
 
 async function initializeApp(){
   const loading=document.getElementById('loadingText');
@@ -477,7 +478,7 @@ function withdrawSteamItem(index) {
   alert(`Предмет "${item.name}" успешно отправлен на ваш аккаунт Steam!`);
 }
 
-function renderCasesList(){const g=document.getElementById('casesGrid');if(!g)return;g.innerHTML='';CASES_DATA.forEach(c=>{const d=document.createElement('div');d.className='case-card';const preview=c.items.find(x=>x.value>c.price*10)||c.items[0];d.innerHTML=`${preview?.img?`<img src="${escapeAttr(preview.img)}" alt="">`:''}<div class="case-title">${escapeHtml(c.name)}</div><div class="case-price">${c.price} ₽</div>`;d.onclick=()=>openCaseScreen(c);g.appendChild(d)})}
+function renderCasesList(){const g=document.getElementById('casesGrid');if(!g)return;g.innerHTML='';CASES_DATA.forEach(c=>{const d=document.createElement('div');d.className='case-card';const preview=c.items[0];d.innerHTML=`${preview?.img?`<img src="${escapeAttr(preview.img)}" alt="">`:''}<div class="case-title">${escapeHtml(c.name)}</div><div class="case-price">${c.price} ₽</div>`;d.onclick=()=>openCaseScreen(c);g.appendChild(d)})}
 function openCaseScreen(c){activeCase=c;document.getElementById('casesListContainer').style.display='none';document.getElementById('caseOpeningView').classList.add('active');document.getElementById('activeCaseTitle').textContent=c.name+' · '+c.price+' ₽';renderCaseContents();renderTrack();document.getElementById('actionButtons').style.display='none';document.getElementById('mainOpenBtn').style.display='block'}
 function closeCaseOpening(){if(isCaseSpinning)return;document.getElementById('caseOpeningView').classList.remove('active');document.getElementById('casesListContainer').style.display='flex'}
 function renderCaseContents(){const g=document.getElementById('caseContentsGrid');if(!g||!activeCase)return;g.innerHTML='';activeCase.items.forEach(x=>g.appendChild(createCard(x,false,()=>{})))}
@@ -503,7 +504,6 @@ function renderGrid(){
   if(!g)return;
   g.innerHTML='';
 
-  // Обновляем общую стоимость инвентаря
   const totalInvValue = currentUser.inventory.reduce((sum, item) => sum + (item.value || 0), 0);
   const invTotalEl = document.getElementById('invTotalValue');
   if (invTotalEl) {
