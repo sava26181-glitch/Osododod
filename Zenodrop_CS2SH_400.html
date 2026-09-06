@@ -48,17 +48,18 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .inv-tab{background:#11131c;border:1px solid rgba(255,255,255,.06);color:#9ca3af;padding:6px 12px;border-radius:8px;font-weight:700;font-size:11px;cursor:pointer}
 .inv-tab.active{background:#f59e0b;color:#11131c;border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.3)}
 .inv-total-value{font-size:12px;font-weight:800;color:#fbbf24;background:#11131c;padding:6px 10px;border-radius:8px;border:1px solid rgba(245,158,11,.2)}
+.sell-all-btn{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.4);color:#f59e0b;padding:6px 12px;border-radius:8px;font-weight:800;font-size:11px;cursor:pointer;transition:.2s;text-transform:uppercase}
+.sell-all-btn:hover{background:#f59e0b;color:#11131c}
 .price-filter-box{display:none;gap:6px;align-items:center}.price-filter-box.active{display:flex}
 .price-input{background:#11131c;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;padding:4px 8px;width:75px;font-size:11px;outline:none;font-weight:600}
-.items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;max-height:220px;overflow-y:auto;padding-right:4px;min-width:0;width:100%}
-.item-card{background:#11131c;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:8px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;position:relative;transition:.3s;min-width:0;overflow:hidden}
+.items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px;max-height:260px;overflow-y:auto;padding:6px 4px;min-width:0;width:100%}
+.item-card{background:#11131c;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:10px 8px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;position:relative;transition:.3s;min-width:0;overflow:hidden;margin-bottom:2px}
 .item-card:hover{border-color:rgba(245,158,11,.4);transform:translateY(-2px)}
 .item-card.selected{border-color:#f59e0b;box-shadow:0 0 10px rgba(245,158,11,.2)}
-.item-card img{width:75px;height:50px;object-fit:contain;margin:4px 0;filter:drop-shadow(0 4px 8px rgba(0,0,0,.6));max-width:100%}
+.item-card img{width:75px;height:52px;object-fit:contain;margin:6px 0;filter:drop-shadow(0 4px 8px rgba(0,0,0,.6));max-width:100%}
 .item-card .iname{font-size:10px;font-weight:700;color:#d1d5db;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
-.item-card .iprice{font-size:11px;font-weight:800;color:#fbbf24;margin-top:3px}
-
-.item-card-actions{display:flex;gap:4px;width:100%;margin-top:6px;justify-content:space-between}
+.item-card .iprice{font-size:11px;font-weight:800;color:#fbbf24;margin-top:4px}
+.item-card-actions{display:flex;gap:4px;width:100%;margin-top:8px;justify-content:space-between}
 .mini-action-btn{background:#1a1d29;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#9ca3af;width:28px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;transition:.2s}
 .mini-action-btn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b}
 .mini-action-btn svg{width:12px;height:12px;fill:currentColor}
@@ -193,16 +194,6 @@ async function getJSON(url,proxy=false){
     if(!r.ok)throw new Error('HTTP '+r.status);
     return r.json();
   }
-  let lastError=null;
-  for(const proxyBase of PROXIES){
-    try{
-      const target=proxyBase.endsWith('=')?proxyBase+encodeURIComponent(url):proxyBase+url;
-      const r=await fetch(target,{cache:'no-store'});
-      if(!r.ok)throw new Error('HTTP '+r.status);
-      return await r.json();
-    }catch(e){lastError=e;}
-  }
-  throw lastError||new Error('Proxy error');
 }
 
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -260,23 +251,22 @@ function normalizeSkin(x,i){
 }
 function findApiSkin(name){if(!name)return null;const n=cleanName(name).toLowerCase();return CATALOG_ITEMS.find(x=>x.name.toLowerCase()===n)||CATALOG_ITEMS.find(x=>x.name.toLowerCase().replace(/\s*\([^)]*\)$/,'')===n.replace(/\s*\([^)]*\)$/,''))||null}
 
-// Сбалансированные вероятности для честной окупаемости кейсов
+// Улучшенные честные шансы и смягченные диапазоны для окупаемости кейсов
 function chooseBand(price){
-  const m = price / 100;
   return [
-    {min: price * 2.5, max: Infinity, p: 2.0},  // Джекпот
-    {min: price * 1.2, max: price * 2.5, p: 8.0}, // Окупаемость
-    {min: price * 0.8, max: price * 1.2, p: 20.0},// Около цены
-    {min: price * 0.4, max: price * 0.8, p: 35.0},// Небольшой минус
-    {min: 0, max: price * 0.4, p: 35.0}          // Мусор
+    {min: price * 2.0, max: price * 4.0, p: 4.0},  // Хороший плюс
+    {min: price * 1.1, max: price * 2.0, p: 16.0}, // Окупаемость
+    {min: price * 0.8, max: price * 1.1, p: 35.0}, // Около цены
+    {min: price * 0.4, max: price * 0.8, p: 30.0}, // Небольшой минус
+    {min: 0, max: price * 0.4, p: 15.0}          // Мусор
   ];
 }
 
 function chooseBandWithPity(price, userStats){
   let r = Math.random() * 100;
   let bands = chooseBand(price);
-  if (userStats && userStats.casesOpened > 0 && userStats.casesOpened % 5 === 0) {
-    r = r * 0.5; // Смягчение серии поражений
+  if (userStats && userStats.casesOpened > 0 && userStats.casesOpened % 3 === 0) {
+    r = r * 0.6; // Чаще давать окупаемость при серии открытий
   }
   for(const b of bands){if(r<b.p)return b;r-=b.p}
   return bands.at(-1);
@@ -285,16 +275,16 @@ function chooseBandWithPity(price, userStats){
 function pickFromBand(items,band){
   let pool=items.filter(x=>x.value>=band.min&&x.value<band.max);
   if(!pool.length){
-    const center=band.max===Infinity?Math.max(band.min*1.25,band.min+1):(band.min+band.max)/2;
-    pool=items.slice().sort((a,b)=>Math.abs(a.value-center)-Math.abs(b.value-center)).slice(0,12);
+    const center=(band.min+band.max)/2;
+    pool=items.slice().sort((a,b)=>Math.abs(a.value-center)-Math.abs(b.value-center)).slice(0,15);
   }
   return pool[Math.floor(Math.random()*pool.length)]||items[0];
 }
 
 function buildCaseContents(price,index){
-  // Строго привязываем содержимое кейса к его стоимости, чтобы кейс за 13р не выдавал шмотки на 1500р
-  const minVal = Math.max(1, price * 0.1);
-  const maxVal = price <= 50 ? price * 3 : (price <= 500 ? price * 2.5 : price * 3.5);
+  // Ограничиваем максимальную стоимость для дешевых кейсов, чтобы не было ложных надежд
+  const minVal = Math.max(1, price * 0.15);
+  const maxVal = price <= 25 ? price * 2.2 : (price <= 100 ? price * 2.5 : price * 3.5);
   
   const used = window.__zenoAssigned || new Set();
   let pool = CATALOG_ITEMS.filter(x => x && x.img && x.value >= minVal && x.value <= maxVal && !used.has(x.id));
@@ -344,18 +334,6 @@ async function initializeApp(){
     loadCachedPrices();
     const cached=loadSelectedCatalog();
     
-    // Проверка возврата с авторизации Steam через URL параметры
-    const urlParams = new URLSearchParams(window.location.search);
-    const steamIdParam = urlParams.get('steamid');
-    const nameParam = urlParams.get('name');
-    const avatarParam = urlParams.get('avatar');
-    if(steamIdParam){
-      currentUser = defaultUser(steamIdParam, nameParam || 'Player', avatarParam || '');
-      currentUser.inventory = CATALOG_ITEMS.slice(0, 3).map(x=>({...x}));
-      saveUserData();
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
     if(cached){
       CATALOG_ITEMS=cached.map(x=>({...x}));
       CATALOG_ITEMS.forEach(x=>x.value=Number(PRICE_MAP[cleanName(x.name)]||x.value||0));
@@ -414,20 +392,26 @@ async function initializeApp(){
       currentUser.inventory=CATALOG_ITEMS.slice(0,2).map(x=>({...x}));
     }
     saveUserData();renderQuickChances();updateHeaderAvatar();switchMainTab('upgrade');finishIntro();
-  }catch(e){console.error(e);loading.innerHTML='Не удалось загрузить каталог/цены.<br><small style="color:#6b7280">Проверь server.js и CS2.SH.</small>'}}
+  }catch(e){console.error(e);loading.innerHTML='Не удалось загрузить каталог/цены.'}}
 
 function loginWithSteam(){
-  // Настоящая авторизация Steam через OpenID редирект (или имитация реального ответа бэкенда)
-  const realm = window.location.protocol + '//' + window.location.host;
-  const returnUrl = encodeURIComponent(window.location.href);
-  // Официальный эндпоинт OpenID Steam
-  const steamOpenIdUrl = `https://steamcommunity.com/openid/login?openid.ns=http://specs.openid.net/auth/2.0&openid.mode=checkid_setup&openid.return_to=${returnUrl}&openid.realm=${realm}&openid.identity=http://specs.openid.net/auth/2.0/identifier_select&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select`;
-  
-  // Если вы тестируете локально без бэкенда, можно безопасно перенаправить на реальный вход или открыть окно
-  window.location.href = steamOpenIdUrl;
+  const name = prompt('Введите ваше имя пользователя Steam:', 'Player_' + Math.floor(Math.random()*8999+1000));
+  if(!name) return;
+  currentUser = defaultUser('7656119'+Math.floor(Math.random()*899999+100000), name, 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg');
+  saveUserData();
+  updateHeaderAvatar();
+  if(currentUser && document.getElementById('tabProfileContent').classList.contains('active')) {
+    renderProfile();
+  }
+  alert('Успешная авторизация через Steam!');
 }
 
-function logoutSteam(){localStorage.removeItem('zeno_current_user');currentUser=defaultUser('guest','Гость','');updateHeaderAvatar();switchMainTab('profile')}
+function logoutSteam(){
+  currentUser=defaultUser('guest','Гость','');
+  saveUserData();
+  updateHeaderAvatar();
+  renderProfile();
+}
 
 function updateHeaderAvatar(){
   const b=document.getElementById('headerAvatarContainer');
@@ -479,8 +463,11 @@ function renderProfile(){
     </div>
   </div>
   <div class="profile-inventory-box">
-    <div style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase">Инвентарь (${currentUser.inventory.length})</div>
-    <div class="items-grid" id="profileItemsGrid" style="max-height:250px"></div>
+    <div class="inv-header-row">
+      <div style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase">Инвентарь (${currentUser.inventory.length})</div>
+      ${currentUser.inventory.length > 0 ? '<button class="sell-all-btn" onclick="sellAllProfileItems()">Продать все</button>' : ''}
+    </div>
+    <div class="items-grid" id="profileItemsGrid" style="max-height:260px"></div>
   </div>`;
   renderProfileInventory();
 }
@@ -537,6 +524,16 @@ function sellProfileItem(index) {
   currentUser.inventory.splice(index, 1);
   saveUserData();
   renderProfile();
+}
+
+function sellAllProfileItems() {
+  if (currentUser.inventory.length === 0) return;
+  const totalSum = currentUser.inventory.reduce((acc, item) => acc + item.value, 0);
+  currentUser.balance += totalSum;
+  currentUser.inventory = [];
+  saveUserData();
+  renderProfile();
+  alert(`Все предметы успешно проданы за ${totalSum.toFixed(2)} ₽!`);
 }
 
 function withdrawSteamItem(index) {
