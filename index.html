@@ -1147,7 +1147,52 @@ animation: spin 1s linear infinite;
 
 <script>
 let CATALOG_ITEMS = [];
-const FALLBACK_IMG = 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV09-5lpKKqPrxN7LEmyUHv58kj-rDoNis2gLjqBFrMWiicNKTegRvNQ2B-FW4kObojZXoucvOn3JjpGB8so8u3a1j/360fx360f';
+
+// Функция генерации уникальной векторной SVG-иллюстрации для каждого предмета (замена ИИ-картинкам)
+function generateSkinImage(name, category, value) {
+    let accentColor = '#f59e0b';
+    let bgGrad = 'linear-gradient(135deg, #1f2937, #111827)';
+    
+    if (value > 20000) {
+        accentColor = '#ef4444'; // Тайное / Красный
+        bgGrad = 'linear-gradient(135deg, #450a0a, #18181b)';
+    } else if (value > 5000) {
+        accentColor = '#a855f7'; // Засекреченное / Фиолетовый
+        bgGrad = 'linear-gradient(135deg, #3b0764, #18181b)';
+    } else if (value > 1000) {
+        accentColor = '#3b82f6'; // Запрещенное / Синий
+        bgGrad = 'linear-gradient(135deg, #1e3a8a, #18181b)';
+    } else if (value > 300) {
+        accentColor = '#06b6d4'; // Армейское / Голубой
+        bgGrad = 'linear-gradient(135deg, #164e63, #18181b)';
+    }
+
+    let iconSvg = `<svg width="48" height="32" viewBox="0 0 24 24" fill="none" stroke="${accentColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M15 5l7 7-7 7"/></svg>`;
+    
+    if (category === 'stickers') {
+        iconSvg = `<svg width="36" height="36" viewBox="0 0 24 24" fill="${accentColor}" opacity="0.85"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M6 12h12" stroke="#fff" stroke-width="2"/></svg>`;
+    } else if (category === 'music') {
+        iconSvg = `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${accentColor}" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
+    } else if (name.toLowerCase().includes('нож') || name.toLowerCase().includes('керамбит') || name.toLowerCase().includes('тычковые')) {
+        iconSvg = `<svg width="48" height="32" viewBox="0 0 24 24" fill="none" stroke="${accentColor}" stroke-width="2"><path d="M3 21l18-18M14 3l7 7-9 9H5v-7l9-9z"/></svg>`;
+    }
+
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80">
+        <defs>
+            <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1e293b" />
+                <stop offset="100%" stop-color="#0f172a" />
+            </linearGradient>
+        </defs>
+        <rect width="120" height="80" rx="10" fill="url(#bg)" stroke="${accentColor}" stroke-width="1.5" stroke-opacity="0.4"/>
+        <text x="10" y="20" fill="${accentColor}" font-size="9" font-family="sans-serif" font-weight="bold">${value} ₽</text>
+        <g transform="translate(36, 24)">
+            ${iconSvg}
+        </g>
+    </svg>`;
+
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgString);
+}
 
 const CASES_DATA = [
     {
@@ -1184,8 +1229,8 @@ function defaultUser(steamId, name, avatar) {
             img: ''
         },
         inventory: [
-            { id: 1, name: 'AK-47 | Красная линия (После полевых испытаний)', value: 1800, img: FALLBACK_IMG },
-            { id: 2, name: 'AWP | Азимов (После полевых испытаний)', value: 7500, img: FALLBACK_IMG }
+            { id: 1, name: 'AK-47 | Красная линия (После полевых испытаний)', value: 1800, img: '' },
+            { id: 2, name: 'AWP | Азимов (После полевых испытаний)', value: 7500, img: '' }
         ]
     };
 }
@@ -1217,6 +1262,12 @@ function normalizeUser(user, steamId, name, avatar) {
     if (!Array.isArray(user.inventory)) {
         user.inventory = [];
     }
+    
+    // Проставляем картинки для инвентаря
+    user.inventory.forEach(item => {
+        if (!item.img) item.img = generateSkinImage(item.name, 'skins', item.value);
+    });
+
     return user;
 }
 
@@ -1238,10 +1289,10 @@ function loadUserData(steamId, name, avatar) {
     saveUserData();
 }
 
-// Генерация более 1000 предметов прямо в браузере без внешних запросов
+// Генерация более 1000 предметов прямо в браузере с генерацией визуальных превью
 function generateFullDatabase() {
     const loadingText = document.getElementById('loadingText');
-    loadingText.textContent = 'Генерация базы на 1000+ предметов...';
+    loadingText.textContent = 'Генерация базы на 1000+ предметов и иконок...';
 
     CATALOG_ITEMS = [];
 
@@ -1289,13 +1340,14 @@ function generateFullDatabase() {
                 let basePrice = (weapon.length * skin.length * 15) % 15000 + 100;
                 if (quality === 'Прямо с завода') basePrice *= 2.5;
                 if (quality === 'Закаленное в боях') basePrice *= 0.6;
+                const price = Math.round(basePrice);
 
                 CATALOG_ITEMS.push({
                     id: 'gen_skin_' + (idCounter++),
                     name: fullName,
                     category: 'skins',
-                    value: Math.round(basePrice),
-                    img: FALLBACK_IMG
+                    value: price,
+                    img: generateSkinImage(fullName, 'skins', price)
                 });
             });
         });
@@ -1304,12 +1356,13 @@ function generateFullDatabase() {
     knifeTypes.forEach(knife => {
         ['Градиент', 'Убийство', 'Кровавая паутина', 'Волны', 'Криминальный мир'].forEach(skin => {
             const fullName = `Нож «${knife}» | ${skin} (Прямо с завода)`;
+            const price = Math.floor(Math.random() * 80000) + 25000;
             CATALOG_ITEMS.push({
                 id: 'gen_knife_' + (idCounter++),
                 name: fullName,
                 category: 'skins',
-                value: Math.floor(Math.random() * 80000) + 25000,
-                img: FALLBACK_IMG
+                value: price,
+                img: generateSkinImage(fullName, 'skins', price)
             });
         });
     });
@@ -1318,24 +1371,27 @@ function generateFullDatabase() {
         ['', ' (голографическая)', ' (фольгированная)', ' (золотая)'].forEach(type => {
             ['2014', '2015', '2016', '2018', '2020', '2023'].forEach(year => {
                 const name = `Наклейка | ${st} | ${year}${type}`;
+                const price = Math.floor(Math.random() * 15000) + 50;
                 CATALOG_ITEMS.push({
                     id: 'gen_st_' + (idCounter++),
                     name: name,
                     category: 'stickers',
-                    value: Math.floor(Math.random() * 15000) + 50,
-                    img: FALLBACK_IMG
+                    value: price,
+                    img: generateSkinImage(name, 'stickers', price)
                 });
             });
         });
     });
 
     for (let i = 1; i <= 30; i++) {
+        const name = `Набор музыки | Игрок #${i} (The Talons)`;
+        const price = Math.floor(Math.random() * 800) + 200;
         CATALOG_ITEMS.push({
             id: 'gen_mus_' + (idCounter++),
-            name: `Набор музыки | Игрок #${i} (The Talons)`,
+            name: name,
             category: 'music',
-            value: Math.floor(Math.random() * 800) + 200,
-            img: FALLBACK_IMG
+            value: price,
+            img: generateSkinImage(name, 'music', price)
         });
     }
 
@@ -1598,7 +1654,7 @@ function renderProfileInventory() {
         const card = document.createElement('div');
         card.className = 'item-card';
         card.innerHTML = `
-        <img src="${item.img || FALLBACK_IMG}" alt="">
+        <img src="${item.img || generateSkinImage(item.name, 'skins', item.value)}" alt="">
         <div class="iname">${item.name}</div>
         <div class="iprice">${Number(item.value).toFixed(2)} ₽</div>
         `;
@@ -1659,7 +1715,7 @@ function renderCaseContents() {
         const card = document.createElement('div');
         card.className = 'item-card';
         card.innerHTML = `
-        <img src="${item.img || FALLBACK_IMG}" alt="">
+        <img src="${item.img}" alt="">
         <div class="iname">${item.name}</div>
         <div class="iprice">${item.value} ₽</div>
         `;
@@ -1674,7 +1730,7 @@ function renderTrack() {
         activeCase.items.forEach(item => {
             html += `
             <div class="roulette-item">
-            <img src="${item.img || FALLBACK_IMG}" style="width:60px;height:40px;object-fit:contain;" alt="">
+            <img src="${item.img}" style="width:60px;height:40px;object-fit:contain;" alt="">
             <strong>${item.name}</strong>
             <span>${item.value} ₽</span>
             </div>
@@ -1742,7 +1798,7 @@ function startOpening() {
                 id: Date.now() + Math.random(),
                 name: currentWonItem.name,
                 value: currentWonItem.value,
-                img: currentWonItem.img || FALLBACK_IMG
+                img: currentWonItem.img
             };
             currentUser.inventory.push(newItem);
             checkBestDrop(newItem);
@@ -1904,7 +1960,7 @@ function updateUI() {
         sourcePrice = item.value;
         document.getElementById('selectedSkinName').textContent = item.name;
         document.getElementById('selectedSkinPrice').textContent = item.value.toFixed(2);
-        document.getElementById('selectedSkinImg').src = item.img || FALLBACK_IMG;
+        document.getElementById('selectedSkinImg').src = item.img;
         document.getElementById('selectedSkinImg').style.display = 'block';
         document.getElementById('selectedSkinPlaceholder').style.display = 'none';
     } else {
@@ -1919,7 +1975,7 @@ function updateUI() {
         targetPrice = targetWeapon.value;
         document.getElementById('targetSkinName').textContent = targetWeapon.name;
         document.getElementById('targetSkinPrice').textContent = targetWeapon.value.toFixed(2);
-        document.getElementById('targetSkinImg').src = targetWeapon.img || FALLBACK_IMG;
+        document.getElementById('targetSkinImg').src = targetWeapon.img;
         document.getElementById('targetSkinImg').style.display = 'block';
         document.getElementById('targetSkinPlaceholder').style.display = 'none';
     } else {
@@ -1987,7 +2043,7 @@ function createCard(item, isSelected, onClick) {
     const card = document.createElement('div');
     card.className = `item-card ${isSelected ? 'selected' : ''}`;
     card.innerHTML = `
-    <img src="${item.img || FALLBACK_IMG}" alt="">
+    <img src="${item.img}" alt="">
     <div class="iname">${item.name}</div>
     <div class="iprice">${Number(item.value).toFixed(2)} ₽</div>
     `;
@@ -2055,7 +2111,7 @@ upgradeBtn.addEventListener('click', () => {
                 id: Date.now(),
                 name: targetWeapon.name,
                 value: targetWeapon.value,
-                img: targetWeapon.img || FALLBACK_IMG
+                img: targetWeapon.img
             };
             currentUser.inventory.splice(selectedItemIndex, 1);
             currentUser.inventory.push(wonItem);
@@ -2088,14 +2144,14 @@ function checkBestDrop(item) {
         currentUser.bestDrop = {
             name: item.name,
             value: item.value,
-            img: item.img || FALLBACK_IMG
+            img: item.img
         };
         saveUserData();
     }
 }
 
 // Запуск генерации базы данных при загрузке страницы
-generateFullDatabase();
+generateFutureDatabase = generateFullDatabase();
 </script>
 
 </body>
