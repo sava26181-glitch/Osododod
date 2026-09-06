@@ -443,8 +443,8 @@ box-shadow:0 0 10px rgba(245,158,11,.2)
 }
 
 .item-card img{
-width:65px;
-height:45px;
+width:75px;
+height:50px;
 object-fit:contain;
 margin:4px 0;
 filter:drop-shadow(0 4px 8px rgba(0,0,0,.6))
@@ -876,7 +876,7 @@ animation: spin 1s linear infinite;
 
 <div class="loading-screen" id="loadingScreen">
     <div class="spinner"></div>
-    <div id="loadingText">Загрузка SkinLoader и базы предметов...</div>
+    <div id="loadingText">Загрузка предметов...</div>
 </div>
 
 <div class="container">
@@ -1011,7 +1011,7 @@ animation: spin 1s linear infinite;
 </div>
 <div class="modal-buttons">
 <button class="btn-close" id="modalCloseBtn" onclick="document.getElementById('modalOverlay').style.display='none'">Отмена</button>
-<button class="btn-save" id="modalSaveBtn">Сохранить</button>
+<button class="btn-save" id="modalSaveBtn" onclick="saveQuickSettings()">Сохранить</button>
 </div>
 </div>
 </div>
@@ -1019,8 +1019,6 @@ animation: spin 1s linear infinite;
 <script>
 // --- SKIN LOADER MODULE ---
 const SkinLoader = {
-    cacheKey: 'zeno_skins_db_v3',
-    
     generateVisual(name, category, value) {
         let accentColor = '#f59e0b';
         if (value > 20000) accentColor = '#ef4444';
@@ -1028,52 +1026,28 @@ const SkinLoader = {
         else if (value > 1000) accentColor = '#3b82f6';
         else if (value > 300) accentColor = '#06b6d4';
 
-        // Рисуем красивую графическую карточку оружия вместо простой стрелки
-        const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100" viewBox="0 0 160 100">
+        const shortName = name.split('|')[0].trim();
+        const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="110" viewBox="0 0 180 110">
             <defs>
                 <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#1e293b" />
-                    <stop offset="100%" stop-color="#0f172a" />
+                    <stop offset="0%" stop-color="#1a1d2d" />
+                    <stop offset="100%" stop-color="#0d0f17" />
                 </linearGradient>
             </defs>
-            <rect width="160" height="100" rx="12" fill="url(#bg)" stroke="${accentColor}" stroke-width="2" stroke-opacity="0.6"/>
-            <text x="12" y="22" fill="${accentColor}" font-size="11" font-family="sans-serif" font-weight="900">${value} ₽</text>
-            <path d="M25 65 L60 45 L105 55 L135 35" stroke="${accentColor}" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.8"/>
-            <circle cx="60" cy="45" r="4" fill="${accentColor}"/>
-            <circle cx="105" cy="55" r="4" fill="${accentColor}"/>
-            <text x="12" y="85" fill="#94a3b8" font-size="9" font-family="sans-serif" font-weight="bold">${name.split('(')[0].trim()}</text>
+            <rect width="180" height="110" rx="14" fill="url(#bg)" stroke="${accentColor}" stroke-width="2" stroke-opacity="0.5"/>
+            <text x="14" y="24" fill="${accentColor}" font-size="12" font-family="sans-serif" font-weight="900">${value} ₽</text>
+            <path d="M20 70 L65 45 L115 55 L160 30" stroke="${accentColor}" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+            <circle cx="65" cy="45" r="5" fill="${accentColor}"/>
+            <circle cx="115" cy="55" r="5" fill="${accentColor}"/>
+            <text x="14" y="94" fill="#94a3b8" font-size="10" font-family="sans-serif" font-weight="bold">${shortName}</text>
         </svg>`;
         return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgString);
     },
 
-    async loadDatabase() {
-        // Пробуем загрузить по твоей ссылке на API внешнюю базу, если доступна, либо генерируем красивую
-        try {
-            const res = await fetch('https://spacerulerwill.github.io/CS2-API/api/skins.json');
-            if (res.ok) {
-                const apiData = await res.json();
-                if (Array.isArray(apiData) && apiData.length > 0) {
-                    return apiData.map((skin, index) => ({
-                        id: skin.id || 'skin_' + index,
-                        name: skin.name || 'Скин CS2',
-                        category: skin.category || 'skins',
-                        value: skin.price || Math.floor(Math.random() * 5000) + 200,
-                        img: skin.image || this.generateVisual(skin.name || 'Скин', 'skins', skin.price || 500)
-                    }));
-                }
-            }
-        } catch(e) {}
-
-        try {
-            const cached = localStorage.getItem(this.cacheKey);
-            if (cached) {
-                return JSON.parse(cached);
-            }
-        } catch(e) {}
-
+    loadDatabase() {
         let items = [];
-        const weapons = ['AK-47', 'AWP', 'M4A4', 'M4A1-S', 'Desert Eagle', 'USP-S', 'Glock-18'];
-        const skinNames = ['Красная линия', 'Азимов', 'Вой', 'Градиент', 'Убийство', 'Поток информации', 'Неонуар'];
+        const weapons = ['AK-47', 'AWP', 'M4A4', 'M4A1-S', 'Desert Eagle', 'USP-S', 'Glock-18', 'Нож «Тычковые ножи»', 'Нож-бабочка', 'Крамбит'];
+        const skinNames = ['Красная линия', 'Азимов', 'Вой', 'Градиент', 'Убийство', 'Поток информации', 'Неонуар', 'Чёрный лотос', 'Поверхностная закалка'];
         const qualities = ['Прямо с завода', 'После полевых испытаний', 'Поношенное'];
 
         let id = 1;
@@ -1081,7 +1055,7 @@ const SkinLoader = {
             skinNames.forEach(s => {
                 qualities.forEach(q => {
                     const fullName = `${w} | ${s} (${q})`;
-                    const price = Math.floor((w.length * s.length * 55) % 35000) + 150;
+                    const price = Math.floor((w.length * s.length * 75) % 45000) + 180;
                     items.push({
                         id: 'skin_' + (id++),
                         name: fullName,
@@ -1095,18 +1069,13 @@ const SkinLoader = {
 
         for(let i=1; i<=25; i++) {
             const stName = `Наклейка | Titan | Katowice 201${i%5} (#${i})`;
-            const price = 80 + i * 150;
+            const price = 90 + i * 160;
             items.push({ id: 'st_' + i, name: stName, category: 'stickers', value: price, img: this.generateVisual(stName, 'stickers', price) });
             
-            const musName = `Набор музыки | Трек #${i}`;
-            const mPrice = 250 + i * 35;
+            const musName = `Набор музыки | Трек #0${i}`;
+            const mPrice = 280 + i * 45;
             items.push({ id: 'mus_' + i, name: musName, category: 'music', value: mPrice, img: this.generateVisual(musName, 'music', mPrice) });
         }
-
-        try {
-            localStorage.setItem(this.cacheKey, JSON.stringify(items));
-        } catch(e) {}
-
         return items;
     }
 };
@@ -1121,12 +1090,12 @@ let currentUser = null;
 
 function defaultUser(steamId, name, avatar) {
     return {
-        steamId, username: name, avatar, balance: 2500, tradeUrl: '',
+        steamId, username: name, avatar, balance: 3500, tradeUrl: '',
         stats: { upgradesTotal: 0, casesOpened: 0, totalDeposited: 0 },
         bestDrop: { name: '--', value: 0, img: '' },
         inventory: [
-            { id: 1, name: 'AK-47 | Красная линия (После полевых испытаний)', value: 1800, img: '' },
-            { id: 2, name: 'AWP | Азимов (После полевых испытаний)', value: 7500, img: '' }
+            { id: 'init_1', name: 'AK-47 | Красная линия (После полевых испытаний)', value: 1800, img: SkinLoader.generateVisual('AK-47 | Красная линия', 'skins', 1800) },
+            { id: 'init_2', name: 'AWP | Азимов (После полевых испытаний)', value: 7500, img: SkinLoader.generateVisual('AWP | Азимов', 'skins', 7500) }
         ]
     };
 }
@@ -1136,13 +1105,13 @@ function normalizeUser(user, steamId, name, avatar) {
     user.steamId = user.steamId || steamId;
     user.username = user.username || name;
     user.avatar = user.avatar || avatar;
-    if (typeof user.balance !== 'number') user.balance = 2500;
+    if (typeof user.balance !== 'number') user.balance = 3500;
     if (!user.stats) user.stats = { upgradesTotal: 0, casesOpened: 0, totalDeposited: 0 };
     if (!user.bestDrop) user.bestDrop = { name: '--', value: 0, img: '' };
     if (!Array.isArray(user.inventory)) user.inventory = [];
     
     user.inventory.forEach(item => {
-        if (!item.img) item.img = SkinLoader.generateVisual(item.name, 'skins', item.value);
+        if (!item.img) item.img = SkinLoader.generateVisual(item.name, item.category || 'skins', item.value);
     });
     return user;
 }
@@ -1163,8 +1132,8 @@ function loadUserData(steamId, name, avatar) {
     saveUserData();
 }
 
-async function initializeApp() {
-    CATALOG_ITEMS = await SkinLoader.loadDatabase();
+function initializeApp() {
+    CATALOG_ITEMS = SkinLoader.loadDatabase();
     
     CASES_DATA[0].items = CATALOG_ITEMS.filter(i => i.value >= 100 && i.value <= 4000).slice(0, 20);
     CASES_DATA[1].items = CATALOG_ITEMS.filter(i => i.value > 4000).slice(0, 20);
@@ -1422,6 +1391,16 @@ function renderQuickChances() {
     sBtn.textContent = '⚙';
     sBtn.onclick = () => document.getElementById('modalOverlay').style.display = 'flex';
     panel.appendChild(sBtn);
+}
+
+function saveQuickSettings() {
+    const valInput = document.getElementById('quickValuesInput').value;
+    const nums = valInput.split(',').map(v => parseInt(v.trim())).filter(n => !isNaN(n) && n > 0 && n <= 70);
+    if(nums.length > 0) {
+        quickChances = nums;
+        renderQuickChances();
+    }
+    document.getElementById('modalOverlay').style.display = 'none';
 }
 
 function applyChance(targetChance) {
