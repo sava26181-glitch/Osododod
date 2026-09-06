@@ -700,36 +700,6 @@ cursor:pointer;
 text-transform:uppercase
 }
 
-.steam-login-box{
-display:flex;
-flex-direction:column;
-align-items:center;
-gap:12px;
-padding:20px;
-text-align:center
-}
-
-.btn-steam{
-background:#1b2838;
-color:#fff;
-border:1px solid #2a475e;
-padding:12px 24px;
-border-radius:12px;
-font-weight:900;
-font-size:14px;
-cursor:pointer;
-display:flex;
-align-items:center;
-gap:10px;
-transition:.3s;
-box-shadow:0 4px 15px rgba(0,0,0,.5)
-}
-
-.btn-steam:hover{
-background:#2a475e;
-border-color:#66c0f4
-}
-
 .stats-grid{
 display:grid;
 grid-template-columns:repeat(3,1fr);
@@ -803,60 +773,6 @@ color:#fbbf24
 width:55px;
 height:40px;
 object-fit:contain
-}
-
-.profile-card-item{
-background:linear-gradient(145deg,#161924,#11131c);
-border:1px solid rgba(255,255,255,.08);
-border-radius:14px;
-padding:12px 16px;
-display:flex;
-flex-direction:column;
-gap:8px;
-font-size:12px;
-font-weight:800;
-color:#fff
-}
-
-.profile-card-header{
-display:flex;
-justify-content:space-between;
-align-items:center
-}
-
-.profile-card-sub{
-font-size:11px;
-font-weight:600;
-color:#9ca3af
-}
-
-.trade-input-row{
-display:flex;
-gap:8px;
-margin-top:4px
-}
-
-.trade-input{
-flex:1;
-background:#11131c;
-border:1px solid rgba(255,255,255,.1);
-border-radius:8px;
-padding:8px 10px;
-color:#fff;
-font-size:11px;
-outline:none
-}
-
-.trade-save-btn{
-background:#f59e0b;
-color:#11131c;
-border:none;
-padding:0 14px;
-border-radius:8px;
-font-weight:800;
-font-size:11px;
-cursor:pointer;
-text-transform:uppercase
 }
 
 .profile-inventory-box{
@@ -1103,7 +1019,7 @@ animation: spin 1s linear infinite;
 <script>
 // --- SKIN LOADER MODULE ---
 const SkinLoader = {
-    cacheKey: 'zeno_skins_db_v2',
+    cacheKey: 'zeno_skins_db_v3',
     
     generateVisual(name, category, value) {
         let accentColor = '#f59e0b';
@@ -1112,28 +1028,42 @@ const SkinLoader = {
         else if (value > 1000) accentColor = '#3b82f6';
         else if (value > 300) accentColor = '#06b6d4';
 
-        let iconSvg = `<svg width="48" height="32" viewBox="0 0 24 24" fill="none" stroke="${accentColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M15 5l7 7-7 7"/></svg>`;
-        if (category === 'stickers') {
-            iconSvg = `<svg width="36" height="36" viewBox="0 0 24 24" fill="${accentColor}" opacity="0.85"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M6 12h12" stroke="#fff" stroke-width="2"/></svg>`;
-        } else if (category === 'music') {
-            iconSvg = `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${accentColor}" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
-        }
-
-        const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80">
+        // Рисуем красивую графическую карточку оружия вместо простой стрелки
+        const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100" viewBox="0 0 160 100">
             <defs>
                 <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stop-color="#1e293b" />
                     <stop offset="100%" stop-color="#0f172a" />
                 </linearGradient>
             </defs>
-            <rect width="120" height="80" rx="10" fill="url(#bg)" stroke="${accentColor}" stroke-width="1.5" stroke-opacity="0.4"/>
-            <text x="10" y="20" fill="${accentColor}" font-size="9" font-family="sans-serif" font-weight="bold">${value} ₽</text>
-            <g transform="translate(36, 24)">${iconSvg}</g>
+            <rect width="160" height="100" rx="12" fill="url(#bg)" stroke="${accentColor}" stroke-width="2" stroke-opacity="0.6"/>
+            <text x="12" y="22" fill="${accentColor}" font-size="11" font-family="sans-serif" font-weight="900">${value} ₽</text>
+            <path d="M25 65 L60 45 L105 55 L135 35" stroke="${accentColor}" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.8"/>
+            <circle cx="60" cy="45" r="4" fill="${accentColor}"/>
+            <circle cx="105" cy="55" r="4" fill="${accentColor}"/>
+            <text x="12" y="85" fill="#94a3b8" font-size="9" font-family="sans-serif" font-weight="bold">${name.split('(')[0].trim()}</text>
         </svg>`;
         return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgString);
     },
 
     async loadDatabase() {
+        // Пробуем загрузить по твоей ссылке на API внешнюю базу, если доступна, либо генерируем красивую
+        try {
+            const res = await fetch('https://spacerulerwill.github.io/CS2-API/api/skins.json');
+            if (res.ok) {
+                const apiData = await res.json();
+                if (Array.isArray(apiData) && apiData.length > 0) {
+                    return apiData.map((skin, index) => ({
+                        id: skin.id || 'skin_' + index,
+                        name: skin.name || 'Скин CS2',
+                        category: skin.category || 'skins',
+                        value: skin.price || Math.floor(Math.random() * 5000) + 200,
+                        img: skin.image || this.generateVisual(skin.name || 'Скин', 'skins', skin.price || 500)
+                    }));
+                }
+            }
+        } catch(e) {}
+
         try {
             const cached = localStorage.getItem(this.cacheKey);
             if (cached) {
@@ -1151,7 +1081,7 @@ const SkinLoader = {
             skinNames.forEach(s => {
                 qualities.forEach(q => {
                     const fullName = `${w} | ${s} (${q})`;
-                    const price = Math.floor((w.length * s.length * 45) % 30000) + 150;
+                    const price = Math.floor((w.length * s.length * 55) % 35000) + 150;
                     items.push({
                         id: 'skin_' + (id++),
                         name: fullName,
@@ -1163,14 +1093,13 @@ const SkinLoader = {
             });
         });
 
-        // Стикеры и музыка
-        for(let i=1; i<=30; i++) {
+        for(let i=1; i<=25; i++) {
             const stName = `Наклейка | Titan | Katowice 201${i%5} (#${i})`;
-            const price = 50 + i * 120;
+            const price = 80 + i * 150;
             items.push({ id: 'st_' + i, name: stName, category: 'stickers', value: price, img: this.generateVisual(stName, 'stickers', price) });
             
             const musName = `Набор музыки | Трек #${i}`;
-            const mPrice = 200 + i * 25;
+            const mPrice = 250 + i * 35;
             items.push({ id: 'mus_' + i, name: musName, category: 'music', value: mPrice, img: this.generateVisual(musName, 'music', mPrice) });
         }
 
@@ -1237,24 +1166,16 @@ function loadUserData(steamId, name, avatar) {
 async function initializeApp() {
     CATALOG_ITEMS = await SkinLoader.loadDatabase();
     
-    CASES_DATA[0].items = CATALOG_ITEMS.filter(i => i.value >= 100 && i.value <= 3000).slice(0, 20);
-    CASES_DATA[1].items = CATALOG_ITEMS.filter(i => i.value > 3000).slice(0, 20);
+    CASES_DATA[0].items = CATALOG_ITEMS.filter(i => i.value >= 100 && i.value <= 4000).slice(0, 20);
+    CASES_DATA[1].items = CATALOG_ITEMS.filter(i => i.value > 4000).slice(0, 20);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const steamIdParam = urlParams.get('steamId');
-
-    if (steamIdParam) {
-        loadUserData(steamIdParam, decodeURIComponent(urlParams.get('name') || 'User'), decodeURIComponent(urlParams.get('avatar') || ''));
-        window.history.replaceState({}, document.title, window.location.pathname);
-    } else {
-        try {
-            const saved = localStorage.getItem('zeno_current_user');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (parsed && parsed.steamId) loadUserData(parsed.steamId, parsed.username, parsed.avatar);
-            }
-        } catch(e) {}
-    }
+    try {
+        const saved = localStorage.getItem('zeno_current_user');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.steamId) loadUserData(parsed.steamId, parsed.username, parsed.avatar);
+        }
+    } catch(e) {}
 
     if (!currentUser) currentUser = normalizeUser(null, 'default_76561198', 'Гость', '');
     saveUserData();
@@ -1265,14 +1186,6 @@ async function initializeApp() {
     renderQuickChances();
     updateHeaderAvatar();
     switchMainTab('upgrade');
-}
-
-function openSteamModal() {
-    currentUser = normalizeUser(null, '76561198999888777', 'Steam Player', 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg');
-    saveUserData();
-    updateHeaderAvatar();
-    switchMainTab('profile');
-    alert('Успешный вход через Steam!');
 }
 
 function logoutSteam() {
@@ -1439,7 +1352,7 @@ function renderTrack() {
     let html = '';
     for (let i = 0; i < 8; i++) {
         activeCase.items.forEach(item => {
-            html += `<div class="roulette-item"><img src="${item.img}" style="width:60px;height:40px;object-fit:contain;" alt=""><strong>${item.name}</strong><span>${item.value} ₽</span></div>`;
+            html += `<div class="roulette-item"><img src="${item.img}" style="width:75px;height:50px;object-fit:contain;" alt=""><strong>${item.name}</strong><span>${item.value} ₽</span></div>`;
         });
     }
     track.innerHTML = html;
@@ -1678,7 +1591,6 @@ document.getElementById('upgradeBtn').onclick = () => {
     }, 3600);
 };
 
-// Запуск инициализации
 window.onload = initializeApp;
 </script>
 
