@@ -634,7 +634,7 @@ color:#9ca3af
 .profile-username{
 color:#fff;
 font-weight:800;
-font-size: 14px;
+font-size:14px;
 }
 
 .profile-actions-top{
@@ -994,7 +994,7 @@ animation: spin 1s linear infinite;
 
 <div class="loading-screen" id="loadingScreen">
     <div class="spinner"></div>
-    <div id="loadingText">Загружаем реальные цены и базу CS2...</div>
+    <div id="loadingText">Генерируем базу из 1000+ скинов CS2...</div>
 </div>
 
 <div class="container">
@@ -1238,93 +1238,119 @@ function loadUserData(steamId, name, avatar) {
     saveUserData();
 }
 
-// Загрузка всех предметов и реальных цен в рублях через Skinport API
-async function loadFullDatabaseWithRealPrices() {
+// Генерация более 1000 предметов прямо в браузере без внешних запросов
+function generateFullDatabase() {
     const loadingText = document.getElementById('loadingText');
-    try {
-        loadingText.textContent = 'Подгружаем реальные цены в рублях (Skinport)...';
-        const priceRes = await fetch('https://api.skinport.com/v1/items?app_id=730&currency=RUB');
-        const priceData = await priceRes.json();
-        
-        const priceMap = {};
-        if (Array.isArray(priceData)) {
-            priceData.forEach(item => {
-                const p = item.min_price || item.suggested_price || 0;
-                priceMap[item.market_hash_name] = p;
+    loadingText.textContent = 'Генерация базы на 1000+ предметов...';
+
+    CATALOG_ITEMS = [];
+
+    const weaponTypes = [
+        'AK-47', 'AWP', 'M4A4', 'M4A1-S', 'Desert Eagle', 'USP-S', 'Glock-18', 
+        'Galil AR', 'Famas', 'SG 553', 'AUG', 'SSG 08', 'SCAR-20', 'G3SG1',
+        'MP9', 'MAC-10', 'MP7', 'UMP-45', 'P90', 'PP-Bizon', 'Nova', 'XM1014',
+        'Sawed-Off', 'M249', 'Negev', 'P250', 'CZ75-Auto', 'Five-Seven', 'Tec-9', 'Dual Berettas'
+    ];
+
+    const skinsNames = [
+        'Красная линия', 'Азимов', 'Дикий лотос', 'Вой', 'История о драконе', 
+        'Неонуар', 'Поток информации', 'Поверхностная закалка', 'Градиент', 
+        'Мраморный градиент', 'Кровавая паутина', 'Убийство', 'Пылкий азарт',
+        'Сломанный клык', 'Гиперобъект', 'Император', 'Призрачный крестопоходец',
+        'Королевский легион', 'Реактивный срез', 'Звездный узор', 'Пустынный повстанец',
+        'Элитное снаряжение', 'Арктический камуфляж', 'Синий глянец', 'Тропический шторм'
+    ];
+
+    const qualities = [
+        'Прямо с завода', 
+        'Немного поношенное', 
+        'После полевых испытаний', 
+        'Поношенное', 
+        'Закаленное в боях'
+    ];
+
+    const knifeTypes = [
+        'Коготь', 'Штык-нож', 'Керамбит', 'Складной нож', 'Нож-бабочка', 
+        'Охотничий нож', 'Тычковые ножи', 'Нож Боуи', 'Наваха', 'Стилет', 'Фальшион'
+    ];
+
+    const stickerNames = [
+        'Titan', 'iBUYPOWER', 'Reason Gaming', 'Katowice 2014', 'HellRaisers', 
+        'LDLC', 'Fnatic', 'Natus Vincere', 'Virtus.pro', 'Ninjas in Pyjamas',
+        'Astralis', 'Cloud9', 'FaZe Clan', 'G2 Esports', 'Team Liquid', 'MOUZ'
+    ];
+
+    let idCounter = 1;
+
+    weaponTypes.forEach(weapon => {
+        skinsNames.forEach(skin => {
+            qualities.forEach(quality => {
+                const fullName = `${weapon} | ${skin} (${quality})`;
+                let basePrice = (weapon.length * skin.length * 15) % 15000 + 100;
+                if (quality === 'Прямо с завода') basePrice *= 2.5;
+                if (quality === 'Закаленное в боях') basePrice *= 0.6;
+
+                CATALOG_ITEMS.push({
+                    id: 'gen_skin_' + (idCounter++),
+                    name: fullName,
+                    category: 'skins',
+                    value: Math.round(basePrice),
+                    img: FALLBACK_IMG
+                });
             });
-        }
+        });
+    });
 
-        loadingText.textContent = 'Загружаем скины, наклейки и музыку CS2...';
-        const resSkins = await fetch('https://bymykel.github.io/csgo-api/api/en/skins.json');
-        const skins = await resSkins.json();
-
-        const resStickers = await fetch('https://bymykel.github.io/csgo-api/api/en/stickers.json');
-        const stickers = await resStickers.json();
-
-        const resMusic = await fetch('https://bymykel.github.io/csgo-api/api/en/music_kits.json');
-        const music = await resMusic.json();
-
-        CATALOG_ITEMS = [];
-
-        // Обработка скинов (с качеством После полевых испытаний)
-        skins.forEach(item => {
-            const fullName = `${item.name} (После полевых испытаний)`;
-            // Берем реальную цену из API или ставим запасную
-            let price = priceMap[fullName] !== undefined ? priceMap[fullName] : (priceMap[item.name] !== undefined ? priceMap[item.name] : 150);
-
+    knifeTypes.forEach(knife => {
+        ['Градиент', 'Убийство', 'Кровавая паутина', 'Волны', 'Криминальный мир'].forEach(skin => {
+            const fullName = `Нож «${knife}» | ${skin} (Прямо с завода)`;
             CATALOG_ITEMS.push({
-                id: 'skin_' + item.id,
+                id: 'gen_knife_' + (idCounter++),
                 name: fullName,
                 category: 'skins',
-                value: price,
-                img: item.image || FALLBACK_IMG
+                value: Math.floor(Math.random() * 80000) + 25000,
+                img: FALLBACK_IMG
             });
         });
+    });
 
-        // Обработка наклеек
-        stickers.forEach(item => {
-            let price = priceMap[item.name] !== undefined ? priceMap[item.name] : 50;
-            CATALOG_ITEMS.push({
-                id: 'sticker_' + item.id,
-                name: item.name,
-                category: 'stickers',
-                value: price,
-                img: item.image || FALLBACK_IMG
+    stickerNames.forEach(st => {
+        ['', ' (голографическая)', ' (фольгированная)', ' (золотая)'].forEach(type => {
+            ['2014', '2015', '2016', '2018', '2020', '2023'].forEach(year => {
+                const name = `Наклейка | ${st} | ${year}${type}`;
+                CATALOG_ITEMS.push({
+                    id: 'gen_st_' + (idCounter++),
+                    name: name,
+                    category: 'stickers',
+                    value: Math.floor(Math.random() * 15000) + 50,
+                    img: FALLBACK_IMG
+                });
             });
         });
+    });
 
-        // Обработка музыки
-        music.forEach(item => {
-            const musicName = `Набор музыки | ${item.name}`;
-            let price = priceMap[musicName] !== undefined ? priceMap[musicName] : (priceMap[item.name] !== undefined ? priceMap[item.name] : 350);
-            CATALOG_ITEMS.push({
-                id: 'music_' + item.id,
-                name: musicName,
-                category: 'music',
-                value: price,
-                img: item.image || FALLBACK_IMG
-            });
+    for (let i = 1; i <= 30; i++) {
+        CATALOG_ITEMS.push({
+            id: 'gen_mus_' + (idCounter++),
+            name: `Набор музыки | Игрок #${i} (The Talons)`,
+            category: 'music',
+            value: Math.floor(Math.random() * 800) + 200,
+            img: FALLBACK_IMG
         });
+    }
 
-        // Наполняем кейсы предметами из загруженной базы
-        if (CATALOG_ITEMS.length > 0) {
-            CASES_DATA[0].items = CATALOG_ITEMS.filter(i => i.value >= 50 && i.value <= 1000).slice(0, 20);
-            CASES_DATA[1].items = CATALOG_ITEMS.filter(i => i.value >= 1000).slice(0, 20);
-            if(CASES_DATA[0].items.length === 0) CASES_DATA[0].items = CATALOG_ITEMS.slice(10, 30);
-            if(CASES_DATA[1].items.length === 0) CASES_DATA[1].items = CATALOG_ITEMS.slice(30, 50);
-        }
+    CASES_DATA[0].items = CATALOG_ITEMS.filter(i => i.value >= 100 && i.value <= 3000).slice(0, 25);
+    CASES_DATA[1].items = CATALOG_ITEMS.filter(i => i.value > 3000).slice(0, 25);
+    if(CASES_DATA[0].items.length === 0) CASES_DATA[0].items = CATALOG_ITEMS.slice(0, 20);
+    if(CASES_DATA[1].items.length === 0) CASES_DATA[1].items = CATALOG_ITEMS.slice(20, 40);
 
+    setTimeout(() => {
         document.getElementById('loadingScreen').style.opacity = '0';
         setTimeout(() => {
             document.getElementById('loadingScreen').style.display = 'none';
         }, 500);
-
         initializeApp();
-
-    } catch (e) {
-        console.error('Ошибка загрузки базы:', e);
-        loadingText.textContent = 'Ошибка загрузки сети. Проверьте интернет.';
-    }
+    }, 300);
 }
 
 function initializeApp() {
@@ -2068,8 +2094,8 @@ function checkBestDrop(item) {
     }
 }
 
-// Запуск загрузки всей базы и цен в рублях
-loadFullDatabaseWithRealPrices();
+// Запуск генерации базы данных при загрузке страницы
+generateFullDatabase();
 </script>
 
 </body>
