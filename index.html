@@ -2,1010 +2,1263 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Zenodrop</title>
 
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
+*{margin:0;padding:0;box-sizing:border-box}
 
 body{
-    background:#0d0f17;
-    color:#d1d5db;
-    font-family:'Segoe UI',Roboto,sans-serif;
-    min-height:100vh;
-    padding:16px;
-    overflow-x:hidden
+background:#0d0f17;
+font-family:'Segoe UI',Roboto,sans-serif;
+color:#d1d5db;
+min-height:100vh;
+display:flex;
+flex-direction:column;
+align-items:center;
+padding:16px;
+overflow-x:hidden
 }
-
-button,input{font:inherit}
-button{cursor:pointer}
 
 .container{
-    width:100%;
-    max-width:480px;
-    margin:auto;
-    display:flex;
-    flex-direction:column;
-    gap:16px
+width:100%;
+max-width:480px;
+display:flex;
+flex-direction:column;
+gap:16px
 }
-
-/* HEADER */
 
 .header{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:4px
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:0 4px
 }
 
-.logo{
-    font-size:21px;
-    font-weight:900;
-    letter-spacing:1.5px;
-    color:#fff
+.logo-area{
+font-weight:900;
+font-size:18px;
+color:#fff;
+text-transform:uppercase;
+letter-spacing:1.5px;
+text-shadow:0 0 15px rgba(245,158,11,.4)
 }
 
-.logo span{color:#f59e0b}
+.logo-area span{color:#f59e0b}
 
-.avatar{
-    width:40px;
-    height:40px;
-    border-radius:50%;
-    overflow:hidden;
-    border:2px solid rgba(245,158,11,.5);
-    background:#181b25
+.profile-avatar-btn{
+width:38px;
+height:38px;
+border-radius:50%;
+background:#161924;
+border:2px solid rgba(245,158,11,.4);
+display:flex;
+align-items:center;
+justify-content:center;
+cursor:pointer;
+overflow:hidden;
+transition:.2s
 }
 
-.avatar img{
-    width:100%;
-    height:100%;
-    object-fit:cover
+.profile-avatar-btn img{
+width:100%;
+height:100%;
+object-fit:cover
 }
 
-/* NAV */
-
-.nav{
-    display:flex;
-    gap:6px;
-    padding:4px;
-    background:#161924;
-    border:1px solid #252837;
-    border-radius:16px
+.main-nav{
+display:flex;
+gap:8px;
+background:#161924;
+padding:4px;
+border-radius:12px;
+border:1px solid rgba(255,255,255,.06)
 }
 
-.nav button{
-    flex:1;
-    border:0;
-    background:transparent;
-    color:#9297a7;
-    padding:12px 5px;
-    border-radius:11px;
-    font-weight:900;
-    text-transform:uppercase
+.main-tab{
+flex:1;
+background:transparent;
+border:none;
+color:#9ca3af;
+padding:10px 0;
+border-radius:8px;
+font-weight:800;
+font-size:13px;
+cursor:pointer;
+text-transform:uppercase;
+letter-spacing:.5px;
+transition:.2s
 }
 
-.nav button.active{
-    background:#f59e0b;
-    color:#11131c;
-    box-shadow:0 0 20px rgba(245,158,11,.3)
+.main-tab.active{
+background:#f59e0b;
+color:#11131c;
+box-shadow:0 0 15px rgba(245,158,11,.3)
 }
 
-/* TABS */
-
-.tab{
-    display:none;
-    flex-direction:column;
-    gap:16px
+.tab-content{
+display:none;
+flex-direction:column;
+gap:16px;
+width:100%
 }
 
-.tab.active{display:flex}
+.tab-content.active{display:flex}
 
-/* LOADING */
-
-.loading{
-    position:fixed;
-    inset:0;
-    z-index:9999;
-    background:#0d0f17;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-    gap:12px;
-    color:#fff;
-    font-weight:900;
-    transition:opacity .25s
+.zeno-layout{
+display:flex;
+flex-direction:column;
+gap:16px;
+width:100%
 }
 
-.spinner{
-    width:42px;
-    height:42px;
-    border:4px solid rgba(245,158,11,.2);
-    border-top-color:#f59e0b;
-    border-radius:50%;
-    animation:spin 1s linear infinite
+.wheel-container{
+display:flex;
+flex-direction:column;
+align-items:center;
+gap:16px;
+width:100%
 }
 
-@keyframes spin{
-    to{transform:rotate(360deg)}
+.wheel-wrapper{
+position:relative;
+width:220px;
+height:220px;
+filter:drop-shadow(0 0 20px rgba(0,0,0,.6))
 }
 
-/* BUTTON */
-
-.primary{
-    width:100%;
-    border:0;
-    border-radius:15px;
-    padding:15px;
-    background:linear-gradient(135deg,#f59e0b,#d97706);
-    color:#11131c;
-    font-weight:900;
-    font-size:16px;
-    text-transform:uppercase;
-    letter-spacing:1px;
-    box-shadow:0 5px 22px rgba(245,158,11,.3)
+.wheel-pointer{
+position:absolute;
+top:-8px;
+left:50%;
+transform:translateX(-50%);
+width:0;
+height:0;
+border-left:9px solid transparent;
+border-right:9px solid transparent;
+border-top:16px solid #fbbf24;
+z-index:20;
+filter:drop-shadow(0 0 8px rgba(251,191,36,.8))
 }
 
-.primary:disabled{
-    opacity:.45;
-    box-shadow:none;
-    cursor:not-allowed
+.wheel-canvas-box{
+width:100%;
+height:100%;
+border-radius:50%;
+position:relative;
+overflow:hidden;
+box-shadow:0 0 25px rgba(0,0,0,.8);
+background:#161924
 }
 
-/* WHEEL */
-
-.wheel-box{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:15px
+.wheel-wrapper canvas{
+width:100%;
+height:100%;
+display:block;
+transform-origin:center center
 }
 
-.wheel{
-    width:220px;
-    height:220px;
-    position:relative
+.wheel-center-content{
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+display:flex;
+flex-direction:column;
+align-items:center;
+pointer-events:none;
+z-index:5
 }
 
-.wheel canvas{
-    width:100%;
-    height:100%;
-    display:block;
-    border-radius:50%;
-    background:#161924;
-    box-shadow:0 0 30px rgba(0,0,0,.65);
-    transform-origin:center
+.wheel-percent{
+font-size:26px;
+font-weight:900;
+color:#4ade80;
+line-height:1;
+text-shadow:0 0 10px rgba(74,222,128,.4)
 }
 
-.pointer{
-    position:absolute;
-    top:-8px;
-    left:50%;
-    transform:translateX(-50%);
-    z-index:10;
-    width:0;
-    height:0;
-    border-left:9px solid transparent;
-    border-right:9px solid transparent;
-    border-top:16px solid #fbbf24
+.wheel-chance-label{
+font-size:10px;
+text-transform:uppercase;
+letter-spacing:1px;
+color:#9ca3af;
+margin-top:4px;
+font-weight:600
 }
 
-.wheel-center{
-    position:absolute;
-    left:50%;
-    top:50%;
-    transform:translate(-50%,-50%);
-    text-align:center;
-    pointer-events:none
+.disabled-overlay{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,.4);
+border-radius:50%;
+z-index:10;
+display:none
 }
 
-.percent{
-    font-size:25px;
-    font-weight:900;
-    color:#4ade80
+#resultOverlay{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(11,13,20,.82);
+border-radius:50%;
+display:none;
+justify-content:center;
+align-items:center;
+z-index:15;
+flex-direction:column;
+backdrop-filter:blur(2px)
 }
 
-.chance-label{
-    font-size:9px;
-    color:#9ca3af;
-    text-transform:uppercase;
-    letter-spacing:1px
+#resultText{
+font-size:22px;
+font-weight:900;
+text-transform:uppercase;
+letter-spacing:1px;
+text-shadow:0 2px 10px rgba(0,0,0,.8)
 }
 
-.overlay{
-    display:none;
-    position:absolute;
-    inset:0;
-    border-radius:50%;
-    background:rgba(0,0,0,.45);
-    z-index:5
+.btn-upgrade{
+background:linear-gradient(135deg,#f59e0b,#d97706);
+border:none;
+color:#11131c;
+padding:14px 0;
+width:100%;
+border-radius:14px;
+font-weight:900;
+font-size:15px;
+cursor:pointer;
+text-transform:uppercase;
+letter-spacing:1px;
+transition:.3s;
+box-shadow:0 4px 20px rgba(245,158,11,.4)
 }
 
-.result{
-    display:none;
-    position:absolute;
-    inset:0;
-    border-radius:50%;
-    background:rgba(10,12,18,.86);
-    z-index:20;
-    align-items:center;
-    justify-content:center;
-    font-size:22px;
-    font-weight:900
+.btn-upgrade:hover:not(:disabled){
+box-shadow:0 6px 25px rgba(245,158,11,.6);
+transform:translateY(-1px)
 }
 
-/* QUICK */
-
-.quick{
-    display:flex;
-    gap:7px;
-    flex-wrap:wrap;
-    justify-content:center
+.btn-upgrade:disabled{
+opacity:.5;
+cursor:not-allowed;
+box-shadow:none
 }
 
-.quick button{
-    background:#161924;
-    border:1px solid #292c39;
-    color:#d1d5db;
-    border-radius:9px;
-    padding:8px 13px;
-    font-weight:800
+.quick-chance-panel{
+display:flex;
+gap:6px;
+width:100%;
+justify-content:center;
+align-items:center;
+flex-wrap:wrap
 }
 
-.quick button.active{
-    color:#f59e0b;
-    border-color:#f59e0b;
-    background:rgba(245,158,11,.07)
+.q-btn{
+background:#161924;
+border:1px solid rgba(255,255,255,.08);
+color:#d1d5db;
+padding:6px 12px;
+border-radius:8px;
+font-size:12px;
+font-weight:700;
+cursor:pointer;
+transition:.2s
 }
 
-.quick .settings{color:#f59e0b}
-
-/* SELECTION */
-
-.selection{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:10px
+.q-btn:hover,.q-btn.active{
+border-color:#f59e0b;
+color:#f59e0b;
+background:rgba(245,158,11,.05)
 }
 
-.skin-card{
-    min-width:0;
-    min-height:180px;
-    padding:14px;
-    border-radius:17px;
-    background:linear-gradient(145deg,#161924,#11131c);
-    border:1px solid #282b37;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:space-between;
-    text-align:center;
-    overflow:hidden
+.q-btn.settings-btn{
+background:rgba(245,158,11,.1);
+border-color:rgba(245,158,11,.3);
+color:#f59e0b
 }
 
-.skin-card.target{
-    border-color:rgba(245,158,11,.3)
+.skins-selection-row{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:10px;
+width:100%;
+min-width:0
 }
 
-.type{
-    color:#9297a7;
-    font-size:10px;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:1px
+.card-skin{
+background:linear-gradient(145deg,#161924,#11131c);
+border:1px solid rgba(255,255,255,.08);
+border-radius:16px;
+padding:14px;
+display:flex;
+flex-direction:column;
+align-items:center;
+text-align:center;
+min-height:180px;
+justify-content:space-between;
+position:relative;
+box-shadow:0 10px 20px rgba(0,0,0,.4);
+min-width:0;
+width:100%;
+overflow:hidden
+}
+
+.skin-type{
+font-size:10px;
+text-transform:uppercase;
+letter-spacing:1px;
+color:#9ca3af;
+font-weight:700
 }
 
 .skin-name{
-    width:100%;
-    font-size:13px;
-    font-weight:900;
-    color:#fff;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis
+font-size:13px;
+font-weight:800;
+color:#fff;
+margin:2px 0;
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis;
+width:100%;
+min-width:0
 }
 
-.skin-img{
-    width:100%;
-    height:78px;
-    display:flex;
-    align-items:center;
-    justify-content:center
+.skin-img-wrap{
+width:100%;
+height:75px;
+display:flex;
+align-items:center;
+justify-content:center;
+position:relative;
+min-width:0;
+overflow:hidden
 }
 
-.skin-img img{
-    max-width:100%;
-    max-height:72px;
-    object-fit:contain;
-    filter:drop-shadow(0 5px 10px #000)
+.skin-img-wrap img{
+max-width:100%;
+max-height:70px;
+width:auto;
+height:auto;
+object-fit:contain;
+filter:drop-shadow(0 5px 10px rgba(0,0,0,.8))
 }
 
-.price{
-    font-size:15px;
-    font-weight:900;
-    color:#fbbf24
+.skin-price{
+font-size:14px;
+font-weight:800;
+color:#fbbf24
 }
 
-/* PANEL */
-
-.panel{
-    background:linear-gradient(145deg,#161924,#11131c);
-    border:1px solid #252837;
-    border-radius:20px;
-    padding:16px
+.inventory-section{
+background:linear-gradient(145deg,#161924,#11131c);
+border:1px solid rgba(255,255,255,.06);
+border-radius:20px;
+padding:16px;
+display:flex;
+flex-direction:column;
+gap:12px;
+box-shadow:0 10px 30px rgba(0,0,0,.3)
 }
 
-.tabs{
-    display:flex;
-    gap:6px;
-    flex-wrap:wrap;
-    margin-bottom:12px
+.inv-header-row{
+display:flex;
+justify-content:space-between;
+align-items:center;
+flex-wrap:wrap;
+gap:8px
 }
 
-.tabs button{
-    background:#11131c;
-    border:1px solid #272a36;
-    color:#9297a7;
-    border-radius:9px;
-    padding:7px 11px;
-    font-weight:800;
-    font-size:11px
+.inv-tabs{
+display:flex;
+gap:6px;
+flex-wrap:wrap
 }
 
-.tabs button.active{
-    background:#f59e0b;
-    color:#11131c;
-    border-color:#f59e0b
+.inv-tab{
+background:#11131c;
+border:1px solid rgba(255,255,255,.06);
+color:#9ca3af;
+padding:6px 10px;
+border-radius:8px;
+font-weight:700;
+font-size:11px;
+cursor:pointer
 }
 
-.filters{
-    display:none;
-    gap:6px;
-    margin-bottom:10px
+.inv-tab.active{
+background:#f59e0b;
+color:#11131c;
+border-color:#f59e0b;
+box-shadow:0 0 15px rgba(245,158,11,.3)
 }
 
-.filters.active{display:flex}
-
-.filters input{
-    width:100px;
-    background:#11131c;
-    border:1px solid #292c38;
-    color:#fff;
-    border-radius:8px;
-    padding:7px 8px;
-    outline:none
+.price-filter-box{
+display:none;
+gap:6px;
+align-items:center
 }
 
-/* GRID */
+.price-filter-box.active{display:flex}
 
-.grid{
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:8px;
-    max-height:360px;
-    overflow-y:auto;
-    contain:content;
-    -webkit-overflow-scrolling:touch
+.price-input{
+background:#11131c;
+border:1px solid rgba(255,255,255,.1);
+border-radius:6px;
+color:#fff;
+padding:4px 8px;
+width:75px;
+font-size:11px;
+outline:none;
+font-weight:600
 }
 
-.item{
-    min-width:0;
-    background:#11131c;
-    border:1px solid #252832;
-    border-radius:11px;
-    padding:8px;
-    text-align:center;
-    overflow:hidden;
-    contain:layout paint
+.items-grid{
+display:grid;
+grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+gap:8px;
+max-height:220px;
+overflow-y:auto;
+padding-right:4px;
+min-width:0;
+width:100%
 }
 
-.item.selected{
-    border-color:#f59e0b;
-    box-shadow:0 0 12px rgba(245,158,11,.18)
+.item-card{
+background:#11131c;
+border:1px solid rgba(255,255,255,.06);
+border-radius:10px;
+padding:8px;
+display:flex;
+flex-direction:column;
+align-items:center;
+text-align:center;
+cursor:pointer;
+position:relative;
+transition:.3s;
+min-width:0;
+overflow:hidden
 }
 
-.item img{
-    width:100%;
-    height:65px;
-    object-fit:contain;
-    display:block
+.item-card:hover{
+border-color:rgba(245,158,11,.4);
+transform:translateY(-2px)
 }
 
-.item-name{
-    width:100%;
-    font-size:10px;
-    font-weight:800;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis
+.item-card.selected{
+border-color:#f59e0b;
+box-shadow:0 0 10px rgba(245,158,11,.2)
 }
 
-.item-price{
-    color:#fbbf24;
-    font-size:11px;
-    font-weight:900;
-    margin-top:3px
+.item-card img{
+width:75px;
+height:50px;
+object-fit:contain;
+margin:4px 0;
+filter:drop-shadow(0 4px 8px rgba(0,0,0,.6));
+max-width:100%
 }
 
-.more{
-    grid-column:1/-1;
-    padding:11px;
-    background:#161924;
-    color:#fbbf24;
-    border:1px solid rgba(245,158,11,.3);
-    border-radius:10px;
-    font-weight:900
+.item-card .iname{
+font-size:10px;
+font-weight:700;
+color:#d1d5db;
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis;
+width:100%
 }
 
-.empty{
-    grid-column:1/-1;
-    text-align:center;
-    color:#6b7280;
-    padding:25px 10px;
-    font-size:12px
+.item-card .iprice{
+font-size:11px;
+font-weight:800;
+color:#fbbf24;
+margin-top:3px
 }
 
-/* CASES */
-
-.cases-title{
-    color:#fff;
-    font-weight:900;
-    font-size:16px
+.cases-grid{
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:12px;
+width:100%
 }
 
-.cases{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:12px
+.case-card{
+background:linear-gradient(145deg,#161924,#11131c);
+border:1px solid rgba(255,255,255,.08);
+border-radius:16px;
+padding:16px;
+display:flex;
+flex-direction:column;
+align-items:center;
+text-align:center;
+cursor:pointer;
+transition:.3s
 }
 
-.case{
-    background:linear-gradient(145deg,#161924,#11131c);
-    border:1px solid #292c37;
-    border-radius:17px;
-    padding:15px;
-    text-align:center
+.case-card:hover{
+border-color:#f59e0b;
+transform:translateY(-3px)
 }
 
-.case img{
-    width:100%;
-    height:85px;
-    object-fit:contain;
-    display:block;
-    margin-bottom:5px
+.case-card img{
+width:130px;
+height:85px;
+object-fit:contain;
+margin-bottom:6px;
+filter:drop-shadow(0 6px 12px rgba(0,0,0,.7))
 }
 
-.case-name{
-    font-weight:900;
-    color:#fff;
-    font-size:13px
+.case-title{
+font-size:13px;
+font-weight:800;
+color:#fff;
+margin-bottom:4px
 }
 
 .case-price{
-    color:#fbbf24;
-    font-weight:900;
-    font-size:13px
+font-size:13px;
+font-weight:800;
+color:#fbbf24
 }
 
-/* OPENING */
-
-.opening{
-    display:none;
-    flex-direction:column;
-    gap:16px
+.case-opening-view{
+display:none;
+flex-direction:column;
+gap:16px;
+width:100%;
+align-items:center
 }
 
-.opening.active{display:flex}
+.case-opening-view.active{display:flex}
 
-.back{
-    align-self:flex-start;
-    background:#161924;
-    color:#a5aab9;
-    border:1px solid #292c37;
-    border-radius:9px;
-    padding:8px 12px;
-    font-weight:800
+.back-cases-btn{
+align-self:flex-start;
+background:#161924;
+border:1px solid rgba(255,255,255,.08);
+color:#9ca3af;
+padding:6px 12px;
+border-radius:8px;
+font-weight:700;
+font-size:12px;
+cursor:pointer
 }
 
-.open-title{
-    text-align:center;
-    color:#fff;
-    font-size:17px;
-    font-weight:900
+.roulette-container{
+position:relative;
+overflow:hidden;
+width:100%;
+height:120px;
+background:#151518;
+border-radius:12px;
+border:1px solid #2a2a2e
 }
 
-.roulette{
-    height:120px;
-    width:100%;
-    overflow:hidden;
-    position:relative;
-    background:#111216;
-    border:1px solid #292a30;
-    border-radius:13px
-}
-
-.track{
-    position:absolute;
-    left:0;
-    top:0;
-    height:100%;
-    display:flex;
-    gap:10px;
-    will-change:transform
+.roulette-track{
+display:flex;
+gap:10px;
+position:absolute;
+left:0;
+top:0;
+height:100%;
+will-change:transform
 }
 
 .roulette-item{
-    width:100px;
-    min-width:100px;
-    height:100%;
-    background:#191a1f;
-    border:1px solid #2d2e35;
-    border-radius:9px;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-    overflow:hidden;
-    font-size:10px
+width:100px;
+min-width:100px;
+height:100%;
+background:#1a1a1e;
+border:1px solid #2f2f35;
+border-radius:8px;
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+font-size:12px;
+position:relative;
+overflow:hidden
 }
 
 .roulette-item img{
-    width:75px;
-    height:55px;
-    object-fit:contain
+width:75px;
+height:50px;
+object-fit:contain
 }
 
 .roulette-item strong{
-    width:90px;
-    text-align:center;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis
-}
-
-.roulette-item span{
-    color:#fbbf24;
-    font-size:9px
+max-width:92px;
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis
 }
 
 .roulette-pointer{
-    position:absolute;
-    z-index:10;
-    left:50%;
-    top:0;
-    bottom:0;
-    width:3px;
-    background:#f59e0b;
-    transform:translateX(-50%)
+position:absolute;
+left:50%;
+top:0;
+bottom:0;
+width:3px;
+transform:translateX(-50%);
+background:linear-gradient(180deg,#ffb800,#ff8c00);
+z-index:20;
+pointer-events:none
 }
 
-.actions{
-    display:none;
-    gap:8px
+.action-buttons{
+display:none;
+gap:10px;
+width:100%
 }
 
-.actions button{
-    flex:1;
-    padding:13px;
-    border-radius:11px;
-    font-weight:900;
-    border:0
+.action-btn{
+flex:1;
+padding:12px 10px;
+border-radius:12px;
+font-weight:900;
+cursor:pointer;
+font-size:14px;
+border:none;
+text-transform:uppercase
 }
 
-.sell{
-    background:#25272e;
-    color:#fbbf24;
-    border:1px solid #fbbf24!important
+.sell-btn{
+background:#2a2a2e;
+color:#ffb800;
+border:1px solid #ffb800
 }
 
-.retry{
-    background:#f59e0b;
-    color:#111
+.retry-btn{
+background:linear-gradient(135deg,#ffb800,#ff8c00);
+color:#000
 }
 
-/* PROFILE */
-
-.profile{
-    display:flex;
-    flex-direction:column;
-    gap:12px
+.profile-wrapper{
+display:flex;
+flex-direction:column;
+gap:12px;
+width:100%
 }
 
-.profile-box{
-    background:linear-gradient(145deg,#161924,#11131c);
-    border:1px solid #292c37;
-    border-radius:17px;
-    padding:16px
+.profile-main-card{
+background:linear-gradient(145deg,#161924,#11131c);
+border:1px solid rgba(255,255,255,.08);
+border-radius:16px;
+padding:16px;
+display:flex;
+flex-direction:column;
+gap:14px
 }
 
-.profile-top{
-    display:flex;
-    justify-content:space-between;
-    color:#fff;
-    font-weight:900
+.profile-top-row{
+display:flex;
+justify-content:space-between;
+align-items:center;
+font-size:12px;
+font-weight:700;
+color:#9ca3af
 }
 
-.logout{
-    color:#f87171;
-    cursor:pointer
+.profile-username{
+color:#fff;
+font-weight:800;
+font-size:14px
 }
 
-.profile-avatar{
-    width:75px;
-    height:75px;
-    border-radius:50%;
-    overflow:hidden;
-    margin:15px auto;
-    border:2px solid #343744;
-    background:#111
+.profile-actions-top span{
+cursor:pointer;
+transition:.2s
 }
 
-.profile-avatar img{
-    width:100%;
-    height:100%;
-    object-fit:cover
+.profile-actions-top span:hover{color:#f59e0b}
+
+.profile-center-row{
+display:flex;
+align-items:center;
+justify-content:center
 }
 
-.stats{
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:8px
+.profile-avatar-large{
+width:72px;
+height:72px;
+border-radius:50%;
+background:#000;
+border:2px solid rgba(255,255,255,.1);
+display:flex;
+align-items:center;
+justify-content:center;
+overflow:hidden
 }
 
-.stat{
-    background:#11131c;
-    border:1px solid #252832;
-    border-radius:11px;
-    padding:10px;
-    text-align:center
+.profile-avatar-large img{
+width:100%;
+height:100%;
+object-fit:cover
 }
 
-.stat small{
-    display:block;
-    color:#858b9a;
-    font-size:8px;
-    font-weight:800
+.stats-grid{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:8px;
+width:100%;
+margin-top:4px
 }
 
-.stat b{
-    display:block;
-    color:#fff;
-    margin-top:3px
+.stat-card{
+background:#11131c;
+border:1px solid rgba(255,255,255,.06);
+border-radius:12px;
+padding:10px;
+display:flex;
+flex-direction:column;
+align-items:center;
+text-align:center;
+gap:4px
 }
 
-.balance{
-    margin-top:10px;
-    padding:12px;
-    background:#11131c;
-    border:1px solid #252832;
-    border-radius:11px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center
+.stat-title{
+font-size:9px;
+color:#9ca3af;
+text-transform:uppercase;
+font-weight:700
 }
 
-.balance b{color:#fff}
-
-.topup{
-    background:#f59e0b;
-    color:#111;
-    border:0;
-    border-radius:9px;
-    padding:9px 13px;
-    font-weight:900
+.stat-value{
+font-size:13px;
+font-weight:900;
+color:#fff
 }
 
-/* MODAL */
-
-.modal{
-    display:none;
-    position:fixed;
-    inset:0;
-    z-index:100;
-    background:rgba(0,0,0,.75);
-    align-items:center;
-    justify-content:center
+.profile-balance-row{
+display:flex;
+justify-content:space-between;
+align-items:center;
+background:#11131c;
+padding:12px 14px;
+border-radius:12px;
+border:1px solid rgba(255,255,255,.06)
 }
 
-.modal-box{
-    width:300px;
-    background:#161924;
-    border:1px solid #292c37;
-    border-radius:17px;
-    padding:20px
+.balance-amount{
+font-size:16px;
+font-weight:900;
+color:#fff
 }
 
-.modal-box h3{
-    color:#fff;
-    margin-bottom:8px
+.balance-history{
+font-size:11px;
+color:#9ca3af;
+cursor:pointer
 }
 
-.modal-box p{
-    font-size:11px;
-    color:#9297a7;
-    margin-bottom:10px
+.topup-btn{
+background:linear-gradient(135deg,#f59e0b,#d97706);
+color:#11131c;
+border:none;
+padding:10px 18px;
+border-radius:10px;
+font-weight:900;
+font-size:12px;
+cursor:pointer;
+text-transform:uppercase
 }
 
-.modal-box input{
-    width:100%;
-    padding:10px;
-    background:#11131c;
-    border:1px solid #292c37;
-    border-radius:9px;
-    color:#fff;
-    outline:none
+.best-drop-card{
+background:linear-gradient(145deg,#161924,#11131c);
+border:1px solid rgba(255,255,255,.08);
+border-radius:16px;
+padding:14px 16px;
+display:flex;
+flex-direction:column;
+gap:8px
+}
+
+.best-drop-title{
+font-size:10px;
+font-weight:800;
+color:#9ca3af;
+text-transform:uppercase;
+letter-spacing:.5px
+}
+
+.best-drop-content{
+display:flex;
+justify-content:space-between;
+align-items:center
+}
+
+.best-drop-name{
+font-size:12px;
+font-weight:700;
+color:#d1d5db
+}
+
+.best-drop-price{
+font-size:14px;
+font-weight:900;
+color:#fbbf24
+}
+
+.best-drop-img{
+width:55px;
+height:40px;
+object-fit:contain
+}
+
+.profile-inventory-box{
+display:flex;
+flex-direction:column;
+gap:12px;
+background:linear-gradient(145deg,#161924,#11131c);
+border:1px solid rgba(255,255,255,.08);
+border-radius:16px;
+padding:16px
+}
+
+#modalOverlay{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,.7);
+display:none;
+justify-content:center;
+align-items:center;
+z-index:100;
+backdrop-filter:blur(4px)
+}
+
+.modal-card{
+background:#161924;
+border:1px solid rgba(255,255,255,.1);
+border-radius:16px;
+padding:20px;
+width:300px;
+display:flex;
+flex-direction:column;
+gap:12px
+}
+
+.modal-inputs input{
+background:#11131c;
+border:1px solid rgba(255,255,255,.1);
+border-radius:8px;
+color:#fff;
+padding:8px;
+font-size:13px;
+width:100%
 }
 
 .modal-buttons{
-    display:flex;
-    gap:8px;
-    margin-top:12px
+display:flex;
+gap:8px;
+margin-top:8px
 }
 
 .modal-buttons button{
-    flex:1;
-    border:0;
-    border-radius:9px;
-    padding:10px;
-    font-weight:900
+flex:1;
+padding:8px;
+border-radius:8px;
+font-weight:700;
+cursor:pointer;
+border:none
 }
 
-.save{background:#f59e0b}
-.close{background:#292c37;color:#aaa}
+.btn-save{
+background:#f59e0b;
+color:#11131c
+}
+
+.btn-close{
+background:#272a37;
+color:#9ca3af
+}
+
+.loading-screen{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:#0d0f17;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+z-index:999;
+color:#fff;
+font-weight:800;
+gap:12px;
+transition:opacity .5s ease
+}
+
+.spinner{
+width:40px;
+height:40px;
+border:4px solid rgba(245,158,11,.2);
+border-top:4px solid #f59e0b;
+border-radius:50%;
+animation:spin 1s linear infinite
+}
+
+@keyframes spin{
+0%{transform:rotate(0deg)}
+100%{transform:rotate(360deg)}
+}
 </style>
 </head>
 
 <body>
 
-<!-- НЕ МЕНЯЛ ЭКРАН ЗАГРУЗКИ -->
-
-<div class="loading" id="loading">
-    <div class="spinner"></div>
-    <div id="loadingText">Загрузка скинов...</div>
+<div class="loading-screen" id="loadingScreen">
+<div class="spinner"></div>
+<div id="loadingText">Загрузка предметов...</div>
 </div>
 
 <div class="container">
 
-<header class="header">
-    <div class="logo"><span>ZENO</span>DROP</div>
-    <div class="avatar" id="headerAvatar" onclick="switchTab('profile')"></div>
-</header>
-
-<nav class="nav">
-    <button id="navUpgrade" class="active" onclick="switchTab('upgrade')">
-        Апгрейд
-    </button>
-
-    <button id="navCases" onclick="switchTab('cases')">
-        Кейсы
-    </button>
-
-    <button id="navProfile" onclick="switchTab('profile')">
-        Профиль
-    </button>
-</nav>
-
-<!-- UPGRADE -->
-
-<section class="tab active" id="upgradeTab">
-
-<div class="wheel-box">
-
-<div class="wheel">
-
-<canvas id="wheel" width="300" height="300"></canvas>
-
-<div class="pointer"></div>
-
-<div class="wheel-center">
-    <div class="percent" id="percent">0.00%</div>
-    <div class="chance-label">Шанс</div>
+<div class="header">
+<div class="logo-area"><span>Zeno</span>drop</div>
+<div class="profile-avatar-btn" id="headerProfileBtn" onclick="switchMainTab('profile')">
+<div id="headerAvatarContainer" style="width:100%;height:100%;background:#000;"></div>
+</div>
 </div>
 
-<div class="overlay" id="wheelOverlay"></div>
-<div class="result" id="result"></div>
-
+<div class="main-nav">
+<button class="main-tab active" id="navUpgrade" onclick="switchMainTab('upgrade')">Апгрейд</button>
+<button class="main-tab" id="navCases" onclick="switchMainTab('cases')">Кейсы</button>
+<button class="main-tab" id="navProfile" onclick="switchMainTab('profile')">Профиль</button>
 </div>
 
-<button class="primary" id="upgradeBtn" disabled>
-    Прокачать
-</button>
+<div class="tab-content active" id="tabUpgradeContent">
 
-<div class="quick" id="quick"></div>
+<div class="zeno-layout">
 
+<div class="wheel-container">
+
+<div class="wheel-wrapper">
+
+<div class="wheel-pointer"></div>
+
+<div class="wheel-canvas-box">
+<canvas id="wheelCanvas" width="300" height="300"></canvas>
 </div>
 
-<div class="selection">
-
-<div class="skin-card">
-
-<div class="type">Ваш скин</div>
-
-<div class="skin-name" id="sourceName">
-    --
+<div class="wheel-center-content">
+<div class="wheel-percent" id="wheelPercent">0.00%</div>
+<div class="wheel-chance-label">шанс</div>
 </div>
 
-<div class="skin-img" id="sourceImage"></div>
+<div class="disabled-overlay" id="wheelOverlay"></div>
 
-<div class="price" id="sourcePrice">
-    0.00 ₽
+<div id="resultOverlay">
+<span id="resultText">Неудача</span>
 </div>
 
 </div>
 
-<div class="skin-card target">
-
-<div class="type">Желаемый</div>
-
-<div class="skin-name" id="targetName">
-    --
-</div>
-
-<div class="skin-img" id="targetImage"></div>
-
-<div class="price" id="targetPrice">
-    0.00 ₽
-</div>
-
-</div>
-
-</div>
-
-<div class="panel">
-
-<div class="tabs">
-
-<button id="myTab" class="active"
-onclick="catalogTab('inventory')">
-    Мои
-</button>
-
-<button id="skinsTab"
-onclick="catalogTab('skins')">
-    Скины
-</button>
-
-<button id="stickersTab"
-onclick="catalogTab('stickers')">
-    Наклейки
-</button>
-
-<button id="musicTab"
-onclick="catalogTab('music')">
-    Музыка
+<button class="btn-upgrade" id="upgradeBtn" disabled>
+Прокачать
 </button>
 
 </div>
 
-<div class="filters" id="filters">
+<div class="quick-chance-panel" id="quickChancePanel"></div>
 
-<input type="number" id="minPrice" value="0">
+<div class="skins-selection-row">
 
-<span>-</span>
+<div class="card-skin">
 
-<input type="number" id="maxPrice" value="1000000">
+<div class="skin-type">Ваш скин</div>
 
-</div>
+<div class="skin-name" id="selectedSkinName">--</div>
 
-<div class="grid" id="itemsGrid"></div>
+<div class="skin-img-wrap">
 
-</div>
+<img
+id="selectedSkinImg"
+src=""
+alt=""
+style="display:none;max-height:70px;object-fit:contain;"
+>
 
-</section>
-
-<!-- CASES -->
-
-<section class="tab" id="casesTab">
-
-<div id="casesList">
-
-<div class="cases-title">
-    Коллекция кейсов
-</div>
-
-<div class="cases" id="casesGrid"></div>
+<span
+id="selectedSkinPlaceholder"
+style="color:#4b5563;font-size:11px;"
+>
+Выберите
+</span>
 
 </div>
 
-<div class="opening" id="opening">
+<div class="skin-price" id="selectedSkinPrice">
+0.00
+</div>
 
-<button class="back" onclick="closeCase()">
-    ← Назад к кейсам
+</div>
+
+<div
+class="card-skin"
+style="border-color:rgba(245,158,11,.2);"
+>
+
+<div class="skin-type">Желаемый</div>
+
+<div class="skin-name" id="targetSkinName">--</div>
+
+<div class="skin-img-wrap">
+
+<img
+id="targetSkinImg"
+src=""
+alt=""
+style="display:none;max-height:70px;object-fit:contain;"
+>
+
+<span
+id="targetSkinPlaceholder"
+style="color:#4b5563;font-size:11px;"
+>
+Из каталога
+</span>
+
+</div>
+
+<div class="skin-price" id="targetSkinPrice">
+0.00
+</div>
+
+</div>
+
+</div>
+
+<div class="inventory-section">
+
+<div class="inv-header-row">
+
+<div class="inv-tabs">
+
+<button
+class="inv-tab active"
+id="tabInventory"
+onclick="switchCatalogTab('inventory')"
+>
+Мои
 </button>
 
-<div class="open-title" id="caseTitle">
-    Кейс
+<button
+class="inv-tab"
+id="tabCatalogSkins"
+onclick="switchCatalogTab('skins')"
+>
+Скины
+</button>
+
+<button
+class="inv-tab"
+id="tabCatalogStickers"
+onclick="switchCatalogTab('stickers')"
+>
+Наклейки
+</button>
+
+<button
+class="inv-tab"
+id="tabCatalogMusic"
+onclick="switchCatalogTab('music')"
+>
+Музыка
+</button>
+
 </div>
 
-<div class="roulette">
+<div class="price-filter-box" id="priceFilterBox">
+
+<input
+type="number"
+id="minPriceInput"
+class="price-input"
+placeholder="От"
+value="0"
+>
+
+<span style="color:#6b7280;font-size:11px;">-</span>
+
+<input
+type="number"
+id="maxPriceInput"
+class="price-input"
+placeholder="До"
+value="1000000"
+>
+
+</div>
+
+</div>
+
+<div class="items-grid" id="itemsGrid"></div>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="tab-content" id="tabCasesContent">
+
+<div
+id="casesListContainer"
+style="display:flex;flex-direction:column;gap:16px;"
+>
+
+<div style="font-size:15px;font-weight:800;color:#fff;">
+Коллекция кейсов
+</div>
+
+<div class="cases-grid" id="casesGrid"></div>
+
+</div>
+
+<div
+class="case-opening-view"
+id="caseOpeningView"
+>
+
+<button
+class="back-cases-btn"
+onclick="closeCaseOpening()"
+>
+← Назад к кейсам
+</button>
+
+<div
+style="font-size:16px;font-weight:900;color:#fff;"
+id="activeCaseTitle"
+>
+Кейс
+</div>
+
+<div class="roulette-container">
 
 <div class="roulette-pointer"></div>
 
-<div class="track" id="track"></div>
+<div
+class="roulette-track"
+id="rouletteTrack"
+></div>
 
 </div>
 
 <button
-class="primary"
-id="openCaseBtn"
-onclick="openCaseSpin()">
-
-    Открыть кейс
-
+class="btn-upgrade"
+id="mainOpenBtn"
+onclick="startOpening()"
+>
+Открыть кейс
 </button>
 
-<div class="actions" id="actions">
+<div
+class="action-buttons"
+id="actionButtons"
+>
 
 <button
-class="sell"
+class="action-btn sell-btn"
 id="sellBtn"
-onclick="sellDrop()">
-
-    Продать
-
+onclick="sellCurrentItem()"
+>
+Продать
 </button>
 
 <button
-class="retry"
-onclick="openCaseSpin()">
-
-    Еще раз
-
+class="action-btn retry-btn"
+onclick="startOpening()"
+>
+Еще раз
 </button>
 
 </div>
 
-<div class="panel">
+<div
+class="inventory-section"
+style="width:100%;margin-top:4px;flex:1;"
+>
 
-<div class="type"
-style="font-size:13px;margin-bottom:10px">
+<div
+style="font-size:12px;font-weight:800;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;"
+>
+Содержимое кейса
+</div>
 
-    Содержимое кейса
+<div
+class="items-grid"
+id="caseContentsGrid"
+style="max-height:none;flex:1;min-height:220px;"
+>
+</div>
 
 </div>
 
-<div class="grid" id="caseContents"></div>
+</div>
+
+</div>
+
+<div
+class="tab-content"
+id="tabProfileContent"
+>
+
+<div
+class="profile-wrapper"
+id="profileContentArea"
+></div>
 
 </div>
 
 </div>
 
-</section>
-
-<!-- PROFILE -->
-
-<section class="tab" id="profileTab">
-
-<div class="profile" id="profile"></div>
-
-</section>
-
 </div>
 
-<!-- MODAL -->
+<div id="modalOverlay">
 
-<div class="modal" id="modal">
+<div class="modal-card">
 
-<div class="modal-box">
+<h3>Настройка быстрых кнопок</h3>
 
-<h3>Быстрые проценты</h3>
-
-<p>
-Введите значения через запятую. Максимум 70%.
+<p style="font-size:11px;color:#9ca3af;">
+Введите проценты (максимум до 70%)
 </p>
 
+<div class="modal-inputs">
+
 <input
-id="quickInput"
-value="10,20,30,40,50,70">
+type="text"
+id="quickValuesInput"
+value="10, 20, 30, 40, 50, 70"
+>
+
+</div>
 
 <div class="modal-buttons">
 
-<button class="close" onclick="closeModal()">
-    Отмена
+<button
+class="btn-close"
+onclick="document.getElementById('modalOverlay').style.display='none'"
+>
+Отмена
 </button>
 
-<button class="save" onclick="saveQuick()">
-    Сохранить
+<button
+class="btn-save"
+onclick="saveQuickSettings()"
+>
+Сохранить
 </button>
 
 </div>
@@ -1016,2477 +1269,2585 @@ value="10,20,30,40,50,70">
 
 <script>
 
-/* =========================================================
-   CONFIG
-========================================================= */
+const API={
 
-const API_SKINS =
-'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins_not_grouped.json';
+skins:[
+'https://cdn.jsdelivr.net/gh/ByMykel/CSGO-API@main/public/api/en/skins_not_grouped.json',
+'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins_not_grouped.json',
+'https://bymykel.github.io/CSGO-API/api/en/skins_not_grouped.json'
+],
 
-const STEAM =
-'https://steamcommunity.com/market';
+stickers:
+'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/stickers.json',
 
-const PROXIES = [
+music:
+'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/music_kits.json',
 
-'https://api.allorigins.win/raw?url=',
-'https://corsproxy.io/?url='
-
-];
-
-const CACHE_KEY =
-'zenodrop_steam_prices_v7';
-
-const CACHE_TTL =
-5*60*1000;
-
-const PAGE_SIZE = 40;
-
-/* =========================================================
-   STATE
-========================================================= */
-
-let catalog = [];
-let cases = [];
-let priceMap = {};
-
-let catalogType = 'inventory';
-let visibleCount = PAGE_SIZE;
-
-let selectedIndex = null;
-let target = null;
-let activeChance = null;
-
-let activeCase = null;
-let wonItem = null;
-
-let spinning = false;
-let priceLoading = false;
-
-let user = {
-
-    username:'Гость',
-    avatar:'',
-
-    balance:3500,
-
-    inventory:[],
-
-    stats:{
-        upgradesTotal:0,
-        casesOpened:0,
-        totalDeposited:0
-    },
-
-    bestDrop:{
-        name:'--',
-        value:0,
-        img:''
-    }
+crates:
+'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/crates.json'
 
 };
 
-/* =========================================================
-   HELPERS
-========================================================= */
+const STEAM='https://steamcommunity.com/market';
 
-const $ = id =>
-document.getElementById(id);
+const PROXY='https://api.allorigins.win/raw?url=';
 
-function money(n){
+const FETCH_TIMEOUT=9000;
 
-    return Number(n||0).toFixed(2)+' ₽';
+const PRICE_CACHE_KEY='zeno_steam_prices_v2';
+
+const PRICE_CACHE_TTL=10*60*1000;
+
+let PRICE_MAP={};
+
+let CATALOG_ITEMS=[];
+
+let CASES_DATA=[];
+
+let currentUser=null;
+
+let currentTab='inventory';
+
+let activeCase=null;
+
+let isCaseSpinning=false;
+
+let currentWonItem=null;
+
+let selectedItemIndex=null;
+
+let targetWeapon=null;
+
+let isSpinning=false;
+
+let currentRotation=0;
+
+let activeQuickChance=null;
+
+let quickChances=[10,20,30,40,50,70];
+
+const MAX_CHANCE=70;
+
+const canvas=document.getElementById('wheelCanvas');
+
+const ctx=canvas.getContext('2d');
+
+const track=document.getElementById('rouletteTrack');
+
+
+async function getJSON(url,proxy=false,timeout=FETCH_TIMEOUT){
+
+const u=proxy
+?PROXY+encodeURIComponent(url)
+:url;
+
+const controller=new AbortController();
+
+const timer=setTimeout(
+()=>controller.abort(),
+timeout
+);
+
+try{
+
+const r=await fetch(
+u,
+{
+cache:'no-store',
+signal:controller.signal
+}
+);
+
+if(!r.ok)
+throw new Error('HTTP '+r.status);
+
+return await r.json();
+
+}finally{
+
+clearTimeout(timer);
 
 }
 
-function esc(s){
+}
 
-    return String(s??'').replace(/[&<>"']/g,c=>({
 
-        '&':'&amp;',
-        '<':'&lt;',
-        '>':'&gt;',
-        '"':'&quot;',
-        "'":'&#39;'
+async function getJSONFallback(urls,timeout=FETCH_TIMEOUT){
 
-    }[c]));
+let last=null;
+
+for(const url of urls){
+
+try{
+
+return await getJSON(
+url,
+false,
+timeout
+);
+
+}catch(e){
+
+last=e;
 
 }
 
-function sleep(ms){
+}
 
-    return new Promise(resolve=>
-        setTimeout(resolve,ms)
-    );
+throw last||new Error('API unavailable');
 
 }
 
-/* =========================================================
-   TIMEOUT FETCH
-========================================================= */
 
-async function fetchTimeout(
-    url,
-    options={},
-    timeout=7000
+function escapeHtml(s){
+
+return String(s??'').replace(
+/[&<>"']/g,
+c=>({
+'&':'&amp;',
+'<':'&lt;',
+'>':'&gt;',
+'"':'&quot;',
+"'":'&#39;'
+}[c])
+);
+
+}
+
+
+function escapeAttr(s){
+
+return escapeHtml(s);
+
+}
+
+
+function cleanName(s){
+
+return String(s||'')
+.trim()
+.replace(/\u2122/g,'™');
+
+}
+
+
+function loadCachedPrices(){
+
+try{
+
+const x=JSON.parse(
+localStorage.getItem(
+PRICE_CACHE_KEY
+)||'null'
+);
+
+if(
+x &&
+x.time &&
+Date.now()-x.time<PRICE_CACHE_TTL
 ){
 
-    const controller =
-    new AbortController();
+PRICE_MAP=x.data||{};
 
-    const timer =
-    setTimeout(
-        ()=>controller.abort(),
-        timeout
-    );
-
-    try{
-
-        const response =
-        await fetch(
-            url,
-            {
-                ...options,
-                signal:controller.signal,
-                cache:'no-store'
-            }
-        );
-
-        clearTimeout(timer);
-
-        if(!response.ok)
-            throw new Error(
-                'HTTP '+response.status
-            );
-
-        return response;
-
-    }catch(e){
-
-        clearTimeout(timer);
-
-        throw e;
-
-    }
+return true;
 
 }
 
-/* =========================================================
-   JSON
-========================================================= */
+}catch(e){}
 
-async function getJSON(url){
-
-    const r =
-    await fetchTimeout(
-        url,
-        {},
-        9000
-    );
-
-    return r.json();
+return false;
 
 }
 
-/* =========================================================
-   PROXY
-========================================================= */
 
-async function proxyJSON(url){
+function saveCachedPrices(){
 
-    for(const proxy of PROXIES){
+try{
 
-        try{
+localStorage.setItem(
+PRICE_CACHE_KEY,
+JSON.stringify({
+time:Date.now(),
+data:PRICE_MAP
+})
+);
 
-            const finalURL =
-            proxy+
-            encodeURIComponent(url);
-
-            const r =
-            await fetchTimeout(
-                finalURL,
-                {},
-                4500
-            );
-
-            return await r.json();
-
-        }catch(e){}
-
-    }
-
-    throw new Error('Steam unavailable');
+}catch(e){}
 
 }
 
-/* =========================================================
-   LOCAL STORAGE
-========================================================= */
 
-function loadUser(){
+async function fetchOneSteamPrice(name){
 
-    try{
+const key=cleanName(name);
 
-        const data =
-        JSON.parse(
-            localStorage.getItem(
-                'zenodrop_user'
-            )||'null'
-        );
+if(PRICE_MAP[key]>0)
+return PRICE_MAP[key];
 
-        if(data){
+const u=
+STEAM+
+'/priceoverview/?appid=730&currency=5&market_hash_name='+
+encodeURIComponent(key);
 
-            user = {
-                ...user,
-                ...data,
-                stats:{
-                    ...user.stats,
-                    ...(data.stats||{})
-                }
-            };
+try{
 
-        }
+const d=await getJSON(
+u,
+true,
+6500
+);
 
-    }catch(e){}
+let v=Number(
+d?.lowest_price_value
+);
 
-}
+if(
+!v &&
+d?.lowest_price
+){
 
-function saveUser(){
+const m=String(
+d.lowest_price
+)
+.replace(/\s/g,'')
+.match(/([0-9]+[.,]?[0-9]*)/);
 
-    try{
-
-        localStorage.setItem(
-            'zenodrop_user',
-            JSON.stringify(user)
-        );
-
-    }catch(e){}
+if(m)
+v=parseFloat(
+m[1].replace(',','.')
+);
 
 }
 
-/* =========================================================
-   PRICE CACHE
-========================================================= */
+if(
+Number.isFinite(v) &&
+v>0
+){
 
-function loadPriceCache(){
+PRICE_MAP[key]=v;
 
-    try{
-
-        const data =
-        JSON.parse(
-            localStorage.getItem(
-                CACHE_KEY
-            )||'null'
-        );
-
-        if(
-            data &&
-            data.time &&
-            Date.now()-data.time<CACHE_TTL &&
-            data.prices
-        ){
-
-            priceMap=data.prices;
-
-            return true;
-
-        }
-
-    }catch(e){}
-
-    return false;
+return v;
 
 }
 
-function savePriceCache(){
+}catch(e){}
 
-    try{
-
-        localStorage.setItem(
-            CACHE_KEY,
-            JSON.stringify({
-
-                time:Date.now(),
-
-                prices:priceMap
-
-            })
-        );
-
-    }catch(e){}
+return 0;
 
 }
 
-/* =========================================================
-   PRICE PARSER
-========================================================= */
 
-function parsePrice(value){
+async function enrichPrices(items,limit=60){
 
-    if(value===null||
-       value===undefined)
-        return 0;
+const todo=items
+.filter(
+x=>!PRICE_MAP[cleanName(x.name)]
+)
+.slice(0,limit);
 
-    if(
-        typeof value==='number'
-    ){
+let pos=0;
 
-        return value>0
-            ?value/100
-            :0;
+async function worker(){
 
-    }
+while(pos<todo.length){
 
-    const match =
-    String(value)
-    .replace(/\s/g,'')
-    .match(
-        /[0-9]+(?:[.,][0-9]+)?/
-    );
+const x=todo[pos++];
 
-    if(!match)return 0;
+await fetchOneSteamPrice(
+x.name
+);
 
-    const number =
-    parseFloat(
-        match[0].replace(',','.')
-    );
-
-    return Number.isFinite(number)
-        ?number
-        :0;
+await new Promise(
+r=>setTimeout(r,700)
+);
 
 }
 
-/* =========================================================
-   STEAM PRICE
-========================================================= */
+}
 
-async function getSteamPrice(name){
+await Promise.all(
+Array.from(
+{length:2},
+worker
+)
+);
 
-    if(
-        priceMap[name] &&
-        priceMap[name]>0
-    ){
+saveCachedPrices();
 
-        return priceMap[name];
-
-    }
-
-    try{
-
-        const url =
-        STEAM+
-        '/priceoverview/?appid=730'+
-        '&currency=5'+
-        '&market_hash_name='+
-        encodeURIComponent(name);
-
-        const data =
-        await proxyJSON(url);
-
-        if(
-            data &&
-            data.success
-        ){
-
-            let price=0;
-
-            if(
-                data.lowest_price_value &&
-                Number(data.lowest_price_value)>0
-            ){
-
-                price =
-                Number(
-                    data.lowest_price_value
-                )/100;
-
-            }
-
-            if(
-                !price &&
-                data.lowest_price
-            ){
-
-                price =
-                parsePrice(
-                    data.lowest_price
-                );
-
-            }
-
-            if(price>0){
-
-                priceMap[name]=price;
-
-                return price;
-
-            }
-
-        }
-
-    }catch(e){}
-
-    return 0;
+items.forEach(
+x=>{
+x.value=Number(
+PRICE_MAP[
+cleanName(x.name)
+]||0
+);
+}
+);
 
 }
 
-/* =========================================================
-   LOAD CATALOG
-   ВАЖНО:
-   Сайт НЕ ждёт цены.
-========================================================= */
 
-async function loadCatalog(){
+function normalizeSkin(x,i){
 
-    $('loadingText').textContent =
-    'Загрузка скинов...';
+const name=cleanName(
+x.market_hash_name||
+x.name||
+('Skin #'+i)
+);
 
-    const raw =
-    await getJSON(API_SKINS);
+return{
 
-    const array =
-    Array.isArray(raw)
-    ?raw
-    :Object.values(raw);
+id:x.id||('skin_'+i),
 
-    const map = new Map();
+name:name,
 
-    for(
-        let i=0;
-        i<array.length;
-        i++
-    ){
+category:'skins',
 
-        const x=array[i];
+value:Number(
+PRICE_MAP[name]||0
+),
 
-        if(
-            !x ||
-            !x.image ||
-            !(x.market_hash_name||x.name)
-        )continue;
+img:x.image||'',
 
-        const name =
-        String(
-            x.market_hash_name||x.name
-        ).trim();
+api:x
 
-        if(!map.has(name)){
-
-            map.set(
-                name,
-                {
-
-                    id:
-                    x.id||
-                    'skin_'+i,
-
-                    name:name,
-
-                    category:'skins',
-
-                    img:x.image,
-
-                    value:
-                    Number(
-                        priceMap[name]||0
-                    )
-
-                }
-            );
-
-        }
-
-    }
-
-    catalog =
-    [...map.values()];
+};
 
 }
 
-/* =========================================================
-   BACKGROUND PRICES
-========================================================= */
 
-async function loadPricesInBackground(){
+function findApiSkin(name){
 
-    if(priceLoading)return;
+if(!name)
+return null;
 
-    priceLoading=true;
+const n=
+cleanName(name)
+.toLowerCase();
 
-    const need =
-    catalog.filter(
-        x=>!priceMap[x.name]
-    );
-
-    /*
-       Только 100 за один запуск.
-       Не блокирует сайт.
-    */
-
-    const list =
-    need.slice(0,100);
-
-    let position=0;
-
-    const worker = async()=>{
-
-        while(true){
-
-            const index =
-            position++;
-
-            if(index>=list.length)
-                return;
-
-            const item=list[index];
-
-            const price =
-            await getSteamPrice(
-                item.name
-            );
-
-            if(price>0){
-
-                item.value=price;
-
-            }
-
-            /*
-               Маленькая задержка,
-               чтобы не DDOSить Steam.
-            */
-
-            await sleep(80);
-
-        }
-
-    };
-
-    await Promise.all([
-
-        worker(),
-        worker(),
-        worker(),
-        worker()
-
-    ]);
-
-    catalog.forEach(x=>{
-
-        if(priceMap[x.name])
-            x.value =
-            priceMap[x.name];
-
-    });
-
-    savePriceCache();
-
-    /*
-       Обновляем интерфейс только один раз
-       после фоновой загрузки.
-    */
-
-    renderGrid();
-    renderCases();
-    updateUI();
-
-    priceLoading=false;
-
-    /*
-       Если ещё остались предметы,
-       продолжаем следующей пачкой.
-    */
-
-    const left =
-    catalog.filter(
-        x=>!priceMap[x.name]
-    ).length;
-
-    if(left>0){
-
-        setTimeout(
-            loadPricesInBackground,
-            500
-        );
-
-    }
+return CATALOG_ITEMS.find(
+x=>x.name.toLowerCase()===n
+)||CATALOG_ITEMS.find(
+x=>
+x.name
+.toLowerCase()
+.replace(/\s*\([^)]*\)$/,'')
+===
+n.replace(/\s*\([^)]*\)$/,'')
+)||null;
 
 }
 
-/* =========================================================
-   CASES
-========================================================= */
 
 function getCaseBands(price){
 
-    const m =
-    price/100;
+const m=price/100;
 
-    return [
+return[
 
-        {
-            min:10*m,
-            max:Infinity,
-            chance:.002
-        },
+{
+min:10*m,
+max:Infinity,
+p:0.002
+},
 
-        {
-            min:5*m,
-            max:10*m,
-            chance:1
-        },
+{
+min:5*m,
+max:10*m,
+p:1
+},
 
-        {
-            min:4*m,
-            max:5*m,
-            chance:5
-        },
+{
+min:4*m,
+max:5*m,
+p:5
+},
 
-        {
-            min:3*m,
-            max:4*m,
-            chance:7
-        },
+{
+min:3*m,
+max:4*m,
+p:7
+},
 
-        {
-            min:2*m,
-            max:3*m,
-            chance:9
-        },
+{
+min:2*m,
+max:3*m,
+p:9
+},
 
-        {
-            min:1.5*m,
-            max:2*m,
-            chance:7.998
-        },
+{
+min:1.5*m,
+max:2*m,
+p:7.998
+},
 
-        {
-            min:0,
-            max:1.5*m,
-            chance:70
-        }
-
-    ];
-
+{
+min:0,
+max:1.5*m,
+p:70
 }
 
-function randomFrom(array){
-
-    if(!array.length)
-        return null;
-
-    return array[
-        Math.floor(
-            Math.random()*array.length
-        )
-    ];
-
-}
-
-function buildCase(price){
-
-    const all =
-    catalog.filter(
-        x=>x.img
-    );
-
-    if(!all.length)
-        return [];
-
-    const result=[];
-    const used=new Set();
-
-    function add(item){
-
-        if(
-            item &&
-            !used.has(item.id)
-        ){
-
-            used.add(item.id);
-            result.push(item);
-
-        }
-
-    }
-
-    const bands =
-    getCaseBands(price);
-
-    for(const band of bands){
-
-        const pool =
-        all.filter(
-            x=>
-            x.value>0 &&
-            x.value>=band.min &&
-            x.value<band.max
-        );
-
-        for(
-            let i=0;
-            i<Math.min(3,pool.length);
-            i++
-        ){
-
-            add(
-                randomFrom(pool)
-            );
-
-        }
-
-    }
-
-    /*
-       Если цены ещё не успели загрузиться,
-       кейс всё равно НЕ пустой.
-    */
-
-    if(result.length<8){
-
-        const fallback =
-        all
-        .filter(x=>x.value>0);
-
-        for(
-            const item of fallback
-        ){
-
-            if(result.length>=20)
-                break;
-
-            add(item);
-
-        }
-
-    }
-
-    /*
-       Последний fallback —
-       реальные изображения ByMykel.
-    */
-
-    if(result.length<8){
-
-        for(
-            const item of all
-        ){
-
-            if(result.length>=20)
-                break;
-
-            add(item);
-
-        }
-
-    }
-
-    return result;
-
-}
-
-function createCases(){
-
-    const prices=[
-        13,20,30,50,75,
-        100,150,200,300,
-        400,500,750,1000,
-        1500,2500,5000,
-        10000,25000,50000
-    ];
-
-    const names=[
-        'Мини',
-        'Старт',
-        'Неон',
-        'Бронза',
-        'Серебро',
-        'Классик',
-        'Феникс',
-        'Рейд',
-        'Охотник',
-        'Премиум',
-        'Голд',
-        'Элит',
-        'Империя',
-        'Титан',
-        'Оникс',
-        'Даймонд',
-        'Легенда',
-        'Black',
-        'Ultra'
-    ];
-
-    cases =
-    prices.map(
-        (price,index)=>({
-
-            id:'case_'+price,
-
-            name:
-            'Кейс '+
-            names[index],
-
-            price:price,
-
-            items:
-            buildCase(price)
-
-        })
-    );
-
-}
-
-/* =========================================================
-   NAVIGATION
-========================================================= */
-
-function switchTab(tab){
-
-    document
-    .querySelectorAll('.nav button')
-    .forEach(
-        x=>x.classList.remove('active')
-    );
-
-    document
-    .querySelectorAll('.tab')
-    .forEach(
-        x=>x.classList.remove('active')
-    );
-
-    if(tab==='upgrade'){
-
-        $('navUpgrade')
-        .classList.add('active');
-
-        $('upgradeTab')
-        .classList.add('active');
-
-        renderGrid();
-        updateUI();
-
-    }
-
-    if(tab==='cases'){
-
-        $('navCases')
-        .classList.add('active');
-
-        $('casesTab')
-        .classList.add('active');
-
-        renderCases();
-
-    }
-
-    if(tab==='profile'){
-
-        $('navProfile')
-        .classList.add('active');
-
-        $('profileTab')
-        .classList.add('active');
-
-        renderProfile();
-
-    }
-
-}
-
-/* =========================================================
-   CATALOG
-========================================================= */
-
-function catalogTab(type){
-
-    catalogType=type;
-
-    visibleCount=PAGE_SIZE;
-
-    document
-    .querySelectorAll('.tabs button')
-    .forEach(
-        x=>x.classList.remove('active')
-    );
-
-    const buttons={
-
-        inventory:'myTab',
-        skins:'skinsTab',
-        stickers:'stickersTab',
-        music:'musicTab'
-
-    };
-
-    $(buttons[type])
-    .classList.add('active');
-
-    $('filters')
-    .classList.toggle(
-        'active',
-        type!=='inventory'
-    );
-
-    renderGrid();
-
-}
-
-/* =========================================================
-   CARD
-========================================================= */
-
-function makeCard(
-    item,
-    selected,
-    click
-){
-
-    const div =
-    document.createElement('div');
-
-    div.className =
-    'item'+
-    (selected?' selected':'');
-
-    const price =
-    item.value>0
-    ?money(item.value)
-    :'Цена загружается…';
-
-    div.innerHTML=`
-
-        <img
-            src="${esc(item.img)}"
-            loading="lazy"
-            decoding="async"
-        >
-
-        <div class="item-name">
-            ${esc(item.name)}
-        </div>
-
-        <div class="item-price">
-            ${price}
-        </div>
-
-    `;
-
-    div.onclick=click;
-
-    return div;
-
-}
-
-/* =========================================================
-   GRID
-========================================================= */
-
-function renderGrid(){
-
-    const grid =
-    $('itemsGrid');
-
-    grid.replaceChildren();
-
-    let items=[];
-
-    if(catalogType==='inventory'){
-
-        items=user.inventory;
-
-    }else{
-
-        const min =
-        Number(
-            $('minPrice').value
-        )||0;
-
-        const max =
-        Number(
-            $('maxPrice').value
-        )||Infinity;
-
-        items =
-        catalog.filter(
-            x=>
-            x.category===catalogType &&
-            x.value>=min &&
-            x.value<=max
-        );
-
-    }
-
-    if(!items.length){
-
-        grid.innerHTML =
-        '<div class="empty">Скины не найдены</div>';
-
-        return;
-
-    }
-
-    const fragment =
-    document.createDocumentFragment();
-
-    const count =
-    Math.min(
-        visibleCount,
-        items.length
-    );
-
-    for(
-        let i=0;
-        i<count;
-        i++
-    ){
-
-        const item=items[i];
-
-        fragment.appendChild(
-
-            makeCard(
-
-                item,
-
-                catalogType==='inventory'
-                ?selectedIndex===i
-                :target?.id===item.id,
-
-                ()=>{
-
-                    if(
-                        catalogType===
-                        'inventory'
-                    ){
-
-                        selectInventory(i);
-
-                    }else{
-
-                        selectTarget(item);
-
-                    }
-
-                }
-
-            )
-
-        );
-
-    }
-
-    if(count<items.length){
-
-        const more =
-        document.createElement('button');
-
-        more.className='more';
-
-        more.textContent=
-        'Показать ещё';
-
-        more.onclick=()=>{
-
-            visibleCount+=PAGE_SIZE;
-
-            renderGrid();
-
-        };
-
-        fragment.appendChild(more);
-
-    }
-
-    grid.appendChild(fragment);
-
-}
-
-/* =========================================================
-   INVENTORY
-========================================================= */
-
-function selectInventory(index){
-
-    if(spinning)return;
-
-    selectedIndex=
-    selectedIndex===index
-    ?null
-    :index;
-
-    target=null;
-    activeChance=null;
-
-    renderQuick();
-    renderGrid();
-    updateUI();
-
-}
-
-/* =========================================================
-   TARGET
-========================================================= */
-
-function selectTarget(item){
-
-    if(spinning)return;
-
-    target =
-    target?.id===item.id
-    ?null
-    :item;
-
-    activeChance=null;
-
-    renderQuick();
-    updateUI();
-
-}
-
-/* =========================================================
-   QUICK
-========================================================= */
-
-let quickChances=[
-    10,20,30,40,50,70
 ];
 
-function renderQuick(){
-
-    const q=$('quick');
-
-    q.replaceChildren();
-
-    quickChances.forEach(ch=>{
-
-        const button =
-        document.createElement('button');
-
-        button.textContent=
-        ch+'%';
-
-        if(activeChance===ch)
-            button.classList.add('active');
-
-        button.onclick=()=>
-        applyChance(ch);
-
-        q.appendChild(button);
-
-    });
-
-    const settings =
-    document.createElement('button');
-
-    settings.className='settings';
-
-    settings.textContent='⚙';
-
-    settings.onclick=()=>
-    $('modal').style.display='flex';
-
-    q.appendChild(settings);
-
 }
 
-function applyChance(chance){
-
-    if(
-        selectedIndex===null ||
-        !user.inventory[selectedIndex]
-    ){
-
-        alert(
-            'Сначала выберите свой скин'
-        );
-
-        return;
-
-    }
-
-    const source =
-    user.inventory[selectedIndex];
-
-    if(source.value<=0){
-
-        alert(
-            'Цена выбранного скина ещё загружается'
-        );
-
-        return;
-
-    }
-
-    const desired =
-    source.value/(chance/100);
-
-    let best=null;
-    let difference=Infinity;
-
-    for(const item of catalog){
-
-        if(item.value<=source.value)
-            continue;
-
-        if(item.value<=0)
-            continue;
-
-        const diff =
-        Math.abs(
-            item.value-desired
-        );
-
-        if(diff<difference){
-
-            difference=diff;
-            best=item;
-
-        }
-
-    }
-
-    if(best){
-
-        target=best;
-        activeChance=chance;
-
-        renderQuick();
-        updateUI();
-
-    }
-
-}
-
-/* =========================================================
-   UI
-========================================================= */
-
-function updateUI(){
-
-    const source =
-    selectedIndex!==null
-    ?user.inventory[selectedIndex]
-    :null;
-
-    if(source){
-
-        $('sourceName')
-        .textContent=source.name;
-
-        $('sourcePrice')
-        .textContent=
-        source.value>0
-        ?money(source.value)
-        :'Цена загружается…';
-
-        $('sourceImage').innerHTML=
-        `<img src="${esc(source.img)}">`;
-
-    }else{
-
-        $('sourceName')
-        .textContent='--';
-
-        $('sourcePrice')
-        .textContent='0.00 ₽';
-
-        $('sourceImage')
-        .innerHTML='';
-
-    }
-
-    if(target){
-
-        $('targetName')
-        .textContent=target.name;
-
-        $('targetPrice')
-        .textContent=
-        target.value>0
-        ?money(target.value)
-        :'Цена загружается…';
-
-        $('targetImage').innerHTML=
-        `<img src="${esc(target.img)}">`;
-
-    }else{
-
-        $('targetName')
-        .textContent='--';
-
-        $('targetPrice')
-        .textContent='0.00 ₽';
-
-        $('targetImage')
-        .innerHTML='';
-
-    }
-
-    let chance=0;
-
-    if(
-        source &&
-        target &&
-        target.value>source.value
-    ){
-
-        chance =
-        activeChance!==null
-        ?activeChance
-        :Math.min(
-            source.value/
-            target.value*
-            100,
-            70
-        );
-
-    }
-
-    $('percent')
-    .textContent=
-    chance.toFixed(2)+'%';
-
-    drawWheel(chance);
-
-    $('upgradeBtn').disabled =
-    !(
-        source &&
-        target &&
-        target.value>source.value &&
-        chance>0 &&
-        chance<=70 &&
-        !spinning
-    );
-
-}
-
-/* =========================================================
-   WHEEL
-========================================================= */
-
-const canvas=$('wheel');
-
-const ctx=
-canvas.getContext('2d');
-
-function drawWheel(chance){
-
-    const center=150;
-    const radius=140;
-
-    ctx.clearRect(
-        0,0,300,300
-    );
-
-    ctx.beginPath();
-
-    ctx.arc(
-        center,
-        center,
-        radius,
-        0,
-        Math.PI*2
-    );
-
-    ctx.fillStyle='#161924';
-    ctx.fill();
-
-    if(chance>0){
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            center,
-            center
-        );
-
-        ctx.arc(
-            center,
-            center,
-            radius,
-            -Math.PI/2,
-            -Math.PI/2+
-            chance/100*
-            Math.PI*2
-        );
-
-        ctx.closePath();
-
-        ctx.fillStyle='#f59e0b';
-        ctx.fill();
-
-    }
-
-    ctx.beginPath();
-
-    ctx.arc(
-        center,
-        center,
-        112,
-        0,
-        Math.PI*2
-    );
-
-    ctx.fillStyle='#11131c';
-    ctx.fill();
-
-}
-
-/* =========================================================
-   UPGRADE
-========================================================= */
-
-let wheelRotation=0;
-
-$('upgradeBtn').onclick=()=>{
-
-    if(
-        spinning ||
-        selectedIndex===null ||
-        !target
-    )return;
-
-    const source =
-    user.inventory[selectedIndex];
-
-    const chance =
-    activeChance!==null
-    ?activeChance
-    :Math.min(
-        source.value/
-        target.value*
-        100,
-        70
-    );
-
-    if(
-        !source ||
-        !target ||
-        source.value<=0 ||
-        target.value<=source.value
-    )return;
-
-    spinning=true;
-
-    $('upgradeBtn').disabled=true;
-    $('wheelOverlay').style.display='block';
-
-    const success =
-    Math.random()*100<chance;
-
-    user.stats.upgradesTotal++;
-
-    saveUser();
-
-    const sector =
-    chance*3.6;
-
-    const angle =
-    success
-    ?-90+
-      sector*
-      (.1+
-      Math.random()*.8)
-    :-90+
-      sector+
-      (360-sector)*
-      (.1+
-      Math.random()*.8);
-
-    const current =
-    ((wheelRotation%360)+360)%360;
-
-    let delta =
-    (-90-angle-current)%360;
-
-    if(delta<0)
-        delta+=360;
-
-    wheelRotation+=
-    2160+delta;
-
-    canvas.style.transition=
-    'transform 3.6s cubic-bezier(.15,.85,.35,1)';
-
-    canvas.style.transform=
-    `rotate(${wheelRotation}deg)`;
-
-    setTimeout(()=>{
-
-        $('result').style.display='flex';
-
-        $('result').textContent=
-        success
-        ?'Успех!'
-        :'Неудача';
-
-        $('result').style.color=
-        success
-        ?'#4ade80'
-        :'#f87171';
-
-        const index =
-        user.inventory.findIndex(
-            x=>x.id===source.id
-        );
-
-        if(index>=0)
-            user.inventory.splice(index,1);
-
-        if(success){
-
-            const won={
-                ...target
-            };
-
-            user.inventory.push(won);
-
-            if(
-                won.value>
-                (user.bestDrop?.value||0)
-            ){
-
-                user.bestDrop={
-                    ...won
-                };
-
-            }
-
-        }
-
-        saveUser();
-
-    },3700);
-
-    setTimeout(()=>{
-
-        $('result').style.display='none';
-
-        $('wheelOverlay').style.display='none';
-
-        spinning=false;
-
-        selectedIndex=null;
-        target=null;
-        activeChance=null;
-
-        canvas.style.transition='none';
-
-        wheelRotation=
-        ((wheelRotation%360)+360)%360;
-
-        canvas.style.transform=
-        `rotate(${wheelRotation}deg)`;
-
-        renderQuick();
-        renderGrid();
-        updateUI();
-
-    },5500);
-
-};
-
-/* =========================================================
-   CASE RENDER
-========================================================= */
-
-function renderCases(){
-
-    const grid=$('casesGrid');
-
-    grid.replaceChildren();
-
-    if(!cases.length){
-
-        grid.innerHTML=
-        '<div class="empty">Кейсы загружаются...</div>';
-
-        return;
-
-    }
-
-    const fragment=
-    document.createDocumentFragment();
-
-    cases.forEach(c=>{
-
-        if(!c.items.length){
-
-            c.items=
-            buildCase(c.price);
-
-        }
-
-        const preview =
-        c.items.find(x=>x.img)
-        ||
-        catalog.find(x=>x.img);
-
-        const div =
-        document.createElement('div');
-
-        div.className='case';
-
-        div.innerHTML=`
-
-            ${
-                preview
-                ?
-                `<img
-                    src="${esc(preview.img)}"
-                    loading="lazy"
-                    decoding="async"
-                >`
-                :
-                `<div style="height:85px"></div>`
-            }
-
-            <div class="case-name">
-                ${esc(c.name)}
-            </div>
-
-            <div class="case-price">
-                ${c.price} ₽
-            </div>
-
-        `;
-
-        div.onclick=()=>openCase(c);
-
-        fragment.appendChild(div);
-
-    });
-
-    grid.appendChild(fragment);
-
-}
-
-/* =========================================================
-   OPEN CASE
-========================================================= */
-
-function openCase(c){
-
-    if(
-        !c.items ||
-        !c.items.length
-    ){
-
-        c.items=
-        buildCase(c.price);
-
-    }
-
-    if(!c.items.length){
-
-        alert(
-            'Скины ещё загружаются'
-        );
-
-        return;
-
-    }
-
-    activeCase=c;
-
-    $('casesList')
-    .style.display='none';
-
-    $('opening')
-    .classList.add('active');
-
-    $('caseTitle')
-    .textContent=
-    c.name+
-    ' · '+
-    c.price+
-    ' ₽';
-
-    $('actions')
-    .style.display='none';
-
-    $('openCaseBtn')
-    .style.display='block';
-
-    renderCaseContents();
-    renderTrack();
-
-}
-
-/* =========================================================
-   CASE CONTENT
-========================================================= */
-
-function renderCaseContents(){
-
-    const grid=
-    $('caseContents');
-
-    grid.replaceChildren();
-
-    if(
-        !activeCase ||
-        !activeCase.items.length
-    ){
-
-        grid.innerHTML=
-        '<div class="empty">Содержимое загружается...</div>';
-
-        return;
-
-    }
-
-    const fragment=
-    document.createDocumentFragment();
-
-    activeCase.items.forEach(item=>{
-
-        fragment.appendChild(
-            makeCard(
-                item,
-                false,
-                ()=>{}
-            )
-        );
-
-    });
-
-    grid.appendChild(fragment);
-
-}
-
-/* =========================================================
-   ROULETTE
-========================================================= */
-
-function renderTrack(){
-
-    const track=$('track');
-
-    track.replaceChildren();
-
-    if(
-        !activeCase ||
-        !activeCase.items.length
-    )return;
-
-    const fragment=
-    document.createDocumentFragment();
-
-    for(
-        let round=0;
-        round<4;
-        round++
-    ){
-
-        activeCase.items.forEach(item=>{
-
-            const div=
-            document.createElement('div');
-
-            div.className=
-            'roulette-item';
-
-            div.innerHTML=`
-
-                <img
-                    src="${esc(item.img)}"
-                    loading="lazy"
-                >
-
-                <strong>
-                    ${esc(item.name)}
-                </strong>
-
-                <span>
-                    ${
-                        item.value>0
-                        ?money(item.value)
-                        :'Цена Steam'
-                    }
-                </span>
-
-            `;
-
-            fragment.appendChild(div);
-
-        });
-
-    }
-
-    track.appendChild(fragment);
-
-}
-
-/* =========================================================
-   CASE SPIN
-========================================================= */
 
 function chooseBand(price){
 
-    const bands=
-    getCaseBands(price);
+let r=Math.random()*100;
 
-    let random=
-    Math.random()*100;
+for(
+const b of getCaseBands(price)
+){
 
-    for(const band of bands){
+if(r<b.p)
+return b;
 
-        if(random<band.chance)
-            return band;
-
-        random-=band.chance;
-
-    }
-
-    return bands[bands.length-1];
+r-=b.p;
 
 }
 
-function openCaseSpin(){
-
-    if(
-        spinning ||
-        !activeCase
-    )return;
-
-    if(
-        user.balance<
-        activeCase.price
-    ){
-
-        alert(
-            'Недостаточно средств!'
-        );
-
-        return;
-
-    }
-
-    if(
-        !activeCase.items.length
-    ){
-
-        activeCase.items=
-        buildCase(
-            activeCase.price
-        );
-
-        renderCaseContents();
-        renderTrack();
-
-    }
-
-    if(
-        !activeCase.items.length
-    ){
-
-        alert(
-            'Кейс пока не готов'
-        );
-
-        return;
-
-    }
-
-    user.balance -=
-    activeCase.price;
-
-    user.stats.casesOpened++;
-
-    saveUser();
-
-    spinning=true;
-
-    $('openCaseBtn')
-    .style.display='none';
-
-    $('actions')
-    .style.display='none';
-
-    const band=
-    chooseBand(
-        activeCase.price
-    );
-
-    let pool =
-    activeCase.items.filter(
-        x=>
-        x.value>0 &&
-        x.value>=band.min &&
-        x.value<band.max
-    );
-
-    if(!pool.length){
-
-        pool=
-        activeCase.items.filter(
-            x=>x.value>0
-        );
-
-    }
-
-    if(!pool.length)
-        pool=activeCase.items;
-
-    wonItem=
-    randomFrom(pool);
-
-    const index=
-    activeCase.items.findIndex(
-        x=>x.id===wonItem.id
-    );
-
-    const itemWidth=110;
-
-    const center=200;
-
-    const cycles=3;
-
-    const distance =
-    cycles*
-    activeCase.items.length*
-    itemWidth+
-    index*
-    itemWidth-
-    center;
-
-    $('track').style.transition='none';
-
-    $('track').style.transform=
-    'translate3d(0,0,0)';
-
-    requestAnimationFrame(()=>{
-
-        requestAnimationFrame(()=>{
-
-            $('track').style.transition=
-            'transform 4s cubic-bezier(.15,.85,.35,1)';
-
-            $('track').style.transform=
-            `translate3d(-${distance}px,0,0)`;
-
-        });
-
-    });
-
-    setTimeout(()=>{
-
-        spinning=false;
-
-        const drop={
-            ...wonItem
-        };
-
-        user.inventory.push(drop);
-
-        if(
-            drop.value>
-            (user.bestDrop?.value||0)
-        ){
-
-            user.bestDrop={
-                ...drop
-            };
-
-        }
-
-        saveUser();
-
-        $('sellBtn').textContent=
-        drop.value>0
-        ?'Продать за '+money(drop.value)
-        :'Продать';
-
-        $('actions').style.display='flex';
-
-    },4300);
+return getCaseBands(price).at(-1);
 
 }
 
-/* =========================================================
-   SELL
-========================================================= */
 
-function sellDrop(){
+function pickFromBand(items,band){
 
-    if(!wonItem)return;
+let pool=items.filter(
+x=>
+x.value>=band.min &&
+x.value<band.max
+);
 
-    if(wonItem.value>0){
+if(!pool.length){
 
-        user.balance +=
-        wonItem.value;
+const center=
+band.max===Infinity
+?
+Math.max(
+band.min*1.25,
+band.min+1
+)
+:
+(band.min+band.max)/2;
 
-    }
-
-    const index=
-    user.inventory.findIndex(
-        x=>x.id===wonItem.id
-    );
-
-    if(index>=0)
-        user.inventory.splice(index,1);
-
-    wonItem=null;
-
-    saveUser();
-
-    $('actions')
-    .style.display='none';
-
-    $('openCaseBtn')
-    .style.display='block';
+pool=items
+.slice()
+.sort(
+(a,b)=>
+Math.abs(a.value-center)-
+Math.abs(b.value-center)
+)
+.slice(0,12);
 
 }
 
-/* =========================================================
-   CLOSE CASE
-========================================================= */
-
-function closeCase(){
-
-    if(spinning)return;
-
-    $('opening')
-    .classList.remove('active');
-
-    $('casesList')
-    .style.display='block';
+return pool[
+Math.floor(
+Math.random()*pool.length
+)
+]||items[0];
 
 }
 
-/* =========================================================
-   PROFILE
-========================================================= */
+
+function buildCaseContents(price,index){
+
+const out=[];
+
+const used=new Set();
+
+for(
+const b of getCaseBands(price)
+){
+
+const center=
+b.max===Infinity
+?
+Math.max(
+b.min*1.3,
+b.min+1
+)
+:
+(b.min+b.max)/2;
+
+const pool=CATALOG_ITEMS
+.filter(
+x=>
+x.value>0 &&
+x.value>=b.min &&
+x.value<b.max
+)
+.sort(
+(a,c)=>
+Math.abs(a.value-center)-
+Math.abs(c.value-center)
+);
+
+pool
+.slice(0,3)
+.forEach(
+x=>{
+if(!used.has(x.id)){
+out.push(x);
+used.add(x.id);
+}
+}
+);
+
+}
+
+CATALOG_ITEMS
+.filter(
+x=>x.value>price*10
+)
+.sort(
+(a,b)=>b.value-a.value
+)
+.slice(0,5)
+.forEach(
+x=>{
+if(!used.has(x.id)){
+out.push(x);
+used.add(x.id);
+}
+}
+);
+
+const pool=CATALOG_ITEMS
+.filter(x=>x.value>0)
+.slice()
+.sort(
+(a,b)=>
+hashCode(a.id+index)-
+hashCode(b.id+index)
+);
+
+for(const x of pool){
+
+if(out.length>=28)
+break;
+
+if(!used.has(x.id)){
+
+out.push(x);
+
+used.add(x.id);
+
+}
+
+}
+
+return out.slice(0,28);
+
+}
+
+
+function hashCode(str){
+
+let h=2166136261;
+
+for(
+let i=0;
+i<str.length;
+i++
+){
+
+h^=str.charCodeAt(i);
+
+h=Math.imul(
+h,
+16777619
+);
+
+}
+
+return h>>>0;
+
+}
+
+
+function buildCases(){
+
+const prices=[
+13,
+20,
+30,
+50,
+75,
+100,
+150,
+200,
+300,
+400,
+500,
+750,
+1000,
+1500,
+2500,
+5000,
+10000,
+25000,
+50000
+];
+
+const names=[
+'Мини',
+'Старт',
+'Неон',
+'Бронза',
+'Серебро',
+'Классик',
+'Феникс',
+'Рейд',
+'Охотник',
+'Премиум',
+'Голд',
+'Элит',
+'Империя',
+'Титан',
+'Оникс',
+'Даймонд',
+'Легенда',
+'Black',
+'Ultra'
+];
+
+CASES_DATA=prices.map(
+(price,i)=>({
+
+id:'case_'+price,
+
+name:'Кейс '+names[i],
+
+price:price,
+
+items:buildCaseContents(
+price,
+i
+)
+
+})
+);
+
+}
+
+
+function defaultUser(
+steamId,
+name,
+avatar
+){
+
+return{
+
+steamId,
+
+username:name,
+
+avatar,
+
+balance:3500,
+
+tradeUrl:'',
+
+stats:{
+upgradesTotal:0,
+casesOpened:0,
+totalDeposited:0
+},
+
+bestDrop:{
+name:'--',
+value:0,
+img:''
+},
+
+inventory:[]
+
+};
+
+}
+
+
+function normalizeUser(
+user,
+steamId,
+name,
+avatar
+){
+
+if(
+!user ||
+typeof user!=='object'
+)
+user=defaultUser(
+steamId,
+name,
+avatar
+);
+
+user.steamId=
+user.steamId||
+steamId;
+
+user.username=
+user.username||
+name;
+
+user.avatar=
+user.avatar||
+avatar;
+
+if(
+typeof user.balance!=='number'
+)
+user.balance=3500;
+
+if(!user.stats)
+user.stats={
+upgradesTotal:0,
+casesOpened:0,
+totalDeposited:0
+};
+
+[
+'upgradesTotal',
+'casesOpened',
+'totalDeposited'
+].forEach(
+k=>{
+if(
+typeof user.stats[k]!=='number'
+)
+user.stats[k]=0;
+}
+);
+
+if(!user.bestDrop)
+user.bestDrop={
+name:'--',
+value:0,
+img:''
+};
+
+if(!Array.isArray(user.inventory))
+user.inventory=[];
+
+user.inventory.forEach(
+x=>{
+const a=findApiSkin(
+x.name
+);
+
+if(a){
+
+x.id=a.id;
+x.name=a.name;
+x.img=a.img;
+x.value=a.value;
+
+}
+
+}
+);
+
+return user;
+
+}
+
+
+function saveUserData(){
+
+if(!currentUser)
+return;
+
+localStorage.setItem(
+'zeno_user_'+currentUser.steamId,
+JSON.stringify(currentUser)
+);
+
+localStorage.setItem(
+'zeno_current_user',
+JSON.stringify(currentUser)
+);
+
+}
+
+
+function loadUserData(
+id,
+n,
+a
+){
+
+let u=null;
+
+try{
+
+u=JSON.parse(
+localStorage.getItem(
+'zeno_user_'+id
+)||'null'
+);
+
+}catch(e){}
+
+currentUser=
+normalizeUser(
+u,
+id,
+n,
+a
+);
+
+saveUserData();
+
+}
+
+
+async function initializeApp(){
+
+const loading=
+document.getElementById(
+'loadingScreen'
+);
+
+const loadingText=
+document.getElementById(
+'loadingText'
+);
+
+let finished=false;
+
+const hardStop=setTimeout(
+()=>{
+
+if(finished)
+return;
+
+finished=true;
+
+loadingText.textContent=
+'Запуск без цен Steam…';
+
+loading.style.opacity='0';
+
+setTimeout(
+()=>{
+loading.style.display='none'
+},
+350
+);
+
+buildCases();
+
+if(!currentUser){
+
+currentUser=
+normalizeUser(
+null,
+'default_76561198',
+'Гость',
+''
+);
+
+}
+
+saveUserData();
+
+renderQuickChances();
+
+updateHeaderAvatar();
+
+switchMainTab(
+'upgrade'
+);
+
+},
+10000
+);
+
+try{
+
+loadingText.textContent=
+'Загрузка скинов ByMykel…';
+
+const raw=
+await getJSONFallback(
+API.skins,
+7500
+);
+
+const arr=
+Array.isArray(raw)
+?
+raw
+:
+Object.values(raw);
+
+CATALOG_ITEMS=
+arr
+.filter(
+x=>
+x &&
+x.image &&
+(
+x.market_hash_name||
+x.name
+)
+)
+.map(
+normalizeSkin
+);
+
+const uniq=new Map();
+
+CATALOG_ITEMS.forEach(
+x=>{
+if(!uniq.has(x.name))
+uniq.set(x.name,x);
+}
+);
+
+CATALOG_ITEMS=[
+...uniq.values()
+];
+
+if(!CATALOG_ITEMS.length)
+throw new Error(
+'Пустой каталог ByMykel'
+);
+
+buildCases();
+
+let saved=null;
+
+try{
+
+saved=JSON.parse(
+localStorage.getItem(
+'zeno_current_user'
+)||'null'
+);
+
+}catch(e){}
+
+if(
+saved &&
+saved.steamId
+){
+
+loadUserData(
+saved.steamId,
+saved.username,
+saved.avatar
+);
+
+}
+
+if(!currentUser){
+
+currentUser=
+normalizeUser(
+null,
+'default_76561198',
+'Гость',
+''
+);
+
+}
+
+if(!currentUser.inventory.length){
+
+currentUser.inventory=
+CATALOG_ITEMS
+.slice(0,2)
+.map(
+x=>({...x})
+);
+
+}
+
+saveUserData();
+
+finished=true;
+
+clearTimeout(
+hardStop
+);
+
+loading.style.opacity='0';
+
+setTimeout(
+()=>{
+loading.style.display='none'
+},
+350
+);
+
+renderQuickChances();
+
+updateHeaderAvatar();
+
+switchMainTab(
+'upgrade'
+);
+
+setTimeout(
+async()=>{
+
+try{
+
+loadCachedPrices();
+
+CATALOG_ITEMS.forEach(
+x=>{
+x.value=
+Number(
+PRICE_MAP[
+cleanName(x.name)
+]||0
+);
+}
+);
+
+await enrichPrices(
+CATALOG_ITEMS,
+60
+);
+
+CATALOG_ITEMS.forEach(
+x=>{
+x.value=
+Number(
+PRICE_MAP[
+cleanName(x.name)
+]||0
+);
+}
+);
+
+buildCases();
+
+if(currentUser){
+
+currentUser=
+normalizeUser(
+currentUser,
+currentUser.steamId,
+currentUser.username,
+currentUser.avatar
+);
+
+}
+
+saveUserData();
+
+renderGrid();
+
+renderCasesList();
+
+updateUI();
+
+}catch(e){
+
+console.warn(
+'Steam prices unavailable:',
+e
+);
+
+}
+
+},
+50
+);
+
+}catch(e){
+
+console.error(e);
+
+clearTimeout(hardStop);
+
+finished=true;
+
+loadingText.textContent=
+'Не удалось загрузить каталог. Проверь интернет и обнови страницу.';
+
+setTimeout(
+()=>{
+loading.style.opacity='0';
+
+setTimeout(
+()=>{
+loading.style.display='none'
+},
+350
+);
+
+},
+1800
+);
+
+}
+
+}
+
+
+function logoutSteam(){
+
+localStorage.removeItem(
+'zeno_current_user'
+);
+
+currentUser=
+defaultUser(
+'guest',
+'Гость',
+''
+);
+
+updateHeaderAvatar();
+
+switchMainTab(
+'profile'
+);
+
+}
+
+
+function updateHeaderAvatar(){
+
+const b=
+document.getElementById(
+'headerAvatarContainer'
+);
+
+if(!b)
+return;
+
+b.innerHTML=
+currentUser?.avatar
+?
+`<img src="${escapeAttr(
+currentUser.avatar
+)}" alt="Avatar">`
+:
+'<div style="width:100%;height:100%;background:#333"></div>';
+
+}
+
+
+function switchMainTab(tab){
+
+[
+'navUpgrade',
+'navCases',
+'navProfile'
+]
+.forEach(
+x=>
+document
+.getElementById(x)
+.classList.remove('active')
+);
+
+[
+'tabUpgradeContent',
+'tabCasesContent',
+'tabProfileContent'
+]
+.forEach(
+x=>
+document
+.getElementById(x)
+.classList.remove('active')
+);
+
+if(tab==='upgrade'){
+
+document
+.getElementById('navUpgrade')
+.classList.add('active');
+
+document
+.getElementById('tabUpgradeContent')
+.classList.add('active');
+
+renderGrid();
+
+updateUI();
+
+}else if(tab==='cases'){
+
+document
+.getElementById('navCases')
+.classList.add('active');
+
+document
+.getElementById('tabCasesContent')
+.classList.add('active');
+
+renderCasesList();
+
+}else{
+
+document
+.getElementById('navProfile')
+.classList.add('active');
+
+document
+.getElementById('tabProfileContent')
+.classList.add('active');
+
+renderProfile();
+
+}
+
+}
+
+
+function switchCatalogTab(t){
+
+currentTab=t;
+
+[
+'tabInventory',
+'tabCatalogSkins',
+'tabCatalogStickers',
+'tabCatalogMusic'
+]
+.forEach(
+x=>
+document
+.getElementById(x)
+.classList.remove('active')
+);
+
+document
+.getElementById({
+inventory:'tabInventory',
+skins:'tabCatalogSkins',
+stickers:'tabCatalogStickers',
+music:'tabCatalogMusic'
+}[t])
+.classList.add('active');
+
+renderGrid();
+
+}
+
 
 function renderProfile(){
 
-    const p=$('profile');
-
-    const best=
-    user.bestDrop||{
-        name:'--',
-        value:0,
-        img:''
-    };
-
-    p.innerHTML=`
-
-    <div class="profile-box">
-
-        <div class="profile-top">
-
-            <span>
-                ${esc(user.username)}
-            </span>
-
-            <span
-                class="logout"
-                onclick="logout()"
-            >
-                Выйти
-            </span>
-
-        </div>
-
-        <div class="profile-avatar">
-
-            ${
-                user.avatar
-                ?
-                `<img src="${esc(user.avatar)}">`
-                :
-                ''
-            }
-
-        </div>
-
-        <div class="stats">
-
-            <div class="stat">
-
-                <small>
-                    Апгрейды
-                </small>
-
-                <b>
-                    ${user.stats.upgradesTotal}
-                </b>
-
-            </div>
-
-            <div class="stat">
-
-                <small>
-                    Кейсы
-                </small>
-
-                <b>
-                    ${user.stats.casesOpened}
-                </b>
-
-            </div>
-
-            <div class="stat">
-
-                <small>
-                    Депозит
-                </small>
-
-                <b>
-                    ${user.stats.totalDeposited} ₽
-                </b>
-
-            </div>
-
-        </div>
-
-        <div class="balance">
-
-            <b>
-                ${money(user.balance)}
-            </b>
-
-            <button
-                class="topup"
-                onclick="topUp()"
-            >
-                Пополнить
-            </button>
-
-        </div>
-
-    </div>
-
-    <div class="profile-box">
-
-        <div class="type">
-            Лучший дроп
-        </div>
-
-        <div style="
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            margin-top:10px
-        ">
-
-            <div>
-
-                <div style="
-                    color:#fff;
-                    font-weight:900;
-                    font-size:12px
-                ">
-                    ${esc(best.name)}
-                </div>
-
-                <div style="
-                    color:#fbbf24;
-                    font-weight:900;
-                    margin-top:4px
-                ">
-                    ${
-                        best.value>0
-                        ?money(best.value)
-                        :'--'
-                    }
-                </div>
-
-            </div>
-
-            ${
-                best.img
-                ?
-                `<img
-                    src="${esc(best.img)}"
-                    style="
-                        width:65px;
-                        height:45px;
-                        object-fit:contain
-                    "
-                >`
-                :
-                ''
-            }
-
-        </div>
-
-    </div>
-
-    <div class="profile-box">
-
-        <div style="
-            color:#fff;
-            font-weight:900;
-            margin-bottom:10px
-        ">
-            Инвентарь (${user.inventory.length})
-        </div>
-
-        <div
-            class="grid"
-            id="profileGrid"
-        ></div>
-
-    </div>
-
-    `;
-
-    const grid=
-    $('profileGrid');
-
-    const fragment=
-    document.createDocumentFragment();
-
-    user.inventory.forEach(item=>{
-
-        fragment.appendChild(
-            makeCard(
-                item,
-                false,
-                ()=>{}
-            )
-        );
-
-    });
-
-    grid.appendChild(fragment);
-
-}
-
-function topUp(){
-
-    user.balance+=1000;
-
-    user.stats.totalDeposited+=1000;
-
-    saveUser();
-
-    renderProfile();
-
-}
-
-function logout(){
-
-    localStorage.removeItem(
-        'zenodrop_user'
-    );
-
-    location.reload();
-
-}
-
-/* =========================================================
-   MODAL
-========================================================= */
-
-function closeModal(){
-
-    $('modal')
-    .style.display='none';
-
-}
-
-function saveQuick(){
-
-    const values =
-    $('quickInput')
-    .value
-    .split(',')
-    .map(x=>parseInt(x.trim()))
-    .filter(
-        x=>
-        Number.isFinite(x)&&
-        x>0&&
-        x<=70
-    );
-
-    if(values.length){
-
-        quickChances=[
-            ...new Set(values)
-        ];
-
-    }
-
-    closeModal();
-
-    renderQuick();
-
-}
-
-/* =========================================================
-   FILTER
-========================================================= */
-
-let filterTimer=null;
-
-function filterChanged(){
-
-    clearTimeout(filterTimer);
-
-    filterTimer=
-    setTimeout(()=>{
-
-        visibleCount=
-        PAGE_SIZE;
-
-        renderGrid();
-
-    },150);
-
-}
-
-$('minPrice')
-.addEventListener(
-    'input',
-    filterChanged
+const a=
+document.getElementById(
+'profileContentArea'
 );
 
-$('maxPrice')
-.addEventListener(
-    'input',
-    filterChanged
-);
+const s=
+currentUser.stats;
 
-/* =========================================================
-   HEADER
-========================================================= */
+const b=
+currentUser.bestDrop;
 
-function renderHeader(){
+if(!a)
+return;
 
-    if(user.avatar){
+a.innerHTML=`
 
-        $('headerAvatar').innerHTML=
-        `<img src="${esc(user.avatar)}">`;
+<div class="profile-main-card">
 
-    }else{
+<div class="profile-top-row">
 
-        $('headerAvatar').innerHTML=
-        `<div style="
-            width:100%;
-            height:100%;
-            background:#292c35
-        "></div>`;
+<div class="profile-username">
+${escapeHtml(
+currentUser.username
+)}
+</div>
 
-    }
+<div class="profile-actions-top">
+
+<span
+onclick="logoutSteam()"
+style="color:#f87171"
+>
+Выйти
+</span>
+
+</div>
+
+</div>
+
+<div class="profile-center-row">
+
+<div class="profile-avatar-large">
+
+${
+currentUser.avatar
+?
+`<img src="${escapeAttr(
+currentUser.avatar
+)}">`
+:
+''
+}
+
+</div>
+
+</div>
+
+<div class="stats-grid">
+
+<div class="stat-card">
+
+<div class="stat-title">
+Апгрейды
+</div>
+
+<div class="stat-value">
+${s.upgradesTotal}
+</div>
+
+</div>
+
+<div class="stat-card">
+
+<div class="stat-title">
+Кейсы
+</div>
+
+<div class="stat-value">
+${s.casesOpened}
+</div>
+
+</div>
+
+<div class="stat-card">
+
+<div class="stat-title">
+Депозит
+</div>
+
+<div class="stat-value">
+${s.totalDeposited} ₽
+</div>
+
+</div>
+
+</div>
+
+<div class="profile-balance-row">
+
+<div>
+
+<div class="balance-amount">
+${currentUser.balance.toFixed(2)} ₽
+</div>
+
+<div class="balance-history">
+История
+</div>
+
+</div>
+
+<button
+class="topup-btn"
+onclick="topUpBalance()"
+>
+Пополнить
+</button>
+
+</div>
+
+</div>
+
+<div class="best-drop-card">
+
+<div class="best-drop-title">
+Лучший дроп
+</div>
+
+<div class="best-drop-content">
+
+<div>
+
+<div class="best-drop-name">
+${escapeHtml(b.name)}
+</div>
+
+<div class="best-drop-price">
+${
+b.value>0
+?
+b.value.toFixed(2)+' ₽'
+:
+'--'
+}
+</div>
+
+</div>
+
+${
+b.img
+?
+`<img src="${escapeAttr(
+b.img
+)}" class="best-drop-img">`
+:
+''
+}
+
+</div>
+
+</div>
+
+<div class="profile-inventory-box">
+
+<div
+style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase"
+>
+Инвентарь (${currentUser.inventory.length})
+</div>
+
+<div
+class="items-grid"
+id="profileItemsGrid"
+style="max-height:250px"
+>
+</div>
+
+</div>
+
+`;
+
+renderProfileInventory();
 
 }
 
-/* =========================================================
-   QUICK
-========================================================= */
 
-renderQuick();
+function topUpBalance(){
 
-/* =========================================================
-   INIT
-========================================================= */
+currentUser.balance+=1000;
 
-async function init(){
+currentUser.stats.totalDeposited+=1000;
 
-    loadUser();
+saveUserData();
 
-    renderHeader();
+renderProfile();
 
-    renderQuick();
-
-    /*
-       Загружаем ТОЛЬКО каталог.
-       Цены здесь НЕ ждём.
-    */
-
-    try{
-
-        await loadCatalog();
-
-    }catch(error){
-
-        console.error(error);
-
-        $('loadingText').innerHTML=
-        'Ошибка загрузки скинов.<br>'+
-        '<small style="color:#777">'+
-        'Проверь интернет и обнови страницу.'+
-        '</small>';
-
-        return;
-
-    }
-
-    /*
-       Создаём кейсы сразу.
-    */
-
-    createCases();
-
-    /*
-       Если инвентарь пустой,
-       выдаём первые доступные предметы.
-    */
-
-    if(!user.inventory.length){
-
-        const starter =
-        catalog
-        .filter(
-            x=>x.img
-        )
-        .slice(0,3);
-
-        user.inventory=
-        starter.map(
-            x=>({...x})
-        );
-
-        saveUser();
-
-    }
-
-    renderGrid();
-
-    updateUI();
-
-    renderCases();
-
-    /*
-       ВОТ ЗДЕСЬ САМОЕ ГЛАВНОЕ:
-       загрузочный экран больше НЕ ждёт Steam.
-    */
-
-    $('loading')
-    .style.opacity='0';
-
-    setTimeout(()=>{
-
-        $('loading')
-        .style.display='none';
-
-    },250);
-
-    /*
-       ЦЕНЫ НАЧИНАЮТ ГРУЗИТЬСЯ
-       УЖЕ ПОСЛЕ ОТКРЫТИЯ САЙТА.
-    */
-
-    setTimeout(()=>{
-
-        loadPricesInBackground();
-
-    },300);
+alert(
+'Баланс пополнен на 1 000 ₽'
+);
 
 }
 
-/* =========================================================
-   START
-========================================================= */
 
-window.addEventListener(
-    'load',
-    init
+function renderProfileInventory(){
+
+const g=
+document.getElementById(
+'profileItemsGrid'
 );
+
+if(!g)
+return;
+
+g.innerHTML='';
+
+currentUser.inventory.forEach(
+x=>
+g.appendChild(
+createCard(
+x,
+false,
+()=>{}
+)
+)
+);
+
+}
+
+
+function renderCasesList(){
+
+const g=
+document.getElementById(
+'casesGrid'
+);
+
+if(!g)
+return;
+
+g.innerHTML='';
+
+CASES_DATA.forEach(
+c=>{
+
+const d=
+document.createElement('div');
+
+d.className='case-card';
+
+const preview=
+c.items.find(
+x=>x.value>c.price*10
+)||c.items[0];
+
+d.innerHTML=`
+
+${
+preview?.img
+?
+`<img
+src="${escapeAttr(preview.img)}"
+alt=""
+>`
+:
+''
+}
+
+<div class="case-title">
+${escapeHtml(c.name)}
+</div>
+
+<div class="case-price">
+${c.price} ₽
+</div>
+
+`;
+
+d.onclick=()=>openCaseScreen(c);
+
+g.appendChild(d);
+
+}
+);
+
+}
+
+
+function openCaseScreen(c){
+
+activeCase=c;
+
+document
+.getElementById(
+'casesListContainer'
+)
+.style.display='none';
+
+document
+.getElementById(
+'caseOpeningView'
+)
+.classList.add('active');
+
+document
+.getElementById(
+'activeCaseTitle'
+)
+.textContent=
+c.name+' · '+c.price+' ₽';
+
+renderCaseContents();
+
+renderTrack();
+
+document
+.getElementById(
+'actionButtons'
+)
+.style.display='none';
+
+document
+.getElementById(
+'mainOpenBtn'
+)
+.style.display='block';
+
+}
+
+
+function closeCaseOpening(){
+
+if(isCaseSpinning)
+return;
+
+document
+.getElementById(
+'caseOpeningView'
+)
+.classList.remove('active');
+
+document
+.getElementById(
+'casesListContainer'
+)
+.style.display='flex';
+
+}
+
+
+function renderCaseContents(){
+
+const g=
+document.getElementById(
+'caseContentsGrid'
+);
+
+if(!g||!activeCase)
+return;
+
+g.innerHTML='';
+
+activeCase.items.forEach(
+x=>
+g.appendChild(
+createCard(
+x,
+false,
+()=>{}
+)
+)
+);
+
+}
+
+
+function renderTrack(){
+
+if(!activeCase)
+return;
+
+let h='';
+
+for(let i=0;i<8;i++){
+
+activeCase.items.forEach(
+x=>
+h+=`
+
+<div class="roulette-item">
+
+<img
+src="${escapeAttr(x.img)}"
+>
+
+<strong>
+${escapeHtml(x.name)}
+</strong>
+
+<span>
+${
+x.value>0
+?
+x.value.toFixed(2)+' ₽'
+:
+'Цена загружается…'
+}
+</span>
+
+</div>
+
+`
+);
+
+}
+
+track.innerHTML=h;
+
+}
+
+
+function startOpening(){
+
+if(
+isCaseSpinning||
+!activeCase
+)
+return;
+
+if(
+currentUser.balance<
+activeCase.price
+){
+
+alert(
+'Недостаточно средств!'
+);
+
+return;
+
+}
+
+currentUser.balance-=activeCase.price;
+
+currentUser.stats.casesOpened++;
+
+saveUserData();
+
+isCaseSpinning=true;
+
+document
+.getElementById(
+'mainOpenBtn'
+)
+.style.display='none';
+
+document
+.getElementById(
+'actionButtons'
+)
+.style.display='none';
+
+track.style.transition='none';
+
+track.style.transform=
+'translate3d(0,0,0)';
+
+const band=
+chooseBand(
+activeCase.price
+);
+
+currentWonItem=
+pickFromBand(
+activeCase.items,
+band
+);
+
+const idx=
+activeCase.items.findIndex(
+x=>x.id===currentWonItem.id
+);
+
+const step=110;
+
+const cycles=5;
+
+const center=190;
+
+setTimeout(
+()=>{
+
+track.style.transition=
+'transform 4s cubic-bezier(.15,.85,.35,1)';
+
+track.style.transform=
+`translate3d(-${
+cycles*
+activeCase.items.length*
+step+
+idx*
+step-
+center
+}px,0,0)`;
+
+},
+50
+);
+
+setTimeout(
+()=>{
+
+isCaseSpinning=false;
+
+document
+.getElementById(
+'sellBtn'
+)
+.textContent=
+`Продать за ${
+currentWonItem.value.toFixed(2)
+} ₽`;
+
+document
+.getElementById(
+'actionButtons'
+)
+.style.display='flex';
+
+currentUser.inventory.push(
+{...currentWonItem}
+);
+
+if(
+currentWonItem.value>
+currentUser.bestDrop.value
+){
+
+currentUser.bestDrop={
+...currentWonItem
+};
+
+}
+
+saveUserData();
+
+},
+4200
+);
+
+}
+
+
+function sellCurrentItem(){
+
+if(!currentWonItem)
+return;
+
+currentUser.balance+=
+currentWonItem.value;
+
+const i=
+currentUser.inventory.findIndex(
+x=>x.id===currentWonItem.id
+);
+
+if(i>=0)
+currentUser.inventory.splice(
+i,
+1
+);
+
+saveUserData();
+
+document
+.getElementById(
+'actionButtons'
+)
+.style.display='none';
+
+document
+.getElementById(
+'mainOpenBtn'
+)
+.style.display='block';
+
+currentWonItem=null;
+
+}
+
+
+function renderQuickChances(){
+
+const p=
+document.getElementById(
+'quickChancePanel'
+);
+
+p.innerHTML='';
+
+quickChances.forEach(
+ch=>{
+
+const b=
+document.createElement('button');
+
+b.className=
+`q-btn ${
+activeQuickChance===ch
+?
+'active'
+:
+''
+}`;
+
+b.textContent=
+ch+'%';
+
+b.onclick=
+()=>applyChance(ch);
+
+p.appendChild(b);
+
+}
+);
+
+const s=
+document.createElement('button');
+
+s.className=
+'q-btn settings-btn';
+
+s.textContent='⚙';
+
+s.onclick=
+()=>
+document
+.getElementById(
+'modalOverlay'
+)
+.style.display='flex';
+
+p.appendChild(s);
+
+}
+
+
+function saveQuickSettings(){
+
+const a=[
+...new Set(
+document
+.getElementById(
+'quickValuesInput'
+)
+.value
+.split(',')
+.map(
+v=>parseInt(v.trim())
+)
+.filter(
+n=>
+Number.isFinite(n)&&
+n>0&&
+n<=70
+)
+)
+];
+
+if(a.length){
+
+quickChances=a;
+
+renderQuickChances();
+
+}
+
+document
+.getElementById(
+'modalOverlay'
+)
+.style.display='none';
+
+}
+
+
+function applyChance(ch){
+
+if(
+selectedItemIndex===null||
+!currentUser.inventory[selectedItemIndex]
+){
+
+alert(
+'Выберите скин из инвентаря!'
+);
+
+return;
+
+}
+
+const src=
+currentUser
+.inventory[
+selectedItemIndex
+]
+.value;
+
+const desired=
+src/(ch/100);
+
+let best=null;
+
+let d=Infinity;
+
+CATALOG_ITEMS.forEach(
+x=>{
+
+if(x.value<=src)
+return;
+
+const diff=
+Math.abs(
+x.value-desired
+);
+
+if(diff<d){
+
+d=diff;
+
+best=x;
+
+}
+
+}
+);
+
+if(best){
+
+targetWeapon=best;
+
+activeQuickChance=ch;
+
+renderQuickChances();
+
+renderGrid();
+
+updateUI();
+
+}
+
+}
+
+
+function drawWheel(p){
+
+const w=canvas.width;
+
+const h=canvas.height;
+
+const cx=w/2;
+
+const cy=h/2;
+
+const r=w/2-10;
+
+ctx.clearRect(
+0,
+0,
+w,
+h
+);
+
+ctx.beginPath();
+
+ctx.arc(
+cx,
+cy,
+r,
+0,
+Math.PI*2
+);
+
+ctx.fillStyle='#161924';
+
+ctx.fill();
+
+if(p>0){
+
+ctx.beginPath();
+
+ctx.moveTo(
+cx,
+cy
+);
+
+ctx.arc(
+cx,
+cy,
+r,
+-Math.PI/2,
+-Math.PI/2+
+p/100*Math.PI*2
+);
+
+ctx.closePath();
+
+ctx.fillStyle='#f59e0b';
+
+ctx.fill();
+
+}
+
+ctx.beginPath();
+
+ctx.arc(
+cx,
+cy,
+r-26,
+0,
+Math.PI*2
+);
+
+ctx.fillStyle='#11131c';
+
+ctx.fill();
+
+}
+
+
+function updateUI(){
+
+let sp=0;
+
+if(
+selectedItemIndex!==null&&
+currentUser.inventory[selectedItemIndex]
+){
+
+const x=
+currentUser.inventory[
+selectedItemIndex
+];
+
+sp=x.value;
+
+selectedSkinName.textContent=
+x.name;
+
+selectedSkinPrice.textContent=
+x.value.toFixed(2);
+
+selectedSkinImg.src=x.img;
+
+selectedSkinImg.style.display=
+'block';
+
+selectedSkinPlaceholder.style.display=
+'none';
+
+}else{
+
+selectedSkinName.textContent='--';
+
+selectedSkinPrice.textContent='0.00';
+
+selectedSkinImg.style.display='none';
+
+selectedSkinPlaceholder.style.display=
+'block';
+
+}
+
+const tp=
+targetWeapon?.value||0;
+
+if(targetWeapon){
+
+targetSkinName.textContent=
+targetWeapon.name;
+
+targetSkinPrice.textContent=
+targetWeapon.value.toFixed(2);
+
+targetSkinImg.src=
+targetWeapon.img;
+
+targetSkinImg.style.display=
+'block';
+
+targetSkinPlaceholder.style.display=
+'none';
+
+}else{
+
+targetSkinName.textContent='--';
+
+targetSkinPrice.textContent='0.00';
+
+targetSkinImg.style.display='none';
+
+targetSkinPlaceholder.style.display=
+'block';
+
+}
+
+const ch=
+sp>0&&
+tp>sp
+?
+(
+activeQuickChance??
+Math.min(
+sp/tp*100,
+MAX_CHANCE
+)
+)
+:
+0;
+
+wheelPercent.textContent=
+ch.toFixed(2)+'%';
+
+drawWheel(ch);
+
+upgradeBtn.disabled=
+!(
+sp>0&&
+tp>sp&&
+ch>0&&
+ch<=MAX_CHANCE
+)||
+isSpinning;
+
+}
+
+
+function renderGrid(){
+
+const g=
+document.getElementById(
+'itemsGrid'
+);
+
+if(!g)
+return;
+
+g.innerHTML='';
+
+if(currentTab==='inventory'){
+
+priceFilterBox.classList.remove(
+'active'
+);
+
+currentUser.inventory.forEach(
+(x,i)=>
+g.appendChild(
+createCard(
+x,
+selectedItemIndex===i,
+()=>{
+
+if(isSpinning)
+return;
+
+selectedItemIndex=
+selectedItemIndex===i
+?
+null
+:
+i;
+
+activeQuickChance=null;
+
+targetWeapon=null;
+
+renderQuickChances();
+
+renderGrid();
+
+updateUI();
+
+}
+)
+)
+);
+
+}else{
+
+priceFilterBox.classList.add(
+'active'
+);
+
+const min=
+Number(
+minPriceInput.value
+)||0;
+
+const max=
+Number(
+maxPriceInput.value
+)||Infinity;
+
+CATALOG_ITEMS
+.filter(
+x=>
+x.category===currentTab&&
+x.value>=min&&
+x.value<=max
+)
+.slice(0,500)
+.forEach(
+x=>
+g.appendChild(
+createCard(
+x,
+targetWeapon?.id===x.id,
+()=>{
+
+if(isSpinning)
+return;
+
+targetWeapon=
+targetWeapon?.id===x.id
+?
+null
+:
+x;
+
+activeQuickChance=null;
+
+renderQuickChances();
+
+renderGrid();
+
+updateUI();
+
+}
+)
+)
+);
+
+}
+
+}
+
+
+function createCard(x,sel,click){
+
+const c=
+document.createElement('div');
+
+c.className=
+`item-card ${
+sel
+?
+'selected'
+:
+''
+}`;
+
+c.innerHTML=`
+
+<img
+src="${escapeAttr(x.img)}"
+alt=""
+loading="lazy"
+onerror="this.style.display='none'"
+>
+
+<div class="iname">
+${escapeHtml(x.name)}
+</div>
+
+<div class="iprice">
+
+${
+x.value>0
+?
+x.value.toFixed(2)+' ₽'
+:
+'Цена загружается…'
+}
+
+</div>
+
+`;
+
+c.onclick=click;
+
+return c;
+
+}
+
+
+minPriceInput.addEventListener(
+'input',
+renderGrid
+);
+
+maxPriceInput.addEventListener(
+'input',
+renderGrid
+);
+
+
+document
+.getElementById('upgradeBtn')
+.onclick=()=>{
+
+if(
+isSpinning||
+selectedItemIndex===null||
+!targetWeapon
+)
+return;
+
+const source=
+currentUser.inventory[
+selectedItemIndex
+];
+
+if(!source)
+return;
+
+const chance=
+activeQuickChance??
+Math.min(
+source.value/
+targetWeapon.value*
+100,
+MAX_CHANCE
+);
+
+if(
+chance<=0||
+chance>MAX_CHANCE
+)
+return;
+
+isSpinning=true;
+
+upgradeBtn.disabled=true;
+
+wheelOverlay.style.display=
+'block';
+
+const success=
+Math.random()*100<
+chance;
+
+currentUser.stats.upgradesTotal++;
+
+const sector=
+chance*3.6;
+
+const angle=
+success
+?
+(
+-90+
+sector*
+(
+.12+
+Math.random()*.76
+)
+)
+:
+(
+-90+
+sector+
+(
+360-sector
+)*
+(
+.12+
+Math.random()*.76
+)
+);
+
+const norm=
+(
+(currentRotation%360)+360
+)%360;
+
+let delta=
+(
+-90-
+angle-
+norm
+)%360;
+
+if(delta<0)
+delta+=360;
+
+currentRotation+=
+2160+
+delta;
+
+canvas.style.transition=
+'transform 3.6s cubic-bezier(.15,.85,.35,1)';
+
+canvas.style.transform=
+`rotate(${currentRotation}deg)`;
+
+saveUserData();
+
+setTimeout(
+()=>{
+
+resultOverlay.style.display=
+'flex';
+
+resultText.textContent=
+success
+?
+'Успех!'
+:
+'Неудача';
+
+resultText.style.color=
+success
+?
+'#4ade80'
+:
+'#f87171';
+
+const i=
+currentUser.inventory.findIndex(
+x=>x.id===source.id
+);
+
+if(i>=0)
+currentUser.inventory.splice(
+i,
+1
+);
+
+if(success){
+
+const won={
+...targetWeapon
+};
+
+currentUser.inventory.push(won);
+
+if(
+won.value>
+currentUser.bestDrop.value
+){
+
+currentUser.bestDrop={
+...won
+};
+
+}
+
+}
+
+saveUserData();
+
+setTimeout(
+()=>{
+
+resultOverlay.style.display=
+'none';
+
+wheelOverlay.style.display=
+'none';
+
+isSpinning=false;
+
+selectedItemIndex=null;
+
+targetWeapon=null;
+
+activeQuickChance=null;
+
+renderQuickChances();
+
+renderGrid();
+
+updateUI();
+
+canvas.style.transition='none';
+
+currentRotation=
+(
+(currentRotation%360)+360
+)%360;
+
+canvas.style.transform=
+`rotate(${currentRotation}deg)`;
+
+},
+2000
+);
+
+},
+3700
+);
+
+};
+
+
+window.onload=
+initializeApp;
 
 </script>
 
