@@ -45,8 +45,9 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .inventory-section{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
 .inv-header-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
 .inv-tabs{display:flex;gap:6px;flex-wrap:wrap}
-.inv-tab{background:#11131c;border:1px solid rgba(255,255,255,.06);color:#9ca3af;padding:6px 10px;border-radius:8px;font-weight:700;font-size:11px;cursor:pointer}
+.inv-tab{background:#11131c;border:1px solid rgba(255,255,255,.06);color:#9ca3af;padding:6px 12px;border-radius:8px;font-weight:700;font-size:11px;cursor:pointer}
 .inv-tab.active{background:#f59e0b;color:#11131c;border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.3)}
+.inv-total-value{font-size:12px;font-weight:800;color:#fbbf24;background:#11131c;padding:6px 10px;border-radius:8px;border:1px solid rgba(245,158,11,.2)}
 .price-filter-box{display:none;gap:6px;align-items:center}.price-filter-box.active{display:flex}
 .price-input{background:#11131c;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;padding:4px 8px;width:75px;font-size:11px;outline:none;font-weight:600}
 .items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;max-height:220px;overflow-y:auto;padding-right:4px;min-width:0;width:100%}
@@ -137,15 +138,14 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 <div class="quick-chance-panel" id="quickChancePanel"></div>
 <div class="skins-selection-row">
 <div class="card-skin"><div class="skin-type">Ваш скин</div><div class="skin-name" id="selectedSkinName">--</div><div class="skin-img-wrap"><img id="selectedSkinImg" src="" alt="" style="display:none;max-height:70px;object-fit:contain;"><span id="selectedSkinPlaceholder" style="color:#4b5563;font-size:11px;">Выберите</span></div><div class="skin-price" id="selectedSkinPrice">0.00</div></div>
-<div class="card-skin" style="border-color:rgba(245,158,11,.2);"><div class="skin-type">Желаемый</div><div class="skin-name" id="targetSkinName">--</div><div class="skin-img-wrap"><img id="targetSkinImg" src="" alt="" style="display:none;max-height:70px;object-fit:contain;"><span id="targetSkinPlaceholder" style="color:#4b5563;font-size:11px;">Из каталога</span></div><div class="skin-price" id="targetSkinPrice">0.00</div></div>
+<div class="card-skin" style="border-color:rgba(245,158,11,.2);"><div class="skin-type">Желаемый дроп</div><div class="skin-name" id="targetSkinName">--</div><div class="skin-img-wrap"><img id="targetSkinImg" src="" alt="" style="display:none;max-height:70px;object-fit:contain;"><span id="targetSkinPlaceholder" style="color:#4b5563;font-size:11px;">Из каталога</span></div><div class="skin-price" id="targetSkinPrice">0.00</div></div>
 </div>
 <div class="inventory-section">
 <div class="inv-header-row"><div class="inv-tabs">
-<button class="inv-tab active" id="tabInventory" onclick="switchCatalogTab('inventory')">Мои</button>
+<button class="inv-tab active" id="tabInventory" onclick="switchCatalogTab('inventory')">Инвентарь</button>
 <button class="inv-tab" id="tabCatalogSkins" onclick="switchCatalogTab('skins')">Скины</button>
-<button class="inv-tab" id="tabCatalogStickers" onclick="switchCatalogTab('stickers')">Наклейки</button>
-<button class="inv-tab" id="tabCatalogMusic" onclick="switchCatalogTab('music')">Музыка</button>
 </div>
+<div class="inv-total-value" id="invTotalValue">Сумма: 0.00 ₽</div>
 <div class="price-filter-box" id="priceFilterBox"><input type="number" id="minPriceInput" class="price-input" placeholder="От" value="0"><span style="color:#6b7280;font-size:11px;">-</span><input type="number" id="maxPriceInput" class="price-input" placeholder="До" value="1000000"></div>
 </div>
 <div class="items-grid" id="itemsGrid"></div>
@@ -172,7 +172,7 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 
 <script>
 /* ================= ZENODROP / BYMYKEL + CS2.SH PRICES ================= */
-const API={skins:'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins_not_grouped.json',stickers:'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/stickers.json',music:'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/music_kits.json',crates:'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/crates.json'};
+const API={skins:'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins_not_grouped.json',crates:'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/crates.json'};
 const PRICE_ENDPOINT='/api/prices';
 const RATE_ENDPOINT='/api/usd-rub';
 const USD_RUB_CACHE_KEY='zeno_usd_rub_v1';
@@ -266,13 +266,13 @@ function findApiSkin(name){if(!name)return null;const n=cleanName(name).toLowerC
 function getCaseBands(price){
   const m=price/100;
   return [
-    {min:10*m,max:Infinity,p:0.002},
-    {min:5*m,max:10*m,p:1},
-    {min:4*m,max:5*m,p:5},
-    {min:3*m,max:4*m,p:7},
-    {min:2*m,max:3*m,p:9},
-    {min:1.5*m,max:2*m,p:7.998},
-    {min:0,max:1.5*m,p:70}
+    {min:12*m,max:Infinity,p:1.2},
+    {min:6*m,max:12*m,p:6},
+    {min:4.5*m,max:6*m,p:12},
+    {min:3*m,max:4.5*m,p:20},
+    {min:1.8*m,max:3*m,p:25},
+    {min:0.8*m,max:1.8*m,p:20},
+    {min:0,max:0.8*m,p:15.8}
   ];
 }
 function chooseBand(price){let r=Math.random()*100;for(const b of getCaseBands(price)){if(r<b.p)return b;r-=b.p}return getCaseBands(price).at(-1)}
@@ -286,17 +286,25 @@ function pickFromBand(items,band){
 }
 function buildCaseContents(price,index){
   const ranges=[
-    [8,80],[8,150],[10,300],[15,600],[20,1000],
-    [40,2500],[80,5000],[150,10000],[300,25000],[600,Infinity]
+    [price*0.2, price*3.5],
+    [price*0.25, price*4],
+    [price*0.3, price*4.5],
+    [price*0.35, price*5],
+    [price*0.4, price*6],
+    [price*0.45, price*7],
+    [price*0.5, price*8],
+    [price*0.55, price*10],
+    [price*0.6, price*12],
+    [price*0.65, Infinity]
   ];
-  const range=ranges[index]||[8,Infinity];
+  const range=ranges[index]||[price*0.2,Infinity];
   const used=window.__zenoAssigned||new Set();
   let pool=CATALOG_ITEMS.filter(x=>x&&x.img&&x.value>=range[0]&&x.value<range[1]&&!used.has(x.id));
-  const center=range[1]===Infinity?10000:Math.sqrt(Math.max(range[0],1)*Math.max(range[1],range[0]+1));
+  const center=range[1]===Infinity?price*3:((range[0]+range[1])/2);
   pool.sort((a,b)=>Math.abs(Math.log(Math.max(a.value,1)/center))-Math.abs(Math.log(Math.max(b.value,1)/center))||hashCode(a.name+'_'+index)-hashCode(b.name+'_'+index));
   let out=pool.slice(0,100);
   if(out.length<100){
-    const extra=CATALOG_ITEMS.filter(x=>x&&x.img&&x.value>=8&&!used.has(x.id)&&!out.includes(x));
+    const extra=CATALOG_ITEMS.filter(x=>x&&x.img&&x.value>=Math.min(5, price*0.1)&&!used.has(x.id)&&!out.includes(x));
     extra.sort((a,b)=>Math.abs(Math.log(Math.max(a.value,1)/center))-Math.abs(Math.log(Math.max(b.value,1)/center)));
     out=out.concat(extra.slice(0,100-out.length));
   }
@@ -389,7 +397,7 @@ async function initializeApp(){
 function logoutSteam(){localStorage.removeItem('zeno_current_user');currentUser=defaultUser('guest','Гость','');updateHeaderAvatar();switchMainTab('profile')}
 function updateHeaderAvatar(){const b=document.getElementById('headerAvatarContainer');if(!b)return;b.innerHTML=currentUser?.avatar?`<img src="${escapeAttr(currentUser.avatar)}" alt="Avatar">`:'<div style="width:100%;height:100%;background:#333"></div>'}
 function switchMainTab(tab){['navUpgrade','navCases','navProfile'].forEach(x=>document.getElementById(x).classList.remove('active'));['tabUpgradeContent','tabCasesContent','tabProfileContent'].forEach(x=>document.getElementById(x).classList.remove('active'));if(tab==='upgrade'){document.getElementById('navUpgrade').classList.add('active');document.getElementById('tabUpgradeContent').classList.add('active');renderGrid();updateUI()}else if(tab==='cases'){document.getElementById('navCases').classList.add('active');document.getElementById('tabCasesContent').classList.add('active');renderCasesList()}else{document.getElementById('navProfile').classList.add('active');document.getElementById('tabProfileContent').classList.add('active');renderProfile()}}
-function switchCatalogTab(t){currentTab=t;['tabInventory','tabCatalogSkins','tabCatalogStickers','tabCatalogMusic'].forEach(x=>document.getElementById(x).classList.remove('active'));document.getElementById({inventory:'tabInventory',skins:'tabCatalogSkins',stickers:'tabCatalogStickers',music:'tabCatalogMusic'}[t]).classList.add('active');renderGrid()}
+function switchCatalogTab(t){currentTab=t;['tabInventory','tabCatalogSkins'].forEach(x=>document.getElementById(x).classList.remove('active'));document.getElementById({inventory:'tabInventory',skins:'tabCatalogSkins'}[t]).classList.add('active');renderGrid()}
 
 function renderProfile(){
   const a=document.getElementById('profileContentArea'),s=currentUser.stats,b=currentUser.bestDrop;
@@ -489,8 +497,51 @@ function saveQuickSettings(){const a=[...new Set(document.getElementById('quickV
 function applyChance(ch){if(selectedItemIndex===null||!currentUser.inventory[selectedItemIndex]){alert('Выберите скин из инвентаря!');return}const src=currentUser.inventory[selectedItemIndex].value,desired=src/(ch/100);let best=null,d=Infinity;CATALOG_ITEMS.forEach(x=>{if(x.value<=src)return;const diff=Math.abs(x.value-desired);if(diff<d){d=diff;best=x}});if(best){targetWeapon=best;activeQuickChance=ch;renderQuickChances();renderGrid();updateUI()}}
 function drawWheel(p){const w=canvas.width,h=canvas.height,cx=w/2,cy=h/2,r=w/2-10;ctx.clearRect(0,0,w,h);ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle='#161924';ctx.fill();if(p>0){ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+p/100*Math.PI*2);ctx.closePath();ctx.fillStyle='#f59e0b';ctx.fill()}ctx.beginPath();ctx.arc(cx,cy,r-26,0,Math.PI*2);ctx.fillStyle='#11131c';ctx.fill()}
 function updateUI(){let sp=0;if(selectedItemIndex!==null&&currentUser.inventory[selectedItemIndex]){const x=currentUser.inventory[selectedItemIndex];sp=x.value;selectedSkinName.textContent=x.name;selectedSkinPrice.textContent=x.value.toFixed(2);selectedSkinImg.src=x.img;selectedSkinImg.style.display='block';selectedSkinPlaceholder.style.display='none'}else{selectedSkinName.textContent='--';selectedSkinPrice.textContent='0.00';selectedSkinImg.style.display='none';selectedSkinPlaceholder.style.display='block'}const tp=targetWeapon?.value||0;if(targetWeapon){targetSkinName.textContent=targetWeapon.name;targetSkinPrice.textContent=targetWeapon.value.toFixed(2);targetSkinImg.src=targetWeapon.img;targetSkinImg.style.display='block';targetSkinPlaceholder.style.display='none'}else{targetSkinName.textContent='--';targetSkinPrice.textContent='0.00';targetSkinImg.style.display='none';targetSkinPlaceholder.style.display='block'}const ch=sp>0&&tp>sp?(activeQuickChance??Math.min(sp/tp*100,MAX_CHANCE)):0;wheelPercent.textContent=ch.toFixed(2)+'%';drawWheel(ch);upgradeBtn.disabled=!(sp>0&&tp>sp&&ch>0&&ch<=MAX_CHANCE)||isSpinning}
-function renderGrid(){const g=document.getElementById('itemsGrid');if(!g)return;g.innerHTML='';if(currentTab==='inventory'){priceFilterBox.classList.remove('active');currentUser.inventory.forEach((x,i)=>g.appendChild(createCard(x,selectedItemIndex===i,()=>{if(isSpinning)return;selectedItemIndex=selectedItemIndex===i?null:i;activeQuickChance=null;targetWeapon=null;renderQuickChances();renderGrid();updateUI()})))}else{priceFilterBox.classList.add('active');const min=Number(minPriceInput.value)||0,max=Number(maxPriceInput.value)||Infinity;CATALOG_ITEMS.filter(x=>x.category===currentTab&&x.value>=min&&x.value<=max).slice(0,500).forEach(x=>g.appendChild(createCard(x,targetWeapon?.id===x.id,()=>{if(isSpinning)return;targetWeapon=targetWeapon?.id===x.id?null:x;activeQuickChance=null;renderQuickChances();renderGrid();updateUI()})))}}
-function createCard(x,sel,click){const c=document.createElement('div');c.className=`item-card ${sel?'selected':''}`;c.innerHTML=`<img src="${escapeAttr(x.img)}" alt=""><div class="iname">${escapeHtml(x.name)}</div><div class="iprice">${x.value.toFixed(2)} ₽</div>`;c.onclick=click;return c}
+
+function renderGrid(){
+  const g=document.getElementById('itemsGrid');
+  if(!g)return;
+  g.innerHTML='';
+
+  // Обновляем общую стоимость инвентаря
+  const totalInvValue = currentUser.inventory.reduce((sum, item) => sum + (item.value || 0), 0);
+  const invTotalEl = document.getElementById('invTotalValue');
+  if (invTotalEl) {
+    invTotalEl.textContent = `Сумма: ${totalInvValue.toFixed(2)} ₽`;
+  }
+
+  if(currentTab==='inventory'){
+    priceFilterBox.classList.remove('active');
+    currentUser.inventory.forEach((x,i)=>g.appendChild(createCard(x,selectedItemIndex===i,()=>{
+      if(isSpinning)return;
+      selectedItemIndex=selectedItemIndex===i?null:i;
+      activeQuickChance=null;
+      targetWeapon=null;
+      renderQuickChances();
+      renderGrid();
+      updateUI();
+    })));
+  }else{
+    priceFilterBox.classList.add('active');
+    const min=Number(minPriceInput.value)||0,max=Number(maxPriceInput.value)||Infinity;
+    CATALOG_ITEMS.filter(x=>x.category===currentTab&&x.value>=min&&x.value<=max).slice(0,500).forEach(x=>g.appendChild(createCard(x,targetWeapon?.id===x.id,()=>{
+      if(isSpinning)return;
+      targetWeapon=targetWeapon?.id===x.id?null:x;
+      activeQuickChance=null;
+      renderQuickChances();
+      renderGrid();
+      updateUI();
+    })));
+  }
+}
+
+function createCard(x,sel,click){
+  const c=document.createElement('div');
+  c.className=`item-card ${sel?'selected':''}`;
+  c.innerHTML=`<img src="${escapeAttr(x.img)}" alt=""><div class="iname">${escapeHtml(x.name)}</div><div class="iprice">${x.value.toFixed(2)} ₽</div>`;
+  c.onclick=click;
+  return c;
+}
 minPriceInput.addEventListener('input',renderGrid);maxPriceInput.addEventListener('input',renderGrid);
 
 document.getElementById('upgradeBtn').onclick=()=>{
