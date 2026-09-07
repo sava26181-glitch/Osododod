@@ -171,19 +171,16 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 
 <div id="modalOverlay"><div class="modal-card"><h3>Настройка быстрых кнопок</h3><p style="font-size:11px;color:#9ca3af;">Введите проценты (максимум до 70%)</p><div class="modal-inputs"><input type="text" id="quickValuesInput" value="10, 20, 30, 40, 50, 70"></div><div class="modal-buttons"><button class="btn-close" onclick="document.getElementById('modalOverlay').style.display='none'">Отмена</button><button class="btn-save" onclick="saveQuickSettings()">Сохранить</button></div></div></div>
 
-<!-- Модальное окно авторизации через Steam -->
+<!-- Модальное окно авторизации через Steam OpenID -->
 <div id="steamAuthModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;justify-content:center;align-items:center;z-index:200;backdrop-filter:blur(6px);">
   <div style="background:#161924;border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:24px;width:320px;display:flex;flex-direction:column;gap:16px;text-align:center;">
     <div style="display:flex;justify-content:center;margin-bottom:4px;">
       <svg viewBox="0 0 24 24" width="42" height="42" fill="#fff"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.84.57C20.565 21.795 24 17.31 24 12c0-6.63-5.37-12-12-12z"/></svg>
     </div>
     <div style="font-size:16px;font-weight:900;color:#fff;">Авторизация Steam</div>
-    <p style="font-size:11px;color:#9ca3af;line-height:1.4;">Введите ваш реальный Steam ID64 или никнейм для привязки аккаунта:</p>
-    <input type="text" id="steamInputName" placeholder="Никнейм или SteamID" style="background:#11131c;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;padding:10px;font-size:13px;width:100%;text-align:center;outline:none;">
-    <div style="display:flex;gap:8px;">
-      <button onclick="closeSteamAuth()" style="flex:1;padding:10px;border-radius:8px;font-weight:700;cursor:pointer;background:#272a37;color:#9ca3af;border:none;">Отмена</button>
-      <button onclick="confirmSteamLogin()" style="flex:1;padding:10px;border-radius:8px;font-weight:700;cursor:pointer;background:#f59e0b;color:#11131c;border:none;">Войти</button>
-    </div>
+    <p style="font-size:11px;color:#9ca3af;line-height:1.4;">Для входа через официальный сайт Steam нажмите на кнопку ниже:</p>
+    <a href="https://steamcommunity.com/login/home/?goto=" id="steamRedirectLink" target="_blank" style="background:#171a21;border:1px solid rgba(255,255,255,0.2);color:#fff;padding:12px;border-radius:10px;font-weight:800;font-size:13px;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;text-transform:uppercase;transition:.2s;">Войти через Steam</a>
+    <button onclick="closeSteamAuth()" style="padding:10px;border-radius:8px;font-weight:700;cursor:pointer;background:#272a37;color:#9ca3af;border:none;margin-top:-4px;">Закрыть</button>
   </div>
 </div>
 
@@ -360,6 +357,17 @@ function saveUserData(){if(!currentUser)return;localStorage.setItem('zeno_user_'
 
 async function initializeApp(){
   const loading=document.getElementById('loadingText');
+  
+  // Проверяем, не вернулся ли пользователь с редиректа Steam OpenID
+  const urlParams = new URLSearchParams(window.location.search);
+  const steamIdParam = urlParams.get('openid.claimed_id') || urlParams.get('steamid');
+  if(steamIdParam) {
+    const extractedId = steamIdParam.split('/').pop() || ('7656119' + Math.floor(Math.random()*899999+100000));
+    currentUser = defaultUser(extractedId, 'SteamUser_' + extractedId.slice(-4), 'https://avatars.steamstatic.com/c85433a0be124faee4587db1ad2649b380a9fc77_full.jpg');
+    saveUserData();
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
   try{
     loadCachedPrices();
     const cached=loadSelectedCatalog();
@@ -425,30 +433,20 @@ async function initializeApp(){
   }catch(e){console.error(e);loading.innerHTML='Не удалось загрузить каталог/цены.'}}
 
 function openSteamAuth(){
+  const currentUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
+  const steamOpenIdUrl = 'https://steamcommunity.com/openid/login?' + 
+    'openid.ns=http://specs.openid.net/auth/2.0&' +
+    'openid.mode=checkid_setup&' +
+    'openid.return_to=' + encodeURIComponent(currentUrl) + '&' +
+    'openid.realm=' + encodeURIComponent(currentUrl) + '&' +
+    'openid.identity=http://specs.openid.net/auth/2.0/identifier_select&' +
+    'openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select';
+  
+  document.getElementById('steamRedirectLink').href = steamOpenIdUrl;
   document.getElementById('steamAuthModal').style.display='flex';
-  document.getElementById('steamInputName').focus();
 }
 function closeSteamAuth(){
   document.getElementById('steamAuthModal').style.display='none';
-}
-function confirmSteamLogin(){
-  const val = document.getElementById('steamInputName').value.trim();
-  if(!val){ alert('Введите никнейм или Steam ID'); return; }
-  const fakeId = '7656119' + Math.floor(Math.random()*899999+100000);
-  const avatars = [
-    'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg',
-    'https://avatars.steamstatic.com/c85433a0be124faee4587db1ad2649b380a9fc77_full.jpg',
-    'https://avatars.steamstatic.com/791c530e16bc8d7ab8750a9c680f4f46a6f1d2c2_full.jpg'
-  ];
-  const avatar = avatars[Math.floor(Math.random()*avatars.length)];
-  currentUser = defaultUser(fakeId, val, avatar);
-  saveUserData();
-  updateHeaderAvatar();
-  closeSteamAuth();
-  if(currentUser && document.getElementById('tabProfileContent').classList.contains('active')) {
-    renderProfile();
-  }
-  alert('Авторизация через Steam успешно завершена!');
 }
 
 function loginWithSteam(){
@@ -694,7 +692,7 @@ document.getElementById('upgradeBtn').onclick=()=>{
   const success=Math.random()*100<chance;
   currentUser.stats.upgradesTotal++;
 
-  const sector=chance*3.6,angle=success?(-90+sector*(.12+Math.random()*.76)):(-90+sector+(360-sector)*(.12+Math.random()*.76));const norm=((currentRotation%360)+360)%360;let delta=(-90-angle-norm)%360;if(delta<0)delta+=360;currentRotation+=2160+delta;canvas.style.transition='transform 3.6s cubic-bezier(.15,.85,.35,1)';canvas.style.transform=`rotate(${currentRotation}deg)`;saveUserData();
+  const sector=chance*3.6,angle=success?(-90+sector*(.12+Math.random()*.76)):(-90+sector+(360-sector)*(.12+Math.random()*.76));const norm=((currentRotation%360)+360)%360;let delta=(-90-angle-norm)%360;if(delta<0)delta+=360;currentRotation+=2160+delta;canvas.style.transition='transform 3.6s cubic-bezier(.15,.85,.35,1);canvas.style.transform=`rotate(${currentRotation}deg)`;saveUserData();
   setTimeout(()=>{
     resultOverlay.style.display='flex';
     resultText.textContent=success?'Успех!':'Неудача';
