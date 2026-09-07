@@ -20,6 +20,14 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .zeno-layout{display:flex;flex-direction:column;gap:16px;width:100%}
 .wheel-container{display:flex;flex-direction:column;align-items:center;gap:16px;width:100%}
 .wheel-wrapper{position:relative;width:230px;height:230px;filter:drop-shadow(0 0 25px rgba(245,158,11,.25))}
+
+/* Кнопка быстрой прокрутки (молния) справа сверху от колеса */
+.fast-spin-btn{position:absolute;top:0;right:0;width:36px;height:36px;background:#161924;border:1px solid rgba(245,158,11,.3);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:25;transition:.2s;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.fast-spin-btn:hover{background:rgba(245,158,11,.15);border-color:#f59e0b;transform:scale(1.05)}
+.fast-spin-btn.active{background:#f59e0b;border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.5)}
+.fast-spin-btn.active svg{fill:#11131c}
+.fast-spin-btn svg{width:16px;height:16px;fill:#f59e0b;transition:.2s}
+
 .wheel-pointer{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:18px solid #fbbf24;z-index:20;filter:drop-shadow(0 0 10px rgba(251,191,36,.9))}
 .wheel-canvas-box{width:100%;height:100%;border-radius:50%;position:relative;overflow:hidden;box-shadow:0 0 30px rgba(245,158,11,.15), inset 0 0 15px rgba(0,0,0,.8);background:#161924;border:2px solid rgba(245,158,11,.2)}
 .wheel-wrapper canvas{width:100%;height:100%;display:block;transform-origin:center center}
@@ -55,7 +63,7 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .price-filter-box{display:none;gap:6px;align-items:center}.price-filter-box.active{display:flex}
 .price-input{background:#11131c;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;padding:4px 8px;width:75px;font-size:11px;outline:none;font-weight:600}
 
-/* Исправленные карточки инвентаря с увеличенными отступами (чтобы не слипались) */
+/* Карточки инвентаря с хорошими отступами */
 .items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:14px;max-height:300px;overflow-y:auto;padding:8px 4px;min-width:0;width:100%}
 .item-card{background:#11131c;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;position:relative;transition:all .25s ease;min-width:0;overflow:hidden}
 .item-card:hover{border-color:rgba(245,158,11,.4);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,0.5)}
@@ -79,12 +87,16 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 
 .case-opening-view{display:none;flex-direction:column;gap:16px;width:100%;align-items:center}.case-opening-view.active{display:flex}
 .back-cases-btn{align-self:flex-start;background:#161924;border:1px solid rgba(255,255,255,.08);color:#9ca3af;padding:6px 12px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer}
-.roulette-container{position:relative;overflow:hidden;width:100%;height:120px;background:#151518;border-radius:12px;border:1px solid #2a2a2e}
-.roulette-track{display:flex;gap:10px;position:absolute;left:0;top:0;height:100%;will-change:transform}
-.roulette-item{width:100px;min-width:100px;height:100%;background:#1a1a1e;border:1px solid #2f2f35;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;position:relative;overflow:hidden}
-.roulette-item img{width:75px;height:50px;object-fit:contain}
-.roulette-item strong{max-width:92px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.roulette-pointer{position:absolute;left:50%;top:0;bottom:0;width:3px;transform:translateX(-50%);background:linear-gradient(180deg,#ffb800,#ff8c00);z-index:20;pointer-events:none}
+.roulette-container{position:relative;overflow:hidden;width:100%;height:130px;background:#12141c;border-radius:14px;border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 4px 15px rgba(0,0,0,.6)}
+.roulette-track{display:flex;gap:12px;position:absolute;left:0;top:0;height:100%;will-change:transform;align-items:center;padding-left:6px}
+
+/* Чистый и красивый стиль элементов рулетки (убрана избыточная информация) */
+.roulette-item{width:105px;min-width:105px;height:112px;background:linear-gradient(145deg,#181b26,#13151f);border:1px solid rgba(255,255,255,.07);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;position:relative;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.roulette-item img{width:76px;height:52px;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,.7));margin-bottom:4px}
+.roulette-item strong{font-size:11px;font-weight:800;color:#e5e7eb;max-width:94px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.roulette-item span{font-size:11px;font-weight:800;color:#fbbf24;margin-top:2px}
+
+.roulette-pointer{position:absolute;left:50%;top:0;bottom:0;width:3px;transform:translateX(-50%);background:linear-gradient(180deg,#f59e0b,#d97706);z-index:20;pointer-events:none;box-shadow:0 0 12px rgba(245,158,11,.8)}
 .action-buttons{display:none;gap:10px;width:100%}.action-btn{flex:1;padding:12px 10px;border-radius:12px;font-weight:900;cursor:pointer;font-size:14px;border:none;text-transform:uppercase}
 .sell-btn{background:#2a2a2e;color:#ffb800;border:1px solid #ffb800}.retry-btn{background:linear-gradient(135deg,#ffb800,#ff8c00);color:#000}
 .profile-wrapper{display:flex;flex-direction:column;gap:12px;width:100%}
@@ -143,10 +155,15 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 <div class="zeno-layout">
 <div class="wheel-container">
 <div class="wheel-wrapper">
-<div class="wheel-pointer"></div><div class="wheel-canvas-box"><canvas id="wheelCanvas" width="300" height="300"></canvas></div>
-<div class="wheel-center-content"><div class="wheel-percent" id="wheelPercent">0.00%</div><div class="wheel-chance-label">шанс</div></div>
-<div class="disabled-overlay" id="wheelOverlay"></div>
-<div id="resultOverlay"><span id="resultText">Неудача</span></div>
+  <!-- Кнопка быстрой прокрутки (молния) -->
+  <div class="fast-spin-btn" id="fastSpinBtn" title="Быстрый апгрейд" onclick="toggleFastSpin()">
+    <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+  </div>
+  <div class="wheel-pointer"></div>
+  <div class="wheel-canvas-box"><canvas id="wheelCanvas" width="300" height="300"></canvas></div>
+  <div class="wheel-center-content"><div class="wheel-percent" id="wheelPercent">0.00%</div><div class="wheel-chance-label">шанс</div></div>
+  <div class="disabled-overlay" id="wheelOverlay"></div>
+  <div id="resultOverlay"><span id="resultText">Неудача</span></div>
 </div>
 <button class="btn-upgrade" id="upgradeBtn" disabled>Прокачать</button>
 </div>
@@ -193,26 +210,66 @@ let CATALOG_ITEMS=[],CASES_DATA=[];
 let currentUser=null,currentTab='inventory';
 let activeCase=null,isCaseSpinning=false,currentWonItem=null;
 let selectedItemIndex=null,targetWeapon=null,isSpinning=false,currentRotation=0,activeQuickChance=null;
-let quickChances=[10,20,30,40,50,70],MAX_CHANCE=70;
+let quickChances=[10,20,30,40,50,70],MAX_CHANCE=70,isFastSpinActive=false;
 const canvas=document.getElementById('wheelCanvas'),ctx=canvas.getContext('2d'),track=document.getElementById('rouletteTrack');
 
-// Аудио-генератор для щелчков колеса апгрейда
+// Звуковой движок (Web Audio API) для щелчков, победы и рулетки кейсов
 let audioCtx = null;
+function getAudioContext() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
 function playTickSound() {
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const ctx = getAudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
     osc.type = 'triangle';
-    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.03);
-    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+    osc.frequency.setValueAtTime(650, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.04);
+    gain.gain.setValueAtTime(0.09, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(ctx.destination);
     osc.start();
-    osc.stop(audioCtx.currentTime + 0.03);
+    osc.stop(ctx.currentTime + 0.04);
+  } catch(e) {}
+}
+
+function playSuccessSound() {
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+    [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + i * 0.08);
+      gain.gain.setValueAtTime(0.1, now + i * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + i * 0.08);
+      osc.stop(now + i * 0.08 + 0.3);
+    });
+  } catch(e) {}
+}
+
+function playCaseSpinTick() {
+  try {
+    const ctx = getAudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(320, ctx.currentTime);
+    gain.gain.setValueAtTime(0.03, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.02);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.02);
   } catch(e) {}
 }
 
@@ -243,7 +300,6 @@ function normalizeSkin(x,i){
 }
 function findApiSkin(name){if(!name)return null;const n=cleanName(name).toLowerCase();return CATALOG_ITEMS.find(x=>x.name.toLowerCase()===n)||CATALOG_ITEMS.find(x=>x.name.toLowerCase().replace(/\s*\([^)]*\)$/,'')===n.replace(/\s*\([^)]*\)$/,''))||null}
 
-// Обновленная логика дропа: кейсы стали менее окупаемыми (смещены диапазоны в пользу более дешевых предметов)
 function chooseBand(price){
   return [
     {min: price * 1.8, max: price * 4.0, p: 3.0},
@@ -292,7 +348,7 @@ function buildCaseContents(price,index){
 
 function hashCode(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 
-// Кастомные картинки кейсов в точности под ваш референс
+// Исправленные картинки кейсов в точности под ваш референс
 const CASE_IMAGES = {
   13: 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJn7-MhvnwNrTglIhC68sh3r2Yrdms2Vbtr0VuYWmmLYOQJgE9M1jWqFS8ku6808e068vJn3Ngu3Ur-z-DyG2w7g/360fx360f',
   25: 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgposr-kLAtl7PLZTjlH_9mkgL-OmuLwNqvUn35u5sR1jteWpI-j2wK2rkA5a2Dyd46Ue1U6N16G8gO_l-a9jZK96M_MnXJlvHRx5yzemEexhwYMMLJ4B4v97w/360fx360f',
@@ -552,7 +608,18 @@ function renderCasesList(){
 function openCaseScreen(c){activeCase=c;document.getElementById('casesListContainer').style.display='none';document.getElementById('caseOpeningView').classList.add('active');document.getElementById('activeCaseTitle').textContent=c.name+' · '+c.price+' ₽';renderCaseContents();renderTrack();document.getElementById('actionButtons').style.display='none';document.getElementById('mainOpenBtn').style.display='block'}
 function closeCaseOpening(){if(isCaseSpinning)return;document.getElementById('caseOpeningView').classList.remove('active');document.getElementById('casesListContainer').style.display='flex'}
 function renderCaseContents(){const g=document.getElementById('caseContentsGrid');if(!g||!activeCase)return;g.innerHTML='';activeCase.items.forEach(x=>g.appendChild(createCard(x,false,()=>{})))}
-function renderTrack(){if(!activeCase)return;let h='';for(let i=0;i<8;i++)activeCase.items.forEach(x=>h+=`<div class="roulette-item"><img src="${escapeAttr(x.img)}"><strong>${escapeHtml(x.name)}</strong><span>${x.value.toFixed(2)} ₽</span></div>`);track.innerHTML=h}
+
+// Чистый рендеринг рулетки кейсов (без лишней загроможденности)
+function renderTrack(){
+  if(!activeCase)return;
+  let h='';
+  for(let i=0;i<8;i++) {
+    activeCase.items.forEach(x=> {
+      h+=`<div class="roulette-item"><img src="${escapeAttr(x.img)}"><strong>${escapeHtml(x.name)}</strong><span>${x.value.toFixed(2)} ₽</span></div>`;
+    });
+  }
+  track.innerHTML=h;
+}
 
 function startOpening(){
   if(!currentUser || !currentUser.steamid){ alert('Для открытия кейсов необходимо войти через Steam!'); return; }
@@ -563,11 +630,37 @@ function startOpening(){
   const band=chooseBandWithPity(activeCase.price, currentUser.stats);
   currentWonItem=pickFromBand(activeCase.items,band);
   
-  const idx=activeCase.items.findIndex(x=>x.id===currentWonItem.id);const step=110,cycles=5,center=190;
+  const idx=activeCase.items.findIndex(x=>x.id===currentWonItem.id);const step=117,cycles=5,center=190;
   setTimeout(()=>{track.style.transition='transform 4s cubic-bezier(.15,.85,.35,1)';track.style.transform=`translate3d(-${cycles*activeCase.items.length*step+idx*step-center}px,0,0)`},50);
-  setTimeout(()=>{isCaseSpinning=false;document.getElementById('sellBtn').textContent=`Продать за ${currentWonItem.value.toFixed(2)} ₽`;document.getElementById('actionButtons').style.display='flex';currentUser.inventory.push({...currentWonItem});if(currentWonItem.value>currentUser.bestDrop.value)currentUser.bestDrop={...currentWonItem};saveUserData()},4200)
+  
+  // Звуковое сопровождение прокрутки кейса
+  let spinTicks = 0;
+  const spinInterval = setInterval(() => {
+    playCaseSpinTick();
+    spinTicks++;
+    if(spinTicks > 32) clearInterval(spinInterval);
+  }, 110);
+
+  setTimeout(()=>{
+    clearInterval(spinInterval);
+    playSuccessSound();
+    isCaseSpinning=false;
+    document.getElementById('sellBtn').textContent=`Продать за ${currentWonItem.value.toFixed(2)} ₽`;
+    document.getElementById('actionButtons').style.display='flex';
+    currentUser.inventory.push({...currentWonItem});
+    if(currentWonItem.value>currentUser.bestDrop.value)currentUser.bestDrop={...currentWonItem};
+    saveUserData();
+  },4200);
 }
+
 function sellCurrentItem(){if(!currentWonItem)return;currentUser.balance+=currentWonItem.value;const i=currentUser.inventory.findIndex(x=>x.id===currentWonItem.id);if(i>=0)currentUser.inventory.splice(i,1);saveUserData();document.getElementById('actionButtons').style.display='none';document.getElementById('mainOpenBtn').style.display='block';currentWonItem=null}
+
+function toggleFastSpin(){
+  isFastSpinActive = !isFastSpinActive;
+  const btn = document.getElementById('fastSpinBtn');
+  if(isFastSpinActive) btn.classList.add('active');
+  else btn.classList.remove('active');
+}
 
 function renderQuickChances(){const p=document.getElementById('quickChancePanel');p.innerHTML='';quickChances.forEach(ch=>{const b=document.createElement('button');b.className=`q-btn ${activeQuickChance===ch?'active':''}`;b.textContent=ch+'%';b.onclick=()=>applyChance(ch);p.appendChild(b)});const s=document.createElement('button');s.className='q-btn settings-btn';s.textContent='⚙';s.onclick=()=>document.getElementById('modalOverlay').style.display='flex';p.appendChild(s)}
 function saveQuickSettings(){const a=[...new Set(document.getElementById('quickValuesInput').value.split(',').map(v=>parseInt(v.trim())).filter(n=>Number.isFinite(n)&&n>0&&n<=70))];if(a.length){quickChances=a;renderQuickChances()}document.getElementById('modalOverlay').style.display='none'}
@@ -646,26 +739,15 @@ document.getElementById('upgradeBtn').onclick=()=>{
   
   const success=Math.random()*100<chance;
   currentUser.stats.upgradesTotal++;
-
-  const sector=chance*3.6,angle=success?(-90+sector*(.12+Math.random()*.76)):(-90+sector+(360-sector)*(.12+Math.random()*.76));const norm=((currentRotation%360)+360)%360;let delta=(-90-angle-norm)%360;if(delta<0)delta+=360;currentRotation+=2160+delta;
-  
-  canvas.style.transition='transform 3.6s cubic-bezier(.15,.85,.35,1)';
-  canvas.style.transform=`rotate(${currentRotation}deg)`;
-
-  // Генерация звуковых тиков при вращении колеса
-  let tickCount = 0;
-  const tickInterval = setInterval(() => {
-    playTickSound();
-    tickCount++;
-    if(tickCount > 25) clearInterval(tickInterval);
-  }, 120);
-
   saveUserData();
-  setTimeout(()=>{
-    clearInterval(tickInterval);
+
+  const handleUpgradeResult = () => {
     resultOverlay.style.display='flex';
     resultText.textContent=success?'Успех!':'Неудача';
     resultText.style.color=success?'#4ade80':'#f87171';
+    
+    if(success) playSuccessSound();
+
     const i=currentUser.inventory.findIndex(x=>x.id===source.id);
     if(i>=0)currentUser.inventory.splice(i,1);
     if(success){
@@ -676,7 +758,29 @@ document.getElementById('upgradeBtn').onclick=()=>{
     saveUserData();
     setTimeout(()=>{
       resultOverlay.style.display='none';wheelOverlay.style.display='none';isSpinning=false;selectedItemIndex=null;targetWeapon=null;activeQuickChance=null;renderQuickChances();renderGrid();updateUI();canvas.style.transition='none';currentRotation=((currentRotation%360)+360)%360;canvas.style.transform=`rotate(${currentRotation}deg)`
-    },2000)
+    }, isFastSpinActive ? 600 : 2000);
+  };
+
+  if(isFastSpinActive) {
+    handleUpgradeResult();
+    return;
+  }
+
+  const sector=chance*3.6,angle=success?(-90+sector*(.12+Math.random()*.76)):(-90+sector+(360-sector)*(.12+Math.random()*.76));const norm=((currentRotation%360)+360)%360;let delta=(-90-angle-norm)%360;if(delta<0)delta+=360;currentRotation+=2160+delta;
+  
+  canvas.style.transition='transform 3.6s cubic-bezier(.15,.85,.35,1)';
+  canvas.style.transform=`rotate(${currentRotation}deg)`;
+
+  let tickCount = 0;
+  const tickInterval = setInterval(() => {
+    playTickSound();
+    tickCount++;
+    if(tickCount > 25) clearInterval(tickInterval);
+  }, 120);
+
+  setTimeout(()=>{
+    clearInterval(tickInterval);
+    handleUpgradeResult();
   },3700)
 };
 window.onload=initializeApp;
