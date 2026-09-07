@@ -1,1458 +1,744 @@
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
+const http = require('http');
+const https = require('https');
+const zlib = require('zlib');
+const crypto = require('crypto');
+const { URL } = require('url');
 
 const PORT = process.env.PORT || 8787;
 
-const KEY = (
+const CS2SH_API_KEY = (
   process.env.CS2SH_API_KEY ||
   process.env.CS2_API_KEY ||
   process.env.CS2SH_KEY ||
-  ""
+  ''
 ).trim();
 
-const STEAM_API_KEY = (
-  process.env.STEAM_API_KEY || ""
-).trim();
-
-if (!KEY) {
-  console.error("ERROR: CS2SH_API_KEY is not set");
-  process.exit(1);
-}
-
-const HTML_FILE = path.join(
-  __dirname,
-  "Zenodrop_CS2SH_400.html"
-);
-
-const html = fs.readFileSync(
-  HTML_FILE,
-  "utf8"
-);
-
-const sessions = new Map();
+const STEAM_API_KEY = (process.env.STEAM_API_KEY || '').trim();
+const STEAM_REALM = process.env.STEAM_REALM || '';
+const STEAM_RETURN_URL = process.env.STEAM_RETURN_URL || '';
 
 let catalogCache = null;
-let catalogCacheExpires = 0;
-let catalogBuildPromise = null;
+let catalogCacheTime = 0;
+let catalogPromise = null;
 
-const CATALOG_CACHE_TIME =
-  10 * 60 * 1000;
+const CACHE_TTL = 10 * 60 * 1000;
 
-/* =========================
-   CS2.SH
-========================= */
+function json(res, status, data) {
+  const body = JSON.stringify(data);
 
-async function cs2Fetch(url, options = {}) {
-  const controller =
-    new AbortController();
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*'
+  });
 
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, 45000);
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-
-      signal: controller.signal,
-
-      headers: {
-        Authorization:
-          "Bearer " + KEY,
-
-        Accept:
-          "application/json",
-
-        "Accept-Encoding":
-          "gzip",
-
-        ...(options.headers || {})
-      }
-    });
-
-    const text =
-      await response.text();
-
-    let data = null;
-
-    try {
-      data = JSON.parse(text);
-    } catch {}
-
-    if (!response.ok) {
-      const error =
-        new Error(
-          data?.message ||
-          data?.error ||
-          `HTTP ${response.status}`
-        );
-
-      error.status =
-        response.status;
-
-      error.body =
-        data || text.slice(0, 1000);
-
-      throw error;
-    }
-
-    return data;
-
-  } finally {
-    clearTimeout(timer);
-  }
+  res.end(body);
 }
 
-/* =========================
-   BUILD CATALOG
-========================= */
+function text(res, status, body, type = 'text/plain; charset=utf-8') {
+  res.writeHead(status, {
+    'Content-Type': type,
+    'Cache-Control': 'no-store'
+  });
 
-async function buildCs2Catalog() {
-  console.log(
-    "[CS2] Loading schema + prices..."
-  );
+  res.end(body);
+}
 
-  /*
-   * ДВА запроса одновременно.
-   */
-  const [schema, prices] =
-    await Promise.all([
-      cs2Fetch(
-        "https://api.cs2.sh/v1/schema"
-      ),
+function request(urlString, options = {}) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(urlString);
 
-      cs2Fetch(
-        "https://api.cs2.sh/v1/prices/latest"
-      )
-    ]);
+    const req = https.request({
+      hostname: u.hostname,
+      port: 443,
+      path: u.pathname + u.search,
+      method: options.method || 'GET',
+      headers: options.headers || {},
+      timeout: options.timeout || 120000
+    }, res => {
+      const chunks = [];
 
-  const schemaItems =
-    schema?.items || {};
+      res.on('data', chunk => chunks.push(chunk));
 
-  const priceItems =
-    prices?.items || {};
+      res.on('end', () => {
+        let buffer = Buffer.concat(chunks);
 
-  console.log(
-    "[CS2] Schema:",
-    Object.keys(schemaItems).length
-  );
+        try {
+          const encoding = String(res.headers['content-encoding'] || '').toLowerCase();
 
-  console.log(
-    "[CS2] Prices:",
-    Object.keys(priceItems).length
-  );
+          if (encoding.includes('gzip')) {
+            buffer = zlib.gunzipSync(buffer);
+          } else if (encoding.includes('br')) {
+            buffer = zlib.brotliDecompressSync(buffer);
+          } else if (encoding.includes('deflate')) {
+            buffer = zlib.inflateSync(buffer);
+          }
+        } catch (e) {
+          return reject(new Error('Ошибка распаковки ответа API: ' + e.message));
+        }
+
+        const body = buffer.toString('utf8');
+
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          return reject(
+            new Error(`HTTP ${res.statusCode}: ${body.slice(0, 500)}`)
+          );
+        }
+
+        resolve({
+          statusCode: res.statusCode,
+          headers: res.headers,
+          body
+        });
+      });
+    });
+
+    req.on('timeout', () => {
+      req.destroy(new Error('Таймаут запроса'));
+    });
+
+    req.on('error', reject);
+
+    if (options.body) {
+      req.write(options.body);
+    }
+
+    req.end();
+  });
+}
+
+async function cs2sh(path, options = {}) {
+  if (!CS2SH_API_KEY) {
+    throw new Error('CS2SH_API_KEY не задан в Environment Variables');
+  }
+
+  return request('https://api.cs2.sh' + path, {
+    method: options.method || 'GET',
+    timeout: 120000,
+    headers: {
+      'Authorization': `Bearer ${CS2SH_API_KEY}`,
+      'Accept': 'application/json',
+      'Accept-Encoding': 'gzip',
+      ...(options.body
+        ? {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(options.body)
+          }
+        : {})
+    },
+    body: options.body
+  });
+}
+
+function positiveNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function extractPrice(item) {
+  if (!item || typeof item !== 'object') return 0;
 
   const sources = [
-    "steam",
-    "csfloat",
-    "buff",
-    "youpin",
-    "skinport",
-    "c5game"
+    item.steam,
+    item.csfloat,
+    item.buff,
+    item.youpin,
+    item.skinport,
+    item.c5game
   ];
 
-  const all = [];
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
 
-  for (
-    const [name, item]
-    of Object.entries(schemaItems)
-  ) {
-    if (!name) continue;
+    const values = [
+      source.ask,
+      source.price,
+      source.sell,
+      source.min_price,
+      source.lowest_price
+    ];
 
-    if (!item?.image) continue;
+    for (const value of values) {
+      const n = positiveNumber(value);
+      if (n > 0) return n;
+    }
+  }
 
-    /*
-     * Берём именно игровые скины.
-     */
-    const category =
-      String(
-        item.category || ""
-      ).toLowerCase();
+  const direct = [
+    item.ask,
+    item.price,
+    item.usd,
+    item.value
+  ];
 
-    if (
-      category &&
-      ![
-        "skin",
-        "gloves",
-        "knife",
-        "weapon"
-      ].some(x =>
-        category.includes(x)
-      ) &&
-      !name.includes("|")
-    ) {
-      continue;
+  for (const value of direct) {
+    const n = positiveNumber(value);
+    if (n > 0) return n;
+  }
+
+  return 0;
+}
+
+function isForbidden(item) {
+  const name = String(
+    item?.market_hash_name ||
+    item?.name ||
+    ''
+  ).toLowerCase();
+
+  const category = String(
+    item?.category ||
+    item?.type ||
+    ''
+  ).toLowerCase();
+
+  return (
+    category.includes('sticker') ||
+    category.includes('charm') ||
+    category.includes('keychain') ||
+    name.includes('sticker') ||
+    name.includes('charm') ||
+    name.includes('keychain')
+  );
+}
+
+async function buildCs2Catalog() {
+  if (!CS2SH_API_KEY) {
+    throw new Error('CS2SH_API_KEY не задан');
+  }
+
+  console.log('[CS2] Загружаю schema + prices...');
+
+  const [schemaResponse, pricesResponse] = await Promise.all([
+    cs2sh('/v1/schema'),
+    cs2sh('/v1/prices/latest')
+  ]);
+
+  const schema = JSON.parse(schemaResponse.body);
+  const prices = JSON.parse(pricesResponse.body);
+
+  const schemaItems =
+    Array.isArray(schema)
+      ? schema
+      : Object.entries(schema || {}).map(([market_hash_name, value]) => ({
+          market_hash_name,
+          ...(value && typeof value === 'object' ? value : {})
+        }));
+
+  let priceMap = prices;
+
+  if (prices && typeof prices === 'object') {
+    if (prices.items && typeof prices.items === 'object') {
+      priceMap = prices.items;
     }
 
-    const price =
-      priceItems[name];
-
-    if (!price) continue;
-
-    let usd = 0;
-
-    for (
-      const source
-      of sources
-    ) {
-      const ask =
-        Number(
-          price?.[source]?.ask
-        );
-
-      if (
-        Number.isFinite(ask) &&
-        ask > 0
-      ) {
-        usd = ask;
-        break;
-      }
+    if (prices.data && typeof prices.data === 'object') {
+      priceMap = prices.data;
     }
+  }
 
-    if (!(usd > 0)) continue;
+  const result = [];
 
-    all.push({
-      id:
-        "skin_" +
-        crypto
-          .createHash("sha1")
-          .update(name)
-          .digest("hex")
-          .slice(0, 12),
+  for (const item of schemaItems) {
+    if (!item || typeof item !== 'object') continue;
+    if (isForbidden(item)) continue;
 
-      name,
+    const marketHashName = String(
+      item.market_hash_name ||
+      item.name ||
+      ''
+    ).trim();
 
-      img:
-        item.image,
+    if (!marketHashName) continue;
 
+    const priceData =
+      priceMap?.[marketHashName] ||
+      priceMap?.items?.[marketHashName] ||
+      null;
+
+    const usd = extractPrice(priceData);
+
+    if (!usd) continue;
+
+    const image =
+      item.image ||
+      item.image_url ||
+      item.icon_url ||
+      item.icon ||
+      '';
+
+    result.push({
+      name: marketHashName,
+      market_hash_name: marketHashName,
       usd,
-
-      api:
-        item
+      image,
+      rarity: item.rarity || '',
+      category: item.category || 'skin',
+      type: item.type || '',
+      weapon: item.weapon || '',
+      exterior: item.exterior || '',
+      float: item.float ?? null
     });
   }
 
-  console.log(
-    "[CS2] Priced items:",
-    all.length
-  );
+  result.sort((a, b) => b.usd - a.usd);
 
-  /*
-   * Сортируем по цене.
-   */
-  all.sort(
-    (a, b) =>
-      a.usd - b.usd
-  );
-
-  /*
-   * Ценовые диапазоны.
-   * Благодаря этому дешёвые кейсы
-   * не получают случайно ножи за 200 000 ₽.
-   */
-  const buckets = [
-    [0.5, 2],
-    [2, 5],
-    [5, 10],
-    [10, 20],
-    [20, 50],
-    [50, 100],
-    [100, 250],
-    [250, 500],
-    [500, 1000],
-    [1000, 2500],
-    [2500, 10000],
-    [10000, Infinity]
-  ];
-
-  const limits = [
-    300,
-    280,
-    240,
-    200,
-    170,
-    140,
-    110,
-    80,
-    60,
-    40,
-    25,
-    15
-  ];
-
-  const picked = [];
-  const used = new Set();
-
-  for (
-    let i = 0;
-    i < buckets.length;
-    i++
-  ) {
-    const min =
-      buckets[i][0];
-
-    const max =
-      buckets[i][1];
-
-    const pool =
-      all.filter(
-        x =>
-          x.usd >= min &&
-          x.usd < max
-      );
-
-    /*
-     * Перемешиваем диапазон.
-     */
-    for (
-      let j = pool.length - 1;
-      j > 0;
-      j--
-    ) {
-      const k =
-        Math.floor(
-          Math.random() *
-          (j + 1)
-        );
-
-      [
-        pool[j],
-        pool[k]
-      ] = [
-        pool[k],
-        pool[j]
-      ];
-    }
-
-    for (
-      const item
-      of pool.slice(
-        0,
-        limits[i]
-      )
-    ) {
-      if (
-        used.has(item.name)
-      ) {
-        continue;
-      }
-
-      used.add(item.name);
-      picked.push(item);
-    }
-  }
-
-  /*
-   * Если каталог маленький —
-   * добираем остальные.
-   */
-  for (
-    const item
-    of all
-  ) {
-    if (
-      picked.length >= 1500
-    ) {
-      break;
-    }
-
-    if (
-      used.has(item.name)
-    ) {
-      continue;
-    }
-
-    used.add(item.name);
-    picked.push(item);
-  }
-
-  /*
-   * Финальная сортировка.
-   */
-  picked.sort(
-    (a, b) =>
-      a.usd - b.usd
-  );
-
-  const result =
-    picked.slice(
-      0,
-      1500
-    );
+  // Ограничиваем размер ответа, чтобы Render и браузер не тормозили.
+  const finalResult = result.slice(0, 2500);
 
   console.log(
-    "[CS2] Catalog ready:",
-    result.length
+    `[CS2] Каталог готов: ${finalResult.length} предметов`
   );
 
-  if (result.length) {
-    console.log(
-      "[CS2] Range:",
-      result[0].usd,
-      "-",
-      result[result.length - 1].usd
-    );
-  }
-
-  return result;
+  return finalResult;
 }
 
-/* =========================
-   CATALOG CACHE
-========================= */
-
 async function getCatalog() {
-  const now =
-    Date.now();
+  const now = Date.now();
 
   if (
     catalogCache &&
-    now < catalogCacheExpires
+    now - catalogCacheTime < CACHE_TTL
   ) {
     return catalogCache;
   }
 
-  /*
-   * Если каталог уже строится,
-   * второй раз его не запускаем.
-   */
-  if (catalogBuildPromise) {
-    return catalogBuildPromise;
+  if (catalogPromise) {
+    return catalogPromise;
   }
 
-  catalogBuildPromise =
-    buildCs2Catalog()
-      .then(items => {
-        catalogCache =
-          items;
-
-        catalogCacheExpires =
-          Date.now() +
-          CATALOG_CACHE_TIME;
-
-        return items;
-      })
-      .finally(() => {
-        catalogBuildPromise =
-          null;
-      });
-
-  return catalogBuildPromise;
-}
-
-/* =========================
-   COOKIES
-========================= */
-
-function parseCookies(req) {
-  const result = {};
-
-  const cookie =
-    req.headers.cookie;
-
-  if (!cookie) {
-    return result;
-  }
-
-  cookie
-    .split(";")
-    .forEach(part => {
-      const index =
-        part.indexOf("=");
-
-      if (index === -1) {
-        return;
-      }
-
-      const key =
-        part
-          .slice(0, index)
-          .trim();
-
-      const value =
-        part
-          .slice(index + 1)
-          .trim();
-
-      result[key] =
-        decodeURIComponent(value);
+  catalogPromise = buildCs2Catalog()
+    .then(data => {
+      catalogCache = data;
+      catalogCacheTime = Date.now();
+      return data;
+    })
+    .finally(() => {
+      catalogPromise = null;
     });
 
-  return result;
+  return catalogPromise;
 }
 
-/* =========================
-   SERVER
-========================= */
-
-const server =
-  http.createServer(
-    async (req, res) => {
-
-      try {
-
-        const url =
-          new URL(
-            req.url,
-            `http://${req.headers.host}`
-          );
-
-        const pathname =
-          url.pathname;
-
-        const cookies =
-          parseCookies(req);
-
-        let sessionUser =
-          null;
-
-        if (
-          cookies.session_id &&
-          sessions.has(
-            cookies.session_id
-          )
-        ) {
-          sessionUser =
-            sessions.get(
-              cookies.session_id
-            );
-        }
-
-        /* =====================
-           STEAM LOGIN
-        ===================== */
-
-        if (
-          pathname ===
-          "/auth/steam"
-        ) {
-
-          const proto =
-            req.headers[
-              "x-forwarded-proto"
-            ] || "https";
-
-          const host =
-            req.headers.host;
-
-          const realm =
-            `${proto}://${host}`;
-
-          const returnTo =
-            `${realm}/auth/steam/return`;
-
-          const params =
-            new URLSearchParams();
-
-          params.set(
-            "openid.ns",
-            "http://specs.openid.net/auth/2.0"
-          );
-
-          params.set(
-            "openid.mode",
-            "checkid_setup"
-          );
-
-          params.set(
-            "openid.return_to",
-            returnTo
-          );
-
-          params.set(
-            "openid.realm",
-            realm
-          );
-
-          params.set(
-            "openid.identity",
-            "http://specs.openid.net/auth/2.0/identifier_select"
-          );
-
-          params.set(
-            "openid.claimed_id",
-            "http://specs.openid.net/auth/2.0/identifier_select"
-          );
-
-          res.writeHead(
-            302,
-            {
-              Location:
-                "https://steamcommunity.com/openid/login?" +
-                params.toString()
-            }
-          );
-
-          return res.end();
-        }
-
-        /* =====================
-           STEAM RETURN
-        ===================== */
-
-        if (
-          pathname ===
-          "/auth/steam/return"
-        ) {
-
-          try {
-
-            const params =
-              new URLSearchParams();
-
-            params.set(
-              "openid.ns",
-              "http://specs.openid.net/auth/2.0"
-            );
-
-            params.set(
-              "openid.mode",
-              "check_authentication"
-            );
-
-            url.searchParams.forEach(
-              (value, key) => {
-
-                if (
-                  key !==
-                  "openid.mode"
-                ) {
-                  params.append(
-                    key,
-                    value
-                  );
-                }
-
-              }
-            );
-
-            const verify =
-              await fetch(
-                "https://steamcommunity.com/openid/login",
-                {
-                  method:
-                    "POST",
-
-                  headers: {
-                    "Content-Type":
-                      "application/x-www-form-urlencoded"
-                  },
-
-                  body:
-                    params.toString()
-                }
-              );
-
-            const text =
-              await verify.text();
-
-            if (
-              text.includes(
-                "is_valid:true"
-              )
-            ) {
-
-              const claimed =
-                url.searchParams.get(
-                  "openid.claimed_id"
-                );
-
-              const match =
-                claimed &&
-                claimed.match(
-                  /\/id\/(\d+)$/
-                );
-
-              if (match) {
-
-                const steamId =
-                  match[1];
-
-                let user = {
-                  steamid:
-                    steamId
-                };
-
-                if (
-                  STEAM_API_KEY
-                ) {
-
-                  try {
-
-                    const r =
-                      await fetch(
-                        "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?" +
-                        new URLSearchParams({
-                          key:
-                            STEAM_API_KEY,
-
-                          steamids:
-                            steamId
-                        })
-                      );
-
-                    const data =
-                      await r.json();
-
-                    const player =
-                      data
-                        ?.response
-                        ?.players?.[0];
-
-                    if (player) {
-
-                      user = {
-                        steamid:
-                          steamId,
-
-                        username:
-                          player.personaname ||
-                          "Steam",
-
-                        personaname:
-                          player.personaname ||
-                          "Steam",
-
-                        avatar:
-                          player.avatarfull ||
-                          player.avatarmedium ||
-                          player.avatar ||
-                          "",
-
-                        profileurl:
-                          player.profileurl ||
-                          ""
-                      };
-
-                    }
-
-                  } catch {}
-                }
-
-                const sessionId =
-                  crypto
-                    .randomBytes(24)
-                    .toString(
-                      "hex"
-                    );
-
-                sessions.set(
-                  sessionId,
-                  user
-                );
-
-                res.writeHead(
-                  302,
-                  {
-                    Location: "/",
-
-                    "Set-Cookie":
-                      `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax`
-                  }
-                );
-
-                return res.end();
-              }
-            }
-
-          } catch (error) {
-
-            console.error(
-              "Steam Auth Error:",
-              error
-            );
-          }
-
-          res.writeHead(
-            302,
-            {
-              Location: "/"
-            }
-          );
-
-          return res.end();
-        }
-
-        /* =====================
-           CURRENT USER
-        ===================== */
-
-        if (
-          pathname ===
-          "/api/current-user" &&
-          req.method === "GET"
-        ) {
-
-          res.writeHead(
-            200,
-            {
-              "Content-Type":
-                "application/json",
-
-              "Cache-Control":
-                "no-store"
-            }
-          );
-
-          return res.end(
-            JSON.stringify(
-              sessionUser || null
-            )
-          );
-        }
-
-        /* =====================
-           LOGOUT
-        ===================== */
-
-        if (
-          pathname ===
-          "/auth/logout"
-        ) {
-
-          if (
-            cookies.session_id
-          ) {
-            sessions.delete(
-              cookies.session_id
-            );
-          }
-
-          res.writeHead(
-            302,
-            {
-              Location: "/",
-
-              "Set-Cookie":
-                "session_id=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT"
-            }
-          );
-
-          return res.end();
-        }
-
-        /* =====================
-           MAIN HTML
-        ===================== */
-
-        if (
-          pathname === "/" &&
-          req.method === "GET"
-        ) {
-
-          res.writeHead(
-            200,
-            {
-              "Content-Type":
-                "text/html; charset=utf-8",
-
-              "Cache-Control":
-                "no-cache"
-            }
-          );
-
-          return res.end(html);
-        }
-
-        /* =====================
-           USD → RUB
-        ===================== */
-
-        if (
-          pathname ===
-          "/api/usd-rub"
-        ) {
-
-          try {
-
-            const r =
-              await fetch(
-                "https://open.er-api.com/v6/latest/USD"
-              );
-
-            const data =
-              await r.json();
-
-            const rate =
-              Number(
-                data
-                  ?.rates
-                  ?.RUB
-              );
-
-            if (
-              !Number.isFinite(
-                rate
-              ) ||
-              rate <= 0
-            ) {
-              throw new Error(
-                "Invalid USD/RUB rate"
-              );
-            }
-
-            res.writeHead(
-              200,
-              {
-                "Content-Type":
-                  "application/json",
-
-                "Cache-Control":
-                  "no-store"
-              }
-            );
-
-            return res.end(
-              JSON.stringify({
-                rate
-              })
-            );
-
-          } catch {
-
-            /*
-             * Главное — не блокировать
-             * запуск сайта из-за курса.
-             */
-            res.writeHead(
-              200,
-              {
-                "Content-Type":
-                  "application/json"
-              }
-            );
-
-            return res.end(
-              JSON.stringify({
-                rate: 80
-              })
-            );
-          }
-        }
-
-        /* =====================
-           IMAGE PROXY
-        ===================== */
-
-        if (
-          pathname ===
-          "/api/skin-image" &&
-          req.method === "GET"
-        ) {
-
-          try {
-
-            const raw =
-              url.searchParams.get(
-                "url"
-              );
-
-            if (!raw) {
-
-              res.writeHead(
-                400,
-                {
-                  "Content-Type":
-                    "application/json"
-                }
-              );
-
-              return res.end(
-                JSON.stringify({
-                  error:
-                    "missing_url"
-                })
-              );
-            }
-
-            const imageUrl =
-              new URL(raw);
-
-            /*
-             * Только cs2.sh.
-             */
-            if (
-              imageUrl.protocol !==
-                "https:" ||
-              !(
-                imageUrl.hostname ===
-                  "cs2.sh" ||
-                imageUrl.hostname.endsWith(
-                  ".cs2.sh"
-                )
-              )
-            ) {
-
-              res.writeHead(
-                403,
-                {
-                  "Content-Type":
-                    "application/json"
-                }
-              );
-
-              return res.end(
-                JSON.stringify({
-                  error:
-                    "image_host_not_allowed"
-                })
-              );
-            }
-
-            const image =
-              await fetch(
-                imageUrl,
-                {
-                  headers: {
-                    Accept:
-                      "image/*"
-                  },
-
-                  signal:
-                    AbortSignal.timeout(
-                      10000
-                    )
-                }
-              );
-
-            if (
-              !image.ok
-            ) {
-
-              res.writeHead(
-                image.status,
-                {
-                  "Content-Type":
-                    "application/json"
-                }
-              );
-
-              return res.end(
-                JSON.stringify({
-                  error:
-                    "image_fetch_failed"
-                })
-              );
-            }
-
-            const buffer =
-              Buffer.from(
-                await image.arrayBuffer()
-              );
-
-            res.writeHead(
-              200,
-              {
-                "Content-Type":
-                  image.headers.get(
-                    "content-type"
-                  ) ||
-                  "image/png",
-
-                "Cache-Control":
-                  "public, max-age=86400, immutable",
-
-                "Content-Length":
-                  buffer.length
-              }
-            );
-
-            return res.end(
-              buffer
-            );
-
-          } catch {
-
-            res.writeHead(
-              404,
-              {
-                "Content-Type":
-                  "application/json"
-              }
-            );
-
-            return res.end(
-              JSON.stringify({
-                error:
-                  "image_unavailable"
-              })
-            );
-          }
-        }
-
-        /* =====================
-           CS2 CATALOG
-        ===================== */
-
-        if (
-          pathname ===
-            "/api/cs2/catalog" &&
-          req.method === "GET"
-        ) {
-
-          try {
-
-            if (
-              catalogCache &&
-              Date.now() <
-                catalogCacheExpires
-            ) {
-
-              res.writeHead(
-                200,
-                {
-                  "Content-Type":
-                    "application/json; charset=utf-8",
-
-                  "Cache-Control":
-                    "public, max-age=300"
-                }
-              );
-
-              return res.end(
-                JSON.stringify({
-                  currency:
-                    "USD",
-
-                  items:
-                    catalogCache,
-
-                  cached:
-                    true
-                })
-              );
-            }
-
-            const items =
-              await getCatalog();
-
-            if (
-              !items.length
-            ) {
-              throw new Error(
-                "cs2.sh returned no priced items"
-              );
-            }
-
-            res.writeHead(
-              200,
-              {
-                "Content-Type":
-                  "application/json; charset=utf-8",
-
-                "Cache-Control":
-                  "public, max-age=300"
-              }
-            );
-
-            return res.end(
-              JSON.stringify({
-                currency:
-                  "USD",
-
-                items,
-
-                cached:
-                  false
-              })
-            );
-
-          } catch (error) {
-
-            console.error(
-              "[CS2 CATALOG ERROR]",
-              error
-            );
-
-            res.writeHead(
-              Number(
-                error.status
-              ) || 502,
-              {
-                "Content-Type":
-                  "application/json; charset=utf-8"
-              }
-            );
-
-            return res.end(
-              JSON.stringify({
-                error:
-                  "cs2_catalog_proxy_error",
-
-                message:
-                  String(
-                    error.message ||
-                    error
-                  ),
-
-                upstreamStatus:
-                  error.status ||
-                  null,
-
-                details:
-                  error.body ||
-                  null
-              })
-            );
-          }
-        }
-
-        /* =====================
-           CS2 SCHEMA
-        ===================== */
-
-        if (
-          pathname ===
-            "/api/cs2/schema" &&
-          req.method === "GET"
-        ) {
-
-          try {
-
-            const data =
-              await cs2Fetch(
-                "https://api.cs2.sh/v1/schema"
-              );
-
-            res.writeHead(
-              200,
-              {
-                "Content-Type":
-                  "application/json; charset=utf-8"
-              }
-            );
-
-            return res.end(
-              JSON.stringify(data)
-            );
-
-          } catch (error) {
-
-            res.writeHead(
-              502,
-              {
-                "Content-Type":
-                  "application/json"
-              }
-            );
-
-            return res.end(
-              JSON.stringify({
-                error:
-                  "cs2_schema_proxy_error",
-
-                message:
-                  String(
-                    error.message ||
-                    error
-                  )
-              })
-            );
-          }
-        }
-
-        /* =====================
-           CS2 PRICE PROXY
-        ===================== */
-
-        if (
-          pathname ===
-            "/api/prices" &&
-          req.method === "POST"
-        ) {
-
-          let body = "";
-
-          req.on(
-            "data",
-            chunk => {
-              body += chunk;
-            }
-          );
-
-          req.on(
-            "end",
-            async () => {
-
-              try {
-
-                const input =
-                  JSON.parse(
-                    body || "{}"
-                  );
-
-                const items =
-                  Array.isArray(
-                    input.items
-                  )
-                    ? input.items
-                        .filter(
-                          x =>
-                            typeof x ===
-                              "string" &&
-                            x.trim()
-                        )
-                        .slice(
-                          0,
-                          100
-                        )
-                    : [];
-
-                if (
-                  !items.length
-                ) {
-
-                  res.writeHead(
-                    400,
-                    {
-                      "Content-Type":
-                        "application/json"
-                    }
-                  );
-
-                  return res.end(
-                    JSON.stringify({
-                      error:
-                        "items_required"
-                    })
-                  );
-                }
-
-                const data =
-                  await cs2Fetch(
-                    "https://api.cs2.sh/v1/prices/latest",
-                    {
-                      method:
-                        "POST",
-
-                      headers: {
-                        "Content-Type":
-                          "application/json"
-                      },
-
-                      body:
-                        JSON.stringify({
-                          items
-                        })
-                    }
-                  );
-
-                res.writeHead(
-                  200,
-                  {
-                    "Content-Type":
-                      "application/json; charset=utf-8"
-                  }
-                );
-
-                return res.end(
-                  JSON.stringify(data)
-                );
-
-              } catch (error) {
-
-                res.writeHead(
-                  502,
-                  {
-                    "Content-Type":
-                      "application/json"
-                  }
-                );
-
-                return res.end(
-                  JSON.stringify({
-                    error:
-                      "cs2_prices_proxy_error",
-
-                    message:
-                      String(
-                        error.message ||
-                        error
-                      )
-                  })
-                );
-              }
-            }
-          );
-
-          return;
-        }
-
-        /* =====================
-           404
-        ===================== */
-
-        res.writeHead(
-          404,
-          {
-            "Content-Type":
-              "text/plain; charset=utf-8"
-          }
-        );
-
-        return res.end(
-          "Not found"
-        );
-
-      } catch (error) {
-
-        console.error(
-          "[SERVER ERROR]",
-          error
-        );
-
-        if (
-          !res.headersSent
-        ) {
-
-          res.writeHead(
-            500,
-            {
-              "Content-Type":
-                "application/json"
-            }
-          );
-
-          return res.end(
-            JSON.stringify({
-              error:
-                error.message
-            })
-          );
-        }
-
-        res.end();
+function getCookie(req, name) {
+  const header = req.headers.cookie || '';
+
+  const cookies = header.split(';');
+
+  for (const cookie of cookies) {
+    const [key, ...rest] = cookie.trim().split('=');
+
+    if (key === name) {
+      return decodeURIComponent(rest.join('='));
+    }
+  }
+
+  return '';
+}
+
+const sessions = new Map();
+
+function createSession(user) {
+  const token = crypto.randomBytes(32).toString('hex');
+
+  sessions.set(token, {
+    user,
+    createdAt: Date.now()
+  });
+
+  return token;
+}
+
+async function getSteamPlayer(steamId) {
+  if (!STEAM_API_KEY || !steamId) {
+    return {
+      steamid: steamId
+    };
+  }
+
+  try {
+    const url =
+      'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/' +
+      `?key=${encodeURIComponent(STEAM_API_KEY)}` +
+      `&steamids=${encodeURIComponent(steamId)}`;
+
+    const response = await request(url, {
+      timeout: 15000,
+      headers: {
+        'Accept-Encoding': 'gzip'
       }
+    });
+
+    const data = JSON.parse(response.body);
+
+    return data?.response?.players?.[0] || {
+      steamid: steamId
+    };
+  } catch (e) {
+    console.error('[Steam]', e.message);
+
+    return {
+      steamid: steamId
+    };
+  }
+}
+
+function steamLoginUrl() {
+  const realm =
+    STEAM_REALM ||
+    `http://localhost:${PORT}`;
+
+  const returnUrl =
+    STEAM_RETURN_URL ||
+    `${realm.replace(/\/$/, '')}/auth/steam/callback`;
+
+  const params = new URLSearchParams({
+    'openid.ns': 'http://specs.openid.net/auth/2.0',
+    'openid.mode': 'checkid_setup',
+    'openid.return_to': returnUrl,
+    'openid.realm': realm,
+    'openid.identity':
+      'http://specs.openid.net/auth/2.0/identifier_select',
+    'openid.claimed_id':
+      'http://specs.openid.net/auth/2.0/identifier_select'
+  });
+
+  return `https://steamcommunity.com/openid/login?${params.toString()}`;
+}
+
+async function verifySteam(reqUrl) {
+  const params = reqUrl.searchParams;
+
+  const claimedId = params.get('openid.claimed_id');
+
+  if (!claimedId) {
+    throw new Error('Нет Steam claimed_id');
+  }
+
+  const match = claimedId.match(/\/id\/(\d+)$/);
+
+  if (!match) {
+    throw new Error('Не удалось получить Steam ID');
+  }
+
+  const steamId = match[1];
+
+  const verifyParams = new URLSearchParams();
+
+  for (const [key, value] of params.entries()) {
+    verifyParams.set(key, value);
+  }
+
+  verifyParams.set('openid.mode', 'check_authentication');
+
+  const response = await request(
+    'https://steamcommunity.com/openid/login',
+    {
+      method: 'POST',
+      timeout: 20000,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(
+          verifyParams.toString()
+        )
+      },
+      body: verifyParams.toString()
     }
   );
 
-/* =========================
-   START
-========================= */
-
-server.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-
-    console.log(
-      `Zenodrop running on port ${PORT}`
-    );
-
-    console.log(
-      "CS2.SH:",
-      KEY
-        ? "OK"
-        : "NO KEY"
-    );
-
-    console.log(
-      "Steam:",
-      STEAM_API_KEY
-        ? "OK"
-        : "NO KEY"
-    );
+  if (!response.body.includes('is_valid:true')) {
+    throw new Error('Steam OpenID не подтверждён');
   }
-);
+
+  return steamId;
+}
+
+async function handle(req, res) {
+  const url = new URL(
+    req.url,
+    `http://${req.headers.host || 'localhost'}`
+  );
+
+  // CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+
+    return res.end();
+  }
+
+  // Главная страница
+  if (
+    req.method === 'GET' &&
+    (url.pathname === '/' || url.pathname === '/index.html')
+  ) {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+
+      const file =
+        path.join(__dirname, 'Zenodrop_CS2SH_400.html');
+
+      if (fs.existsSync(file)) {
+        return text(
+          res,
+          200,
+          fs.readFileSync(file, 'utf8'),
+          'text/html; charset=utf-8'
+        );
+      }
+
+      return text(
+        res,
+        404,
+        'Zenodrop HTML не найден'
+      );
+    } catch (e) {
+      return text(res, 500, e.message);
+    }
+  }
+
+  // CS2 каталог — HTML должен обращаться только сюда.
+  if (
+    req.method === 'GET' &&
+    url.pathname === '/api/cs2/catalog'
+  ) {
+    try {
+      const catalog = await getCatalog();
+
+      return json(res, 200, {
+        ok: true,
+        count: catalog.length,
+        items: catalog
+      });
+    } catch (e) {
+      console.error('[CS2 catalog]', e);
+
+      return json(res, 500, {
+        ok: false,
+        error: e.message
+      });
+    }
+  }
+
+  // Полная schema через backend.
+  if (
+    req.method === 'GET' &&
+    url.pathname === '/api/cs2/schema'
+  ) {
+    try {
+      const response = await cs2sh('/v1/schema');
+
+      return json(
+        res,
+        200,
+        JSON.parse(response.body)
+      );
+    } catch (e) {
+      return json(res, 500, {
+        ok: false,
+        error: e.message
+      });
+    }
+  }
+
+  // Универсальный прокси цен.
+  if (
+    req.method === 'GET' &&
+    url.pathname === '/api/prices'
+  ) {
+    try {
+      const response = await cs2sh('/v1/prices/latest');
+
+      return text(
+        res,
+        200,
+        response.body,
+        'application/json; charset=utf-8'
+      );
+    } catch (e) {
+      return json(res, 500, {
+        ok: false,
+        error: e.message
+      });
+    }
+  }
+
+  // Текущий пользователь.
+  if (
+    req.method === 'GET' &&
+    url.pathname === '/api/current-user'
+  ) {
+    const token = getCookie(req, 'zenodrop_session');
+    const session = sessions.get(token);
+
+    if (!session) {
+      return json(res, 200, {
+        authenticated: false,
+        user: null
+      });
+    }
+
+    return json(res, 200, {
+      authenticated: true,
+      user: session.user
+    });
+  }
+
+  // Steam login.
+  if (
+    req.method === 'GET' &&
+    url.pathname === '/auth/steam'
+  ) {
+    res.writeHead(302, {
+      Location: steamLoginUrl()
+    });
+
+    return res.end();
+  }
+
+  // Steam callback.
+  if (
+    req.method === 'GET' &&
+    url.pathname === '/auth/steam/callback'
+  ) {
+    try {
+      const steamId = await verifySteam(url);
+
+      const player = await getSteamPlayer(steamId);
+
+      const user = {
+        steamid: steamId,
+        id: steamId,
+        name:
+          player.personaname ||
+          `Steam ${steamId}`,
+        avatar:
+          player.avatarfull ||
+          player.avatarmedium ||
+          player.avatar ||
+          '',
+        profile:
+          player.profileurl ||
+          `https://steamcommunity.com/profiles/${steamId}`
+      };
+
+      const token = createSession(user);
+
+      res.writeHead(302, {
+        Location: '/',
+        'Set-Cookie':
+          `zenodrop_session=${encodeURIComponent(token)}; ` +
+          'Path=/; HttpOnly; SameSite=Lax'
+      });
+
+      return res.end();
+    } catch (e) {
+      console.error('[Steam auth]', e);
+
+      return text(
+        res,
+        500,
+        'Ошибка авторизации Steam: ' + e.message
+      );
+    }
+  }
+
+  // Logout.
+  if (
+    req.method === 'GET' &&
+    url.pathname === '/auth/logout'
+  ) {
+    const token = getCookie(req, 'zenodrop_session');
+
+    if (token) {
+      sessions.delete(token);
+    }
+
+    res.writeHead(302, {
+      Location: '/',
+      'Set-Cookie':
+        'zenodrop_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax'
+    });
+
+    return res.end();
+  }
+
+  // USD/RUB.
+  if (
+    req.method === 'GET' &&
+    url.pathname === '/api/usd-rub'
+  ) {
+    try {
+      const response = await request(
+        'https://open.er-api.com/v6/latest/USD',
+        {
+          timeout: 15000,
+          headers: {
+            'Accept-Encoding': 'gzip'
+          }
+        }
+      );
+
+      const data = JSON.parse(response.body);
+      const rub = Number(data?.rates?.RUB);
+
+      if (!Number.isFinite(rub) || rub <= 0) {
+        throw new Error('Не удалось получить курс RUB');
+      }
+
+      return json(res, 200, {
+        ok: true,
+        usd_rub: rub
+      });
+    } catch (e) {
+      console.error('[USD/RUB]', e);
+
+      return json(res, 200, {
+        ok: false,
+        usd_rub: 80
+      });
+    }
+  }
+
+  return json(res, 404, {
+    ok: false,
+    error: 'Not found'
+  });
+}
+
+const server = http.createServer((req, res) => {
+  handle(req, res).catch(err => {
+    console.error('[SERVER]', err);
+
+    if (!res.headersSent) {
+      json(res, 500, {
+        ok: false,
+        error: err.message
+      });
+    } else {
+      res.end();
+    }
+  });
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Zenodrop server started on port ${PORT}`);
+
+  // Предзагрузка каталога после запуска.
+  setTimeout(() => {
+    getCatalog()
+      .then(() => {
+        console.log('[CS2] Предзагрузка завершена');
+      })
+      .catch(err => {
+        console.error(
+          '[CS2] Предзагрузка не удалась:',
+          err.message
+        );
+      });
+  }, 100);
+});
