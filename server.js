@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 8787;
 
 const SITE_URL = 'https://osododod.onrender.com';
 const STEAM_CALLBACK =
-  `${SITE_URL}/auth/steam/callback`;
+  SITE_URL + '/auth/steam/callback';
 
 const CS2SH_API_KEY = (
   process.env.CS2SH_API_KEY ||
@@ -21,15 +21,22 @@ const CS2SH_API_KEY = (
 const STEAM_API_KEY =
   (process.env.STEAM_API_KEY || '').trim();
 
+const SESSION_SECRET = (
+  process.env.SESSION_SECRET ||
+  CS2SH_API_KEY ||
+  STEAM_API_KEY ||
+  'zenodrop-session-secret-change-me'
+).trim();
+
 let catalogCache = null;
 let catalogCacheTime = 0;
 let catalogPromise = null;
 
 const CACHE_TTL = 10 * 60 * 1000;
 
-/* =========================
+/* =========================================================
    HTTP
-========================= */
+========================================================= */
 
 function sendJSON(res, status, data) {
   const body = JSON.stringify(data);
@@ -139,9 +146,9 @@ function request(urlString, options = {}) {
   });
 }
 
-/* =========================
+/* =========================================================
    CS2.SH
-========================= */
+========================================================= */
 
 async function cs2Request(endpoint) {
   if (!CS2SH_API_KEY) {
@@ -157,10 +164,10 @@ async function cs2Request(endpoint) {
       timeout: 120000,
 
       headers: {
-        'Authorization':
+        Authorization:
           `Bearer ${CS2SH_API_KEY}`,
 
-        'Accept':
+        Accept:
           'application/json',
 
         'Accept-Encoding':
@@ -231,7 +238,7 @@ function getPrice(item) {
   return 0;
 }
 
-function forbidden(name, item) {
+function isForbidden(name, item) {
   const text = (
     String(name || '') +
     ' ' +
@@ -248,9 +255,7 @@ function forbidden(name, item) {
 }
 
 async function buildCatalog() {
-  console.log(
-    '[CS2] Загружаю каталог...'
-  );
+  console.log('[CS2] Загружаю schema + prices...');
 
   if (!CS2SH_API_KEY) {
     throw new Error(
@@ -272,13 +277,6 @@ async function buildCatalog() {
   const prices =
     JSON.parse(pricesResponse.body);
 
-  /*
-    Правильный формат cs2.sh:
-
-    schema.items
-    prices.items
-  */
-
   const schemaItems =
     schema?.items &&
     typeof schema.items === 'object'
@@ -292,16 +290,23 @@ async function buildCatalog() {
       : {};
 
   console.log(
-    '[CS2] Schema:',
+    '[CS2] Schema items:',
     Object.keys(schemaItems).length
   );
 
   console.log(
-    '[CS2] Prices:',
+    '[CS2] Price items:',
     Object.keys(priceItems).length
   );
 
   const result = [];
+
+  /*
+    ВАЖНО:
+    Здесь НЕТ slice(0,2500).
+    Загружаются ВСЕ доступные предметы,
+    кроме наклеек/чармов/keychain.
+  */
 
   for (
     const [name, item]
@@ -309,21 +314,21 @@ async function buildCatalog() {
   ) {
     if (!item) continue;
 
-    if (forbidden(name, item)) {
+    if (isForbidden(name, item)) {
       continue;
     }
 
-    const price =
+    const priceItem =
       priceItems[name];
 
-    if (!price) {
+    if (!priceItem) {
       continue;
     }
 
     const usd =
-      getPrice(price);
+      getPrice(priceItem);
 
-    if (!usd) {
+    if (!usd || usd <= 0) {
       continue;
     }
 
@@ -366,7 +371,9 @@ async function buildCatalog() {
   }
 
   /*
-    Дорогие сверху.
+    Сортировка только для удобства:
+    дорогие -> дешёвые.
+    Но ВСЕ предметы остаются.
   */
 
   result.sort(
@@ -374,14 +381,12 @@ async function buildCatalog() {
       b.usd - a.usd
   );
 
-  const catalog =
-    result.slice(0, 2500);
-
   console.log(
-    `[CS2] Каталог готов: ${catalog.length}`
+    '[CS2] Всего предметов:',
+    result.length
   );
 
-  return catalog;
+  return result;
 }
 
 async function getCatalog() {
@@ -389,8 +394,7 @@ async function getCatalog() {
 
   if (
     catalogCache &&
-    now - catalogCacheTime <
-      CACHE_TTL
+    now - catalogCacheTime < CACHE_TTL
   ) {
     return catalogCache;
   }
@@ -403,8 +407,7 @@ async function getCatalog() {
     buildCatalog()
       .then(catalog => {
         catalogCache = catalog;
-        catalogCacheTime =
-          Date.now();
+        catalogCacheTime = Date.now();
 
         return catalog;
       })
@@ -415,19 +418,86 @@ async function getCatalog() {
   return catalogPromise;
 }
 
-/* =========================
-   STEAM
-========================= */
+/* =========================================================
+   COOKIE SESSION
+========================================================= */
 
-const sessions = new Map();
+function sign(value) {
+  return crypto
+    .createHmac(
+      'sha256',
+      SESSION_SECRET
+    )
+    .update(value)
+    .digest('hex');
+}
+
+function createSessionCookie(user) {
+  const payload =
+    Buffer.from(
+      JSON.stringify(user),
+      'utf8'
+    ).toString('base64url');
+
+  const signature =
+    sign(payload);
+
+  return `${payload}.${signature}`;
+}
+
+function readSessionCookie(value) {
+  if (!value) {
+    return null;
+  }
+
+  const dot =
+    value.lastIndexOf('.');
+
+  if (dot <= 0) {
+    return null;
+  }
+
+  const payload =
+    value.slice(0, dot);
+
+  const signature =
+    value.slice(dot + 1);
+
+  const expected =
+    sign(payload);
+
+  const a =
+    Buffer.from(signature);
+
+  const b =
+    Buffer.from(expected);
+
+  if (
+    a.length !== b.length ||
+    !crypto.timingSafeEqual(a, b)
+  ) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(
+      Buffer.from(
+        payload,
+        'base64url'
+      ).toString('utf8')
+    );
+  } catch {
+    return null;
+  }
+}
 
 function getCookie(req, name) {
-  const cookies =
+  const header =
     req.headers.cookie || '';
 
   for (
     const cookie
-    of cookies.split(';')
+    of header.split(';')
   ) {
     const parts =
       cookie.trim().split('=');
@@ -445,21 +515,11 @@ function getCookie(req, name) {
   return '';
 }
 
-function createSession(user) {
-  const token =
-    crypto
-      .randomBytes(32)
-      .toString('hex');
+/* =========================================================
+   STEAM
+========================================================= */
 
-  sessions.set(token, {
-    user,
-    createdAt: Date.now()
-  });
-
-  return token;
-}
-
-function steamLoginURL() {
+function getSteamLoginURL() {
   const params =
     new URLSearchParams({
       'openid.ns':
@@ -563,7 +623,7 @@ async function verifySteam(url) {
     )
   ) {
     throw new Error(
-      'Steam не подтвердил авторизацию'
+      'Steam не подтвердил OpenID'
     );
   }
 
@@ -573,7 +633,9 @@ async function verifySteam(url) {
 async function getSteamUser(steamId) {
   if (!STEAM_API_KEY) {
     return {
-      steamid: steamId
+      steamid: steamId,
+      personaname:
+        `Steam ${steamId}`
     };
   }
 
@@ -592,6 +654,9 @@ async function getSteamUser(steamId) {
       await request(api, {
         timeout: 15000,
         headers: {
+          Accept:
+            'application/json',
+
           'Accept-Encoding':
             'gzip'
         }
@@ -619,9 +684,9 @@ async function getSteamUser(steamId) {
   }
 }
 
-/* =========================
-   ROUTES
-========================= */
+/* =========================================================
+   SERVER
+========================================================= */
 
 async function handle(req, res) {
   const url =
@@ -632,12 +697,9 @@ async function handle(req, res) {
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
-      'Access-Control-Allow-Origin':
-        '*',
-
+      'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods':
         'GET,POST,OPTIONS',
-
       'Access-Control-Allow-Headers':
         'Content-Type'
     });
@@ -645,7 +707,9 @@ async function handle(req, res) {
     return res.end();
   }
 
-  /* Главная */
+  /* =========================
+     HTML
+  ========================= */
 
   if (
     req.method === 'GET' &&
@@ -664,7 +728,7 @@ async function handle(req, res) {
       return sendText(
         res,
         404,
-        'HTML файл не найден'
+        'Zenodrop_CS2SH_400.html не найден'
       );
     }
 
@@ -679,7 +743,9 @@ async function handle(req, res) {
     );
   }
 
-  /* CS2 каталог */
+  /* =========================
+     CS2 CATALOG
+  ========================= */
 
   if (
     req.method === 'GET' &&
@@ -716,7 +782,9 @@ async function handle(req, res) {
     }
   }
 
-  /* Schema */
+  /* =========================
+     SCHEMA
+  ========================= */
 
   if (
     req.method === 'GET' &&
@@ -747,7 +815,9 @@ async function handle(req, res) {
     }
   }
 
-  /* Prices */
+  /* =========================
+     PRICES
+  ========================= */
 
   if (
     req.method === 'GET' &&
@@ -778,7 +848,176 @@ async function handle(req, res) {
     }
   }
 
-  /* USD/RUB */
+  /* =========================
+     CURRENT USER
+  ========================= */
+
+  if (
+    req.method === 'GET' &&
+    url.pathname ===
+      '/api/current-user'
+  ) {
+    const raw =
+      getCookie(
+        req,
+        'zenodrop_session'
+      );
+
+    const user =
+      readSessionCookie(raw);
+
+    if (!user) {
+      return sendJSON(
+        res,
+        200,
+        {
+          authenticated: false,
+          user: null
+        }
+      );
+    }
+
+    return sendJSON(
+      res,
+      200,
+      {
+        authenticated: true,
+        user
+      }
+    );
+  }
+
+  /* =========================
+     STEAM LOGIN
+  ========================= */
+
+  if (
+    req.method === 'GET' &&
+    url.pathname ===
+      '/auth/steam'
+  ) {
+    console.log(
+      '[STEAM] Redirect:',
+      STEAM_CALLBACK
+    );
+
+    res.writeHead(
+      302,
+      {
+        Location:
+          getSteamLoginURL()
+      }
+    );
+
+    return res.end();
+  }
+
+  /* =========================
+     STEAM CALLBACK
+  ========================= */
+
+  if (
+    req.method === 'GET' &&
+    url.pathname ===
+      '/auth/steam/callback'
+  ) {
+    try {
+      console.log(
+        '[STEAM] Callback received'
+      );
+
+      const steamId =
+        await verifySteam(url);
+
+      console.log(
+        '[STEAM] Verified:',
+        steamId
+      );
+
+      const player =
+        await getSteamUser(
+          steamId
+        );
+
+      const user = {
+        steamid: steamId,
+
+        id: steamId,
+
+        name:
+          player.personaname ||
+          `Steam ${steamId}`,
+
+        avatar:
+          player.avatarfull ||
+          player.avatarmedium ||
+          player.avatar ||
+          '',
+
+        profile:
+          player.profileurl ||
+          `https://steamcommunity.com/profiles/${steamId}`
+      };
+
+      const session =
+        createSessionCookie(user);
+
+      res.writeHead(
+        302,
+        {
+          Location: '/',
+
+          'Set-Cookie':
+            `zenodrop_session=${encodeURIComponent(
+              session
+            )}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`
+        }
+      );
+
+      return res.end();
+
+    } catch (e) {
+      console.error(
+        '[STEAM LOGIN ERROR]',
+        e
+      );
+
+      return sendText(
+        res,
+        500,
+        'Ошибка Steam авторизации: ' +
+        e.message
+      );
+    }
+  }
+
+  /* =========================
+     LOGOUT
+  ========================= */
+
+  if (
+    req.method === 'GET' &&
+    url.pathname ===
+      '/auth/logout'
+  ) {
+    res.writeHead(
+      302,
+      {
+        Location: '/',
+
+        'Set-Cookie':
+          'zenodrop_session=; ' +
+          'Path=/; Max-Age=0; ' +
+          'HttpOnly; Secure; SameSite=Lax'
+      }
+    );
+
+    return res.end();
+  }
+
+  /* =========================
+     USD/RUB
+  ========================= */
 
   if (
     req.method === 'GET' &&
@@ -791,7 +1030,11 @@ async function handle(req, res) {
           'https://open.er-api.com/v6/latest/USD',
           {
             timeout: 15000,
+
             headers: {
+              Accept:
+                'application/json',
+
               'Accept-Encoding':
                 'gzip'
             }
@@ -825,7 +1068,8 @@ async function handle(req, res) {
           usd_rub: rate
         }
       );
-    } catch (e) {
+
+    } catch {
       return sendJSON(
         res,
         200,
@@ -835,161 +1079,6 @@ async function handle(req, res) {
         }
       );
     }
-  }
-
-  /* Current user */
-
-  if (
-    req.method === 'GET' &&
-    url.pathname ===
-      '/api/current-user'
-  ) {
-    const token =
-      getCookie(
-        req,
-        'zenodrop_session'
-      );
-
-    const session =
-      sessions.get(token);
-
-    if (!session) {
-      return sendJSON(
-        res,
-        200,
-        {
-          authenticated: false,
-          user: null
-        }
-      );
-    }
-
-    return sendJSON(
-      res,
-      200,
-      {
-        authenticated: true,
-        user: session.user
-      }
-    );
-  }
-
-  /* Steam login */
-
-  if (
-    req.method === 'GET' &&
-    url.pathname ===
-      '/auth/steam'
-  ) {
-    res.writeHead(
-      302,
-      {
-        Location:
-          steamLoginURL()
-      }
-    );
-
-    return res.end();
-  }
-
-  /* Steam callback */
-
-  if (
-    req.method === 'GET' &&
-    url.pathname ===
-      '/auth/steam/callback'
-  ) {
-    try {
-      const steamId =
-        await verifySteam(url);
-
-      const player =
-        await getSteamUser(
-          steamId
-        );
-
-      const user = {
-        steamid: steamId,
-
-        id: steamId,
-
-        name:
-          player.personaname ||
-          `Steam ${steamId}`,
-
-        avatar:
-          player.avatarfull ||
-          player.avatarmedium ||
-          player.avatar ||
-          '',
-
-        profile:
-          player.profileurl ||
-          `https://steamcommunity.com/profiles/${steamId}`
-      };
-
-      const token =
-        createSession(user);
-
-      res.writeHead(
-        302,
-        {
-          Location: '/',
-
-          'Set-Cookie':
-            `zenodrop_session=${encodeURIComponent(
-              token
-            )}; Path=/; HttpOnly; Secure; SameSite=Lax`
-        }
-      );
-
-      return res.end();
-
-    } catch (e) {
-      console.error(
-        '[STEAM LOGIN ERROR]',
-        e.message
-      );
-
-      return sendText(
-        res,
-        500,
-        'Ошибка авторизации Steam: ' +
-        e.message
-      );
-    }
-  }
-
-  /* Logout */
-
-  if (
-    req.method === 'GET' &&
-    url.pathname ===
-      '/auth/logout'
-  ) {
-    const token =
-      getCookie(
-        req,
-        'zenodrop_session'
-      );
-
-    if (token) {
-      sessions.delete(token);
-    }
-
-    res.writeHead(
-      302,
-      {
-        Location: '/',
-
-        'Set-Cookie':
-          'zenodrop_session=; ' +
-          'Path=/; Max-Age=0; ' +
-          'HttpOnly; Secure; SameSite=Lax'
-      }
-    );
-
-    return res.end();
   }
 
   return sendJSON(
@@ -1002,9 +1091,9 @@ async function handle(req, res) {
   );
 }
 
-/* =========================
+/* =========================================================
    START
-========================= */
+========================================================= */
 
 const server =
   http.createServer(
@@ -1038,31 +1127,37 @@ server.listen(
   '0.0.0.0',
   () => {
     console.log(
-      '================================'
+      '======================================'
     );
 
     console.log(
-      `Zenodrop started on port ${PORT}`
+      'ZENODROP SERVER STARTED'
     );
 
     console.log(
-      `SITE: ${SITE_URL}`
+      'PORT:',
+      PORT
     );
 
     console.log(
-      `STEAM CALLBACK: ${STEAM_CALLBACK}`
+      'SITE:',
+      SITE_URL
     );
 
     console.log(
-      `CS2 KEY: ${
-        CS2SH_API_KEY
-          ? 'FOUND'
-          : 'NOT FOUND'
-      }`
+      'STEAM CALLBACK:',
+      STEAM_CALLBACK
     );
 
     console.log(
-      '================================'
+      'CS2 KEY:',
+      CS2SH_API_KEY
+        ? 'FOUND'
+        : 'NOT FOUND'
+    );
+
+    console.log(
+      '======================================'
     );
 
     setTimeout(() => {
@@ -1074,10 +1169,10 @@ server.listen(
         })
         .catch(e => {
           console.error(
-            '[CS2] Предзагрузка:',
+            '[CS2] Ошибка предзагрузки:',
             e.message
           );
         });
-    }, 500);
+    }, 1000);
   }
 );
