@@ -8,8 +8,7 @@ const path = require('path');
 const PORT = process.env.PORT || 8787;
 
 const SITE_URL = 'https://osododod.onrender.com';
-const STEAM_CALLBACK =
-  SITE_URL + '/auth/steam/callback';
+const STEAM_CALLBACK = SITE_URL + '/auth/steam/callback';
 
 const CS2SH_API_KEY = (
   process.env.CS2SH_API_KEY ||
@@ -18,8 +17,9 @@ const CS2SH_API_KEY = (
   ''
 ).trim();
 
-const STEAM_API_KEY =
-  (process.env.STEAM_API_KEY || '').trim();
+const STEAM_API_KEY = (
+  process.env.STEAM_API_KEY || ''
+).trim();
 
 const SESSION_SECRET = (
   process.env.SESSION_SECRET ||
@@ -34,6 +34,7 @@ let catalogPromise = null;
 
 const CACHE_TTL = 10 * 60 * 1000;
 
+
 /* =========================================================
    HTTP
 ========================================================= */
@@ -43,8 +44,7 @@ function sendJSON(res, status, data) {
 
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
-    'Access-Control-Allow-Origin': '*'
+    'Cache-Control': 'no-store'
   });
 
   res.end(body);
@@ -146,6 +146,7 @@ function request(urlString, options = {}) {
   });
 }
 
+
 /* =========================================================
    CS2.SH
 ========================================================= */
@@ -162,14 +163,11 @@ async function cs2Request(endpoint) {
     {
       method: 'GET',
       timeout: 120000,
-
       headers: {
         Authorization:
           `Bearer ${CS2SH_API_KEY}`,
-
         Accept:
           'application/json',
-
         'Accept-Encoding':
           'gzip'
       }
@@ -301,13 +299,6 @@ async function buildCatalog() {
 
   const result = [];
 
-  /*
-    ВАЖНО:
-    Здесь НЕТ slice(0,2500).
-    Загружаются ВСЕ доступные предметы,
-    кроме наклеек/чармов/keychain.
-  */
-
   for (
     const [name, item]
     of Object.entries(schemaItems)
@@ -335,7 +326,6 @@ async function buildCatalog() {
     result.push({
       name,
       market_hash_name: name,
-
       usd: Number(usd),
 
       image:
@@ -369,12 +359,6 @@ async function buildCatalog() {
         item.is_tradable !== false
     });
   }
-
-  /*
-    Сортировка только для удобства:
-    дорогие -> дешёвые.
-    Но ВСЕ предметы остаются.
-  */
 
   result.sort(
     (a, b) =>
@@ -417,6 +401,7 @@ async function getCatalog() {
 
   return catalogPromise;
 }
+
 
 /* =========================================================
    COOKIE SESSION
@@ -514,6 +499,7 @@ function getCookie(req, name) {
 
   return '';
 }
+
 
 /* =========================================================
    STEAM
@@ -653,6 +639,7 @@ async function getSteamUser(steamId) {
     const response =
       await request(api, {
         timeout: 15000,
+
         headers: {
           Accept:
             'application/json',
@@ -684,6 +671,7 @@ async function getSteamUser(steamId) {
   }
 }
 
+
 /* =========================================================
    SERVER
 ========================================================= */
@@ -706,6 +694,7 @@ async function handle(req, res) {
 
     return res.end();
   }
+
 
   /* =========================
      HTML
@@ -742,6 +731,7 @@ async function handle(req, res) {
       'text/html; charset=utf-8'
     );
   }
+
 
   /* =========================
      CS2 CATALOG
@@ -782,6 +772,7 @@ async function handle(req, res) {
     }
   }
 
+
   /* =========================
      SCHEMA
   ========================= */
@@ -814,6 +805,7 @@ async function handle(req, res) {
       );
     }
   }
+
 
   /* =========================
      PRICES
@@ -848,9 +840,14 @@ async function handle(req, res) {
     }
   }
 
-  /* =========================
+
+  /* =====================================================
      CURRENT USER
-  ========================= */
+     
+     ВАЖНО:
+     HTML ожидает steamUser.steamid,
+     а не только steamUser.user.steamid.
+  ===================================================== */
 
   if (
     req.method === 'GET' &&
@@ -872,6 +869,9 @@ async function handle(req, res) {
         200,
         {
           authenticated: false,
+          steamid: null,
+          username: null,
+          avatar: null,
           user: null
         }
       );
@@ -882,10 +882,25 @@ async function handle(req, res) {
       200,
       {
         authenticated: true,
+
+        // Совместимость с текущим HTML
+        steamid:
+          user.steamid,
+
+        username:
+          user.name ||
+          user.username ||
+          `Steam ${user.steamid}`,
+
+        avatar:
+          user.avatar || '',
+
+        // Полный объект пользователя
         user
       }
     );
   }
+
 
   /* =========================
      STEAM LOGIN
@@ -911,6 +926,7 @@ async function handle(req, res) {
 
     return res.end();
   }
+
 
   /* =========================
      STEAM CALLBACK
@@ -962,16 +978,27 @@ async function handle(req, res) {
       const session =
         createSessionCookie(user);
 
+      /*
+        ВАЖНО:
+        Cookie ставится на весь Render-домен.
+      */
+
       res.writeHead(
         302,
         {
-          Location: '/',
+          Location:
+            SITE_URL + '/',
 
           'Set-Cookie':
             `zenodrop_session=${encodeURIComponent(
               session
             )}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`
         }
+      );
+
+      console.log(
+        '[STEAM] Session created for:',
+        steamId
       );
 
       return res.end();
@@ -991,6 +1018,7 @@ async function handle(req, res) {
     }
   }
 
+
   /* =========================
      LOGOUT
   ========================= */
@@ -1003,7 +1031,8 @@ async function handle(req, res) {
     res.writeHead(
       302,
       {
-        Location: '/',
+        Location:
+          SITE_URL + '/',
 
         'Set-Cookie':
           'zenodrop_session=; ' +
@@ -1014,6 +1043,7 @@ async function handle(req, res) {
 
     return res.end();
   }
+
 
   /* =========================
      USD/RUB
@@ -1060,11 +1090,17 @@ async function handle(req, res) {
         );
       }
 
+      /*
+        HTML сейчас читает d.rate,
+        поэтому отдаём оба варианта.
+      */
+
       return sendJSON(
         res,
         200,
         {
           ok: true,
+          rate,
           usd_rub: rate
         }
       );
@@ -1075,11 +1111,13 @@ async function handle(req, res) {
         200,
         {
           ok: false,
+          rate: 80,
           usd_rub: 80
         }
       );
     }
   }
+
 
   return sendJSON(
     res,
@@ -1090,6 +1128,7 @@ async function handle(req, res) {
     }
   );
 }
+
 
 /* =========================================================
    START
@@ -1152,6 +1191,13 @@ server.listen(
     console.log(
       'CS2 KEY:',
       CS2SH_API_KEY
+        ? 'FOUND'
+        : 'NOT FOUND'
+    );
+
+    console.log(
+      'STEAM KEY:',
+      STEAM_API_KEY
         ? 'FOUND'
         : 'NOT FOUND'
     );
