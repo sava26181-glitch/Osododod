@@ -63,8 +63,8 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .price-filter-box{display:none;gap:6px;align-items:center}.price-filter-box.active{display:flex}
 .price-input{background:#11131c;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;padding:4px 8px;width:75px;font-size:11px;outline:none;font-weight:600}
 
-/* Карточки инвентаря с хорошими отступами */
-.items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:14px;max-height:300px;overflow-y:auto;padding:8px 4px;min-width:0;width:100%}
+/* Сетка инвентаря и каталога с защитой от наложения (CSS Grid) */
+.items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;max-height:300px;overflow-y:auto;padding:8px 4px;min-width:0;width:100%}
 .item-card{background:#11131c;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;position:relative;transition:all .25s ease;min-width:0;overflow:hidden}
 .item-card:hover{border-color:rgba(245,158,11,.4);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,0.5)}
 .item-card.selected{border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.35)}
@@ -90,13 +90,22 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .roulette-container{position:relative;overflow:hidden;width:100%;height:130px;background:#12141c;border-radius:14px;border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 4px 15px rgba(0,0,0,.6)}
 .roulette-track{display:flex;gap:12px;position:absolute;left:0;top:0;height:100%;will-change:transform;align-items:center;padding-left:6px}
 
-/* Чистый и красивый стиль элементов рулетки (убрана избыточная информация) */
+/* Чистый и красивый стиль элементов рулетки */
 .roulette-item{width:105px;min-width:105px;height:112px;background:linear-gradient(145deg,#181b26,#13151f);border:1px solid rgba(255,255,255,.07);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;position:relative;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.4)}
 .roulette-item img{width:76px;height:52px;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,.7));margin-bottom:4px}
 .roulette-item strong{font-size:11px;font-weight:800;color:#e5e7eb;max-width:94px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
 .roulette-item span{font-size:11px;font-weight:800;color:#fbbf24;margin-top:2px}
 
 .roulette-pointer{position:absolute;left:50%;top:0;bottom:0;width:3px;transform:translateX(-50%);background:linear-gradient(180deg,#f59e0b,#d97706);z-index:20;pointer-events:none;box-shadow:0 0 12px rgba(245,158,11,.8)}
+
+/* Панель кнопок открытия кейсов (обычное + массовое + быстрое) */
+.case-actions-panel{display:flex;flex-direction:column;gap:8px;width:100%}
+.multi-open-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%}
+.multi-btn{background:#161924;border:1px solid rgba(245,158,11,.3);color:#f59e0b;padding:10px 0;border-radius:10px;font-weight:900;font-size:12px;cursor:pointer;text-transform:uppercase;transition:.2s}
+.multi-btn:hover{background:rgba(245,158,11,.15);border-color:#f59e0b}
+.fast-case-toggle{display:flex;align-items:center;justify-content:center;gap:8px;background:#161924;border:1px solid rgba(255,255,255,.08);padding:8px;border-radius:10px;cursor:pointer;font-size:11px;font-weight:700;color:#9ca3af;user-select:none}
+.fast-case-toggle input{accent-color:#f59e0b;cursor:pointer}
+
 .action-buttons{display:none;gap:10px;width:100%}.action-btn{flex:1;padding:12px 10px;border-radius:12px;font-weight:900;cursor:pointer;font-size:14px;border:none;text-transform:uppercase}
 .sell-btn{background:#2a2a2e;color:#ffb800;border:1px solid #ffb800}.retry-btn{background:linear-gradient(135deg,#ffb800,#ff8c00);color:#000}
 .profile-wrapper{display:flex;flex-direction:column;gap:12px;width:100%}
@@ -191,8 +200,20 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 <button class="back-cases-btn" onclick="closeCaseOpening()">← Назад к кейсам</button>
 <div style="font-size:16px;font-weight:900;color:#fff;" id="activeCaseTitle">Кейс</div>
 <div class="roulette-container"><div class="roulette-pointer"></div><div class="roulette-track" id="rouletteTrack"></div></div>
-<button class="btn-upgrade" id="mainOpenBtn" onclick="startOpening()">Открыть кейс</button>
-<div class="action-buttons" id="actionButtons"><button class="action-btn sell-btn" id="sellBtn" onclick="sellCurrentItem()">Продать</button><button class="action-btn retry-btn" onclick="startOpening()">Еще раз</button></div>
+
+<div class="case-actions-panel" id="caseActionsPanel">
+  <button class="btn-upgrade" id="mainOpenBtn" onclick="startOpening(1)">Открыть кейс</button>
+  <div class="multi-open-row">
+    <button class="multi-btn" onclick="startOpening(2)">×2</button>
+    <button class="multi-btn" onclick="startOpening(3)">×3</button>
+    <button class="multi-btn" onclick="startOpening(4)">×4</button>
+    <button class="multi-btn" onclick="startOpening(5)">×5</button>
+  </div>
+  <label class="fast-case-toggle">
+    <input type="checkbox" id="fastCaseCheckbox"> Быстрое открытие
+  </label>
+</div>
+<div class="action-buttons" id="actionButtons"><button class="action-btn sell-btn" id="sellBtn" onclick="sellCurrentItem()">Продать</button><button class="action-btn retry-btn" onclick="startOpening(1)">Еще раз</button></div>
 <div class="inventory-section" style="width:100%;margin-top:4px;flex:1;"><div style="font-size:12px;font-weight:800;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Содержимое кейса</div><div class="items-grid" id="caseContentsGrid" style="max-height:none;flex:1;min-height:220px;"></div></div>
 </div>
 </div>
@@ -208,12 +229,12 @@ const PRICE_CACHE_KEY='zeno_cs2sh_prices_v1';
 let PRICE_MAP={};
 let CATALOG_ITEMS=[],CASES_DATA=[];
 let currentUser=null,currentTab='inventory';
-let activeCase=null,isCaseSpinning=false,currentWonItem=null;
+let activeCase=null,isCaseSpinning=false,currentWonItem=null,currentWonItemsList=[];
 let selectedItemIndex=null,targetWeapon=null,isSpinning=false,currentRotation=0,activeQuickChance=null;
 let quickChances=[10,20,30,40,50,70],MAX_CHANCE=70,isFastSpinActive=false;
 const canvas=document.getElementById('wheelCanvas'),ctx=canvas.getContext('2d'),track=document.getElementById('rouletteTrack');
 
-// Звуковой движок (Web Audio API) для щелчков, победы и рулетки кейсов
+// Звуковой движок (Web Audio API)
 let audioCtx = null;
 function getAudioContext() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -300,21 +321,21 @@ function normalizeSkin(x,i){
 }
 function findApiSkin(name){if(!name)return null;const n=cleanName(name).toLowerCase();return CATALOG_ITEMS.find(x=>x.name.toLowerCase()===n)||CATALOG_ITEMS.find(x=>x.name.toLowerCase().replace(/\s*\([^)]*\)$/,'')===n.replace(/\s*\([^)]*\)$/,''))||null}
 
+// Улучшенная сбалансированная логика выпадения и окупаемости для кейсов
 function chooseBand(price){
   return [
-    {min: price * 1.8, max: price * 4.0, p: 3.0},
-    {min: price * 1.1, max: price * 1.8, p: 14.0},
-    {min: price * 0.7, max: price * 1.1, p: 33.0},
-    {min: price * 0.3, max: price * 0.7, p: 35.0},
-    {min: 0, max: price * 0.3, p: 15.0}
+    {min: price * 1.5, max: price * 3.5, p: 18.0},
+    {min: price * 0.9, max: price * 1.5, p: 35.0},
+    {min: price * 0.5, max: price * 0.9, p: 30.0},
+    {min: 0, max: price * 0.5, p: 17.0}
   ];
 }
 
 function chooseBandWithPity(price, userStats){
   let r = Math.random() * 100;
   let bands = chooseBand(price);
-  if (userStats && userStats.casesOpened > 0 && userStats.casesOpened % 4 === 0) {
-    r = r * 0.85;
+  if (userStats && userStats.casesOpened > 0 && userStats.casesOpened % 3 === 0) {
+    r = r * 0.75; // Повышаем шанс хорошего дропа
   }
   for(const b of bands){if(r<b.p)return b;r-=b.p}
   return bands.at(-1);
@@ -330,12 +351,12 @@ function pickFromBand(items,band){
 }
 
 function buildCaseContents(price,index){
-  const minVal = Math.max(1, price * 0.1);
-  const maxVal = price * 2.8;
+  const minVal = Math.max(1, price * 0.2);
+  const maxVal = price * 2.5;
   const used = window.__zenoAssigned || new Set();
   let pool = CATALOG_ITEMS.filter(x => x && x.img && x.value >= minVal && x.value <= maxVal && !used.has(x.id));
   if(pool.length < 30) pool = CATALOG_ITEMS.filter(x => x && x.img && !used.has(x.id));
-  pool.sort((a, b) => Math.abs(a.value - price * 0.6) - Math.abs(b.value - price * 0.6));
+  pool.sort((a, b) => Math.abs(a.value - price * 0.8) - Math.abs(b.value - price * 0.8));
   let out = pool.slice(0, 100);
   while(out.length < 100 && CATALOG_ITEMS.length > 0) {
     out.push({...CATALOG_ITEMS[Math.floor(Math.random() * CATALOG_ITEMS.length)]});
@@ -348,7 +369,7 @@ function buildCaseContents(price,index){
 
 function hashCode(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 
-// Исправленные картинки кейсов в точности под ваш референс
+// Произвольные картинки кейсов
 const CASE_IMAGES = {
   13: 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJn7-MhvnwNrTglIhC68sh3r2Yrdms2Vbtr0VuYWmmLYOQJgE9M1jWqFS8ku6808e068vJn3Ngu3Ur-z-DyG2w7g/360fx360f',
   25: 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgposr-kLAtl7PLZTjlH_9mkgL-OmuLwNqvUn35u5sR1jteWpI-j2wK2rkA5a2Dyd46Ue1U6N16G8gO_l-a9jZK96M_MnXJlvHRx5yzemEexhwYMMLJ4B4v97w/360fx360f',
@@ -605,11 +626,10 @@ function renderCasesList(){
   });
 }
 
-function openCaseScreen(c){activeCase=c;document.getElementById('casesListContainer').style.display='none';document.getElementById('caseOpeningView').classList.add('active');document.getElementById('activeCaseTitle').textContent=c.name+' · '+c.price+' ₽';renderCaseContents();renderTrack();document.getElementById('actionButtons').style.display='none';document.getElementById('mainOpenBtn').style.display='block'}
+function openCaseScreen(c){activeCase=c;document.getElementById('casesListContainer').style.display='none';document.getElementById('caseOpeningView').classList.add('active');document.getElementById('activeCaseTitle').textContent=c.name+' · '+c.price+' ₽';renderCaseContents();renderTrack();document.getElementById('actionButtons').style.display='none';document.getElementById('caseActionsPanel').style.display='flex'}
 function closeCaseOpening(){if(isCaseSpinning)return;document.getElementById('caseOpeningView').classList.remove('active');document.getElementById('casesListContainer').style.display='flex'}
 function renderCaseContents(){const g=document.getElementById('caseContentsGrid');if(!g||!activeCase)return;g.innerHTML='';activeCase.items.forEach(x=>g.appendChild(createCard(x,false,()=>{})))}
 
-// Чистый рендеринг рулетки кейсов (без лишней загроможденности)
 function renderTrack(){
   if(!activeCase)return;
   let h='';
@@ -621,39 +641,84 @@ function renderTrack(){
   track.innerHTML=h;
 }
 
-function startOpening(){
+function startOpening(count = 1){
   if(!currentUser || !currentUser.steamid){ alert('Для открытия кейсов необходимо войти через Steam!'); return; }
-  if(isCaseSpinning||!activeCase)return;if(currentUser.balance<activeCase.price){alert('Недостаточно средств!');return}
-  currentUser.balance-=activeCase.price;currentUser.stats.casesOpened++;saveUserData();isCaseSpinning=true;
-  document.getElementById('mainOpenBtn').style.display='none';document.getElementById('actionButtons').style.display='none';track.style.transition='none';track.style.transform='translate3d(0,0,0)';
+  if(isCaseSpinning||!activeCase)return;
+  const totalPrice = activeCase.price * count;
+  if(currentUser.balance < totalPrice){alert('Недостаточно средств!');return}
   
-  const band=chooseBandWithPity(activeCase.price, currentUser.stats);
-  currentWonItem=pickFromBand(activeCase.items,band);
+  currentUser.balance -= totalPrice;
+  currentUser.stats.casesOpened += count;
+  saveUserData();
+  isCaseSpinning=true;
   
-  const idx=activeCase.items.findIndex(x=>x.id===currentWonItem.id);const step=117,cycles=5,center=190;
-  setTimeout(()=>{track.style.transition='transform 4s cubic-bezier(.15,.85,.35,1)';track.style.transform=`translate3d(-${cycles*activeCase.items.length*step+idx*step-center}px,0,0)`},50);
+  document.getElementById('caseActionsPanel').style.display='none';
+  document.getElementById('actionButtons').style.display='none';
+  track.style.transition='none';track.style.transform='translate3d(0,0,0)';
   
-  // Звуковое сопровождение прокрутки кейса
+  currentWonItemsList = [];
+  for(let i=0; i<count; i++){
+    const band=chooseBandWithPity(activeCase.price, currentUser.stats);
+    currentWonItemsList.push(pickFromBand(activeCase.items, band));
+  }
+  currentWonItem = currentWonItemsList[0];
+  
+  const idx=activeCase.items.findIndex(x=>x.id===currentWonItem.id);
+  const step=117,cycles=5,center=190;
+  
+  const isFast = document.getElementById('fastCaseCheckbox').checked;
+  const animDuration = isFast ? 800 : 4200;
+
+  setTimeout(()=>{
+    track.style.transition=`transform ${animDuration/1000}s cubic-bezier(.15,.85,.35,1)`;
+    track.style.transform=`translate3d(-${cycles*activeCase.items.length*step+idx*step-center}px,0,0)`;
+  },50);
+  
   let spinTicks = 0;
   const spinInterval = setInterval(() => {
     playCaseSpinTick();
     spinTicks++;
-    if(spinTicks > 32) clearInterval(spinInterval);
-  }, 110);
+    if(spinTicks > (isFast ? 8 : 32)) clearInterval(spinInterval);
+  }, isFast ? 50 : 110);
 
   setTimeout(()=>{
     clearInterval(spinInterval);
     playSuccessSound();
     isCaseSpinning=false;
-    document.getElementById('sellBtn').textContent=`Продать за ${currentWonItem.value.toFixed(2)} ₽`;
-    document.getElementById('actionButtons').style.display='flex';
-    currentUser.inventory.push({...currentWonItem});
-    if(currentWonItem.value>currentUser.bestDrop.value)currentUser.bestDrop={...currentWonItem};
+    
+    let totalWonSum = 0;
+    currentWonItemsList.forEach(item => {
+      currentUser.inventory.push({...item});
+      totalWonSum += item.value;
+      if(item.value > currentUser.bestDrop.value) currentUser.bestDrop = {...item};
+    });
     saveUserData();
-  },4200);
+
+    if(count > 1){
+      document.getElementById('sellBtn').textContent=`Продать всё за ${totalWonSum.toFixed(2)} ₽`;
+    } else {
+      document.getElementById('sellBtn').textContent=`Продать за ${currentWonItem.value.toFixed(2)} ₽`;
+    }
+    
+    document.getElementById('actionButtons').style.display='flex';
+  }, animDuration + 100);
 }
 
-function sellCurrentItem(){if(!currentWonItem)return;currentUser.balance+=currentWonItem.value;const i=currentUser.inventory.findIndex(x=>x.id===currentWonItem.id);if(i>=0)currentUser.inventory.splice(i,1);saveUserData();document.getElementById('actionButtons').style.display='none';document.getElementById('mainOpenBtn').style.display='block';currentWonItem=null}
+function sellCurrentItem(){
+  if(!currentWonItemsList || currentWonItemsList.length === 0) return;
+  let sum = 0;
+  currentWonItemsList.forEach(wonItem => {
+    sum += wonItem.value;
+    const i = currentUser.inventory.findIndex(x => x.id === wonItem.id);
+    if(i >= 0) currentUser.inventory.splice(i, 1);
+  });
+  currentUser.balance += sum;
+  saveUserData();
+  document.getElementById('actionButtons').style.display='none';
+  document.getElementById('caseActionsPanel').style.display='flex';
+  currentWonItemsList = [];
+  currentWonItem = null;
+}
 
 function toggleFastSpin(){
   isFastSpinActive = !isFastSpinActive;
