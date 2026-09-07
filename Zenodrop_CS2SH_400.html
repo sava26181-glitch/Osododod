@@ -303,6 +303,7 @@ function buildCases(){
 
 function defaultUser(steamUser){
   return {
+    steamid: steamUser ? steamUser.steamid : null,
     username: steamUser ? steamUser.username : 'Игрок Zenodrop',
     avatar: steamUser ? steamUser.avatar : 'https://avatars.steamstatic.com/c85433a0be124faee4587db1ad2649b380a9fc77_full.jpg',
     balance: 3500,
@@ -312,10 +313,13 @@ function defaultUser(steamUser){
   };
 }
 
-function normalizeUser(user){
-  if(!user||typeof user!=='object')return defaultUser();
-  user.username=user.username||'Игрок Zenodrop';
-  user.avatar=user.avatar||'https://avatars.steamstatic.com/c85433a0be124faee4587db1ad2649b380a9fc77_full.jpg';
+function normalizeUser(user, steamUser){
+  if(!user||typeof user!=='object')return defaultUser(steamUser);
+  if(steamUser) {
+    user.steamid = steamUser.steamid;
+    user.username = steamUser.username;
+    user.avatar = steamUser.avatar;
+  }
   if(typeof user.balance!=='number')user.balance=3500;
   if(!user.stats)user.stats={upgradesTotal:0,casesOpened:0,totalDeposited:0};
   ['upgradesTotal','casesOpened','totalDeposited'].forEach(k=>{if(typeof user.stats[k]!=='number')user.stats[k]=0});
@@ -324,9 +328,8 @@ function normalizeUser(user){
   user.inventory.forEach(x=>{const a=findApiSkin(x.name);if(a){x.id=a.id;x.name=a.name;x.img=a.img;x.value=a.value}});
   return user;
 }
-function saveUserData(){if(!currentUser)return;localStorage.setItem('zeno_local_user',JSON.stringify(currentUser))}
+function saveUserData(){if(!currentUser || !currentUser.steamid)return;localStorage.setItem('zeno_local_user_' + currentUser.steamid,JSON.stringify(currentUser))}
 
-// РЕАЛЬНЫЙ ВХОД ЧЕРЕЗ STEAM (БЕЗ СИМУЛЯЦИЙ)
 function initSteamAuth(){
   window.location.href = '/auth/steam';
 }
@@ -346,22 +349,22 @@ function updateAuthUI(){
 
 async function initializeApp(){
   try{
-    // Запрос текущего авторизованного пользователя с сервера
+    let steamUser = null;
     try {
       const res = await fetch('/api/current-user');
-      const steamUser = await res.json();
-      if(steamUser && steamUser.steamid) {
-        // Проверяем, есть ли уже локальные данные для этого стимайди (чтобы не сбрасывать баланс/инвентарь при каждом фреше)
-        const saved = JSON.parse(localStorage.getItem('zeno_local_user_' + steamUser.steamid) || 'null');
-        if(saved) {
-          currentUser = normalizeUser(saved);
-          currentUser.username = steamUser.username; // Обновляем ник на актуальный из Steam
-          currentUser.avatar = steamUser.avatar;     // Обновляем аватарку
-        } else {
-          currentUser = defaultUser(steamUser);
-        }
-      }
+      steamUser = await res.json();
     } catch(e) {}
+
+    if(steamUser && steamUser.steamid) {
+      const saved = JSON.parse(localStorage.getItem('zeno_local_user_' + steamUser.steamid) || 'null');
+      if(saved) {
+        currentUser = normalizeUser(saved, steamUser);
+      } else {
+        currentUser = defaultUser(steamUser);
+      }
+    } else {
+      currentUser = defaultUser(null);
+    }
 
     loadCachedPrices();
     const cached=loadSelectedCatalog();
@@ -370,11 +373,6 @@ async function initializeApp(){
       CATALOG_ITEMS=cached.map(x=>({...x}));
       CATALOG_ITEMS.forEach(x=>x.value=Number(PRICE_MAP[cleanName(x.name)]||x.value||100));
       buildCases();
-      
-      if(!currentUser){
-        currentUser=defaultUser();
-      }
-
       renderQuickChances();updateAuthUI();switchMainTab('upgrade');finishIntro();
       
       getJSON(API.skins).then(raw=>{
@@ -413,19 +411,11 @@ async function initializeApp(){
       }
     }
     CATALOG_ITEMS=selected.slice(0,1000);saveSelectedCatalog(CATALOG_ITEMS);buildCases();
-    
-    if(!currentUser){
-      currentUser=defaultUser();
-    }
-
     renderQuickChances();updateAuthUI();switchMainTab('upgrade');finishIntro();
   }catch(e){console.error(e);
     CATALOG_ITEMS=[{id:'fallback_1',name:'AK-47 | Redline (Field-Tested)',category:'skins',value:1200,img:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV09-5lpKKqPrxN7LEmyVQ7MEpiLuSrYmt3wK3-kZsZj2nd4-cd1VoZAvR8li5k7q-05a-uMmdmyRqvHVysnfD30xgmR0g/360fx360f'}];
     buildCases();
-    if(!currentUser){
-      currentUser=defaultUser();
-    }
-    renderQuickChances();updateAuthUI();switchMainTab('upgrade');finishIntro();
+    renderQuickChances();updateAuthUI();finishIntro();
   }
 }
 
@@ -448,7 +438,6 @@ function renderProfile(){
   const a=document.getElementById('profileContentArea'),s=currentUser.stats,b=currentUser.bestDrop;
   if(!a)return;
 
-  // Если не авторизован через реальный стим
   if(!currentUser.steamid) {
     a.innerHTML=`<div class="profile-main-card" style="text-align:center;padding:30px 16px;">
       <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:12px;">Требуется авторизация</div>
@@ -496,11 +485,6 @@ function renderProfile(){
 function topUpBalance(){
   if(!currentUser.steamid) { alert('Сначала войдите через Steam!'); return; }
   currentUser.balance+=1000;currentUser.stats.totalDeposited+=1000;saveUserData();renderProfile();alert('Баланс пополнен на 1 000 ₽');
-}
-
-function saveUserData(){
-  if(!currentUser || !currentUser.steamid)return;
-  localStorage.setItem('zeno_local_user_' + currentUser.steamid, JSON.stringify(currentUser));
 }
 
 function renderProfileInventory(){
