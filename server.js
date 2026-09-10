@@ -155,25 +155,20 @@ function openCase(caseKey, skins){
 
 // ============================================================
 //  АПГРЕЙД
-//  Честный для цели < 5000 ₽. Штраф только от 5000 ₽ и выше.
 // ============================================================
 function upgrade(chance, steamid, targetPrice){
   chance = Number(chance);
   if (!Number.isFinite(chance)) return false;
   if (chance < 0)   chance = 0;
   if (chance > 100) chance = 100;
-
   const price = Number(targetPrice || 0);
   let real = chance;
-
   if (price >= 20000)      real *= 0.35;
   else if (price >= 15000) real *= 0.50;
   else if (price >= 10000) real *= 0.60;
   else if (price >= 5000)  real *= 0.75;
-
   if (real < 0.5) real = 0.5;
   if (real > 95)  real = 95;
-
   return Math.random() * 100 < real;
 }
 
@@ -235,12 +230,20 @@ function makeZenodropId(userOrSteam){
   return id;
 }
 function ensureZenodropId(user){
-  if(!user.zenoId || !/^ZN-\d{8}$/.test(String(user.zenoId))) user.zenoId=makeZenodropId(user);
+  if(!user.zenoId || !/^ZN-\d{8,10}$/.test(String(user.zenoId))) user.zenoId=makeZenodropId(user);
   return user.zenoId;
 }
 function findUserByZenodropId(zenoId){
-  const id=String(zenoId||'').trim().toUpperCase();
-  return Object.values(data.users).find(u=>String(u.zenoId||'').toUpperCase()===id) || null;
+  const id=String(zenoId||'').trim().toUpperCase().replace(/\s+/g,'');
+  if(!id) return null;
+  let found=Object.values(data.users).find(u=>String(u.zenoId||'').toUpperCase()===id);
+  if(found) return found;
+  const digits=id.replace(/\D/g,'');
+  if(digits.length>=6){
+    found=Object.values(data.users).find(u=>String(u.zenoId||'').replace(/\D/g,'')===digits);
+    if(found) return found;
+  }
+  return null;
 }
 function findSteamByTelegram(chatId){
   return data.links[String(chatId)] || Object.values(data.users).find(u=>String(u.tgId||'')===String(chatId))?.steamid || null;
@@ -319,69 +322,275 @@ setInterval(()=>{
   if(!active || (active.expiresAt && active.expiresAt<=Date.now()) || active.auto) createAutoPromo();
 },15*60*1000);
 
+// ============================================================
+//  АДМИН-БОТ
+// ============================================================
+async function sendAdminMenu(chatId){
+  const pendingWd=data.withdrawals.filter(x=>x.status==='pending').length;
+  const pendingDep=data.deposits.filter(x=>x.status==='pending').length;
+  return tg('sendMessage',{
+    chat_id:chatId,
+    text:`<b>Zenodrop — Админ-панель</b>\n\nОжидают вывода: <b>${pendingWd}</b>\nОжидают пополнения: <b>${pendingDep}</b>\n\nВыберите действие:`,
+    parse_mode:'HTML',
+    reply_markup:{inline_keyboard:[
+      [{text:'💳 Пополнения',callback_data:'adm:deposits'},{text:'🎁 Выводы',callback_data:'adm:withdrawals'}],
+      [{text:'📊 Статистика',callback_data:'adm:stats'},{text:'🎟 Промокоды',callback_data:'adm:promo'}],
+      [{text:'🔄 Обновить',callback_data:'adm:menu'}]
+    ]}
+  });
+}
+
 async function processTelegramUpdate(u){
+  // ============ CALLBACKS ============
   if(u.callback_query){
-    const q=u.callback_query, id=String(q.from.id), d=String(q.data||'');
-    if(!isTgAdmin(id)){await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Нет доступа',show_alert:true});return;}
+    const q=u.callback_query;
+    const id=String(q.from.id);
+    const d=String(q.data||'');
+    if(!isTgAdmin(id)){
+      await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Нет доступа',show_alert:true});
+      return;
+    }
     if(d.startsWith('wd:')){
-      const parts=d.split(':'); const wid=parts[1], action=parts[2];
+      const parts=d.split(':');
+      const wid=parts[1], action=parts[2];
       const w=data.withdrawals.find(x=>x.id===wid);
-      if(!w){await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка не найдена',show_alert:true});return;}
+      if(!w){
+        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка не найдена',show_alert:true});
+        return;
+      }
       if(action==='send'){
         w.status='approved';w.updatedAt=Date.now();saveStore();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка подтверждена'});
-        await tg('sendMessage',{chat_id:q.message.chat.id,text:`Заявка <b>${wid}</b> подтверждена.`,parse_mode:'HTML'});
-        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Вывод <b>${wid}</b> подтверждён.`,parse_mode:'HTML'});
+        await tg('sendMessage',{chat_id:q.message.chat.id,text:`🎁 Заявка <b>${wid}</b> подтверждена.\nСкин: ${w.item?.name}\nСумма: ${Number(w.value).toFixed(2)} ₽`,parse_mode:'HTML'});
+        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Вывод <b>${wid}</b> подтверждён. Скины отправляются.`,parse_mode:'HTML'});
       } else if(action==='reject'){
         const user=ensureUser(w.steamid);
-        if(user){user.balance+=Number(w.refund||0);}
+        if(user){user.balance+=Number(w.refund||0);saveStore();}
         w.status='rejected';w.updatedAt=Date.now();saveStore();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка отклонена'});
-        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`❌ Вывод <b>${wid}</b> отклонён. Средства возвращены.`,parse_mode:'HTML'});
+        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`❌ Вывод <b>${wid}</b> отклонён. ${Number(w.refund||0).toFixed(2)} ₽ возвращены на баланс.`,parse_mode:'HTML'});
       }
+      return;
+    }
+    if(d.startsWith('dep:')){
+      const parts=d.split(':');
+      const did=parts[1], action=parts[2];
+      const dep=data.deposits.find(x=>x.id===did);
+      if(!dep){
+        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка не найдена',show_alert:true});
+        return;
+      }
+      if(dep.status!=='pending'){
+        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Уже обработана'});
+        return;
+      }
+      if(action==='approve'){
+        const u=ensureUser(dep.steamid);
+        const total=Number(dep.amount||0)+Number(dep.bonus||0);
+        u.balance+=total;
+        u.stats.totalDeposited=(u.stats.totalDeposited||0)+total;
+        if(dep.promo && data.promos[dep.promo]) data.promos[dep.promo].uses=(data.promos[dep.promo].uses||0)+1;
+        dep.status='paid';
+        dep.updatedAt=Date.now();
+        saveStore();
+        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'✅ Зачислено'});
+        await tg('sendMessage',{chat_id:q.message.chat.id,text:`✅ Пополнение <b>${did}</b> зачислено: <b>+${total.toFixed(2)} ₽</b>\nSteam: <code>${dep.steamid}</code>`,parse_mode:'HTML'});
+        if(dep.tgId) await tg('sendMessage',{chat_id:dep.tgId,text:`✅ Баланс пополнен на <b>${total.toFixed(2)} ₽</b>`,parse_mode:'HTML'});
+      } else if(action==='reject'){
+        dep.status='rejected';
+        dep.updatedAt=Date.now();
+        saveStore();
+        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Отклонено'});
+        if(dep.tgId) await tg('sendMessage',{chat_id:dep.tgId,text:`❌ Пополнение <b>${did}</b> отклонено.`,parse_mode:'HTML'});
+      }
+      return;
+    }
+    if(d==='adm:menu'){
+      await tg('answerCallbackQuery',{callback_query_id:q.id});
+      return sendAdminMenu(q.message.chat.id);
+    }
+    if(d==='adm:withdrawals'){
+      await tg('answerCallbackQuery',{callback_query_id:q.id});
+      const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
+      if(!list.length) return tg('sendMessage',{chat_id:q.message.chat.id,text:'Заявок на вывод нет.'});
+      for(const w of list){
+        await tg('sendMessage',{chat_id:q.message.chat.id,
+          text:`🟠 <b>${w.id}</b>\nSteam: <code>${w.steamid}</code>\nСумма: ${Number(w.value).toFixed(2)} ₽\nПредмет: ${w.item.name}`,
+          parse_mode:'HTML',
+          reply_markup:{inline_keyboard:[[
+            {text:'🎁 Выдать',callback_data:`wd:${w.id}:send`},
+            {text:'❌ Отклонить',callback_data:`wd:${w.id}:reject`}
+          ]]}
+        });
+      }
+      return;
+    }
+    if(d==='adm:deposits'){
+      await tg('answerCallbackQuery',{callback_query_id:q.id});
+      const list=data.deposits.filter(x=>x.status==='pending').slice(-10).reverse();
+      if(!list.length) return tg('sendMessage',{chat_id:q.message.chat.id,text:'Заявок на пополнение нет.'});
+      for(const dep of list){
+        await tg('sendMessage',{chat_id:q.message.chat.id,
+          text:`💳 <b>${dep.id}</b>\nSteam: <code>${dep.steamid}</code>\nСумма: ${Number(dep.amount).toFixed(2)} ₽\nПромо: ${dep.promo||'—'}\nК начислению: ${(Number(dep.amount)+Number(dep.bonus||0)).toFixed(2)} ₽`,
+          parse_mode:'HTML',
+          reply_markup:{inline_keyboard:[[
+            {text:'✅ Зачислить',callback_data:`dep:${dep.id}:approve`},
+            {text:'❌ Отклонить',callback_data:`dep:${dep.id}:reject`}
+          ]]}
+        });
+      }
+      return;
+    }
+    if(d==='adm:stats'){
+      await tg('answerCallbackQuery',{callback_query_id:q.id});
+      const users=Object.values(data.users);
+      const totalBal=users.reduce((s,u)=>s+(Number(u.balance)||0),0);
+      const totalDep=users.reduce((s,u)=>s+(Number(u.stats?.totalDeposited)||0),0);
+      const totalCases=users.reduce((s,u)=>s+(Number(u.stats?.casesOpened)||0),0);
+      const totalUpg=users.reduce((s,u)=>s+(Number(u.stats?.upgradesTotal)||0),0);
+      const pendingWd=data.withdrawals.filter(x=>x.status==='pending').length;
+      const pendingDep=data.deposits.filter(x=>x.status==='pending').length;
+      return tg('sendMessage',{chat_id:q.message.chat.id,
+        text:`📊 <b>Статистика</b>\n\nПользователей: <b>${users.length}</b>\nСуммарный баланс: <b>${totalBal.toFixed(2)} ₽</b>\nДепозитов всего: <b>${totalDep.toFixed(2)} ₽</b>\nКейсов открыто: <b>${totalCases}</b>\nАпгрейдов: <b>${totalUpg}</b>\n\nОжидают вывода: <b>${pendingWd}</b>\nОжидают пополнения: <b>${pendingDep}</b>`,
+        parse_mode:'HTML',
+        reply_markup:{inline_keyboard:[[{text:'◀ Меню',callback_data:'adm:menu'}]]}
+      });
+    }
+    if(d==='adm:promo'){
+      await tg('answerCallbackQuery',{callback_query_id:q.id});
+      const active=promoList().slice(0,5);
+      const list=active.length?active.map(p=>`<code>${p.code}</code> +${p.percent}% (исп: ${Number(p.uses||0)})`).join('\n'):'—';
+      return tg('sendMessage',{chat_id:q.message.chat.id,
+        text:`🎟 <b>Промокоды</b>\n\n${list}\n\nСоздать: <code>/promo CODE PERCENT</code>`,
+        parse_mode:'HTML',
+        reply_markup:{inline_keyboard:[[{text:'◀ Меню',callback_data:'adm:menu'}]]}
+      });
     }
     return;
   }
-  const m=u.message; if(!m || !m.chat)return;
-  const chatId=String(m.chat.id), rawText=String(m.text||'').trim();
+
+  // ============ MESSAGES ============
+  const m=u.message;
+  if(!m || !m.chat) return;
+  const chatId=String(m.chat.id);
+  const rawText=String(m.text||'').trim();
   const text=rawText.replace(/^\/(\w+)(?:@[^\s]+)?/, '/$1');
   const admin=isTgAdmin(chatId);
+
   if(/^\/start(?:\s|$)/i.test(text)){
-    return tg('sendMessage',{chat_id:chatId,text:'<b>Zenodrop</b>\n\nВаш Telegram ID: <code>'+chatId+'</code>\n\n/link STEAMID\n/status\n/help',parse_mode:'HTML'});
+    if(admin) return sendAdminMenu(chatId);
+    return tg('sendMessage',{chat_id:chatId,
+      text:'<b>Zenodrop</b>\n\nВаш Telegram ID: <code>'+chatId+'</code>\n\n/link STEAMID — привязать Steam\n/status — баланс и привязка\n/help — команды',
+      parse_mode:'HTML'
+    });
   }
-  if(text==='/help') return tg('sendMessage',{chat_id:chatId,text:'<b>Zenodrop</b>\n\n/link STEAMID\n/status\n/help'+(admin?'\n\nАдмин:\n/give STEAMID SUM\n/withdrawlock STEAMID on|off\n/adminsteam STEAMID\n/admin TELEGRAM_ID\n/promo CODE PERCENT\n/withdrawals':''),parse_mode:'HTML'});
+
+  if(text==='/help'){
+    return tg('sendMessage',{chat_id:chatId,
+      text:'<b>Zenodrop</b>\n\n/link STEAMID\n/status\n/help'+(admin?'\n\n<b>Админ:</b>\n/panel — панель\n/deposits — заявки на пополнение\n/withdrawals — заявки на вывод\n/stats — статистика\n/give STEAMID SUM\n/withdrawlock STEAMID on|off\n/adminsteam STEAMID\n/promo CODE PERCENT':''),
+      parse_mode:'HTML'
+    });
+  }
+
   if(text==='/status'){
-    const steam=data.links[chatId]; const u2=steam?ensureUser(steam):null;
-    return tg('sendMessage',{chat_id:chatId,text:steam?`Steam ID: <code>${steam}</code>\nБаланс: <b>${Number(u2?.balance||0).toFixed(2)} ₽</b>`:'Steam ID ещё не привязан.',parse_mode:'HTML'});
+    const steam=data.links[chatId];
+    const u2=steam?ensureUser(steam):null;
+    return tg('sendMessage',{chat_id:chatId,
+      text:steam?`Steam ID: <code>${steam}</code>\nБаланс: <b>${Number(u2?.balance||0).toFixed(2)} ₽</b>`:'Steam ID ещё не привязан. Напишите /link ВАШ_STEAMID',
+      parse_mode:'HTML'
+    });
   }
+
   if(text.startsWith('/link ')){
     const steam=text.split(/\s+/)[1];
-    if(!/^\d{17}$/.test(steam)) return tg('sendMessage',{chat_id:chatId,text:'Используй: /link 7656119XXXXXXXXXX'});
+    if(!/^\d{17}$/.test(steam)) return tg('sendMessage',{chat_id:chatId,text:'Формат: /link 7656119XXXXXXXXXX'});
     data.links[chatId]=steam;
     const u2=ensureUser(steam);u2.tgId=chatId;saveStore();
     return tg('sendMessage',{chat_id:chatId,text:`✅ Привязан Steam ID <code>${steam}</code>`,parse_mode:'HTML'});
   }
+
   if(!admin)return;
+
+  if(text==='/panel') return sendAdminMenu(chatId);
+
   if(text==='/withdrawals'){
     const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
     if(!list.length)return tg('sendMessage',{chat_id:chatId,text:'Заявок на вывод нет.'});
     for(const w of list){
-      await tg('sendMessage',{chat_id:chatId,text:`🟠 <b>${w.id}</b>\nSteam: <code>${w.steamid}</code>\nСумма: ${Number(w.value).toFixed(2)} ₽\nПредмет: ${w.item.name}`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'🎁 Выдать',callback_data:`wd:${w.id}:send`},{text:'❌ Отклонить',callback_data:`wd:${w.id}:reject`}]]}});
+      await tg('sendMessage',{chat_id:chatId,
+        text:`🟠 <b>${w.id}</b>\nSteam: <code>${w.steamid}</code>\nСумма: ${Number(w.value).toFixed(2)} ₽\nПредмет: ${w.item.name}`,
+        parse_mode:'HTML',
+        reply_markup:{inline_keyboard:[[
+          {text:'🎁 Выдать',callback_data:`wd:${w.id}:send`},
+          {text:'❌ Отклонить',callback_data:`wd:${w.id}:reject`}
+        ]]}
+      });
     }
     return;
   }
+
+  if(text==='/deposits'){
+    const list=data.deposits.filter(x=>x.status==='pending').slice(-10).reverse();
+    if(!list.length)return tg('sendMessage',{chat_id:chatId,text:'Заявок на пополнение нет.'});
+    for(const dep of list){
+      await tg('sendMessage',{chat_id:chatId,
+        text:`💳 <b>${dep.id}</b>\nSteam: <code>${dep.steamid}</code>\nСумма: ${Number(dep.amount).toFixed(2)} ₽\nПромо: ${dep.promo||'—'}\nК начислению: ${(Number(dep.amount)+Number(dep.bonus||0)).toFixed(2)} ₽`,
+        parse_mode:'HTML',
+        reply_markup:{inline_keyboard:[[
+          {text:'✅ Зачислить',callback_data:`dep:${dep.id}:approve`},
+          {text:'❌ Отклонить',callback_data:`dep:${dep.id}:reject`}
+        ]]}
+      });
+    }
+    return;
+  }
+
+  if(text==='/stats'){
+    const users=Object.values(data.users);
+    const totalBal=users.reduce((s,u)=>s+(Number(u.balance)||0),0);
+    const totalDep=users.reduce((s,u)=>s+(Number(u.stats?.totalDeposited)||0),0);
+    const totalCases=users.reduce((s,u)=>s+(Number(u.stats?.casesOpened)||0),0);
+    const totalUpg=users.reduce((s,u)=>s+(Number(u.stats?.upgradesTotal)||0),0);
+    return tg('sendMessage',{chat_id:chatId,
+      text:`📊 <b>Статистика</b>\n\nПользователей: <b>${users.length}</b>\nБаланс всех: <b>${totalBal.toFixed(2)} ₽</b>\nДепозитов всего: <b>${totalDep.toFixed(2)} ₽</b>\nКейсов открыто: <b>${totalCases}</b>\nАпгрейдов: <b>${totalUpg}</b>`,
+      parse_mode:'HTML'
+    });
+  }
+
   let a=text.match(/^\/give\s+(\d{17})\s+([\d.]+)/i);
-  if(a){const u2=ensureUser(a[1]);u2.balance+=Number(a[2]);saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Начислено ${Number(a[2]).toFixed(2)} ₽`,parse_mode:'HTML'});}
+  if(a){
+    const u2=ensureUser(a[1]);
+    u2.balance+=Number(a[2]);
+    saveStore();
+    return tg('sendMessage',{chat_id:chatId,text:`✅ Начислено ${Number(a[2]).toFixed(2)} ₽\nSteam: <code>${a[1]}</code>\nБаланс: <b>${Number(u2.balance).toFixed(2)} ₽</b>`,parse_mode:'HTML'});
+  }
+
   a=text.match(/^\/withdrawlock\s+(\d{17})\s+(on|off)/i);
-  if(a){const u2=ensureUser(a[1]);u2.withdrawDisabled=a[2].toLowerCase()==='on';saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Вывод: ${u2.withdrawDisabled?'запрещён':'разрешён'}`});}
+  if(a){
+    const u2=ensureUser(a[1]);
+    u2.withdrawDisabled=a[2].toLowerCase()==='on';
+    saveStore();
+    return tg('sendMessage',{chat_id:chatId,text:`✅ Вывод для <code>${a[1]}</code>: ${u2.withdrawDisabled?'запрещён':'разрешён'}`,parse_mode:'HTML'});
+  }
+
   a=text.match(/^\/adminsteam\s+(\d{17})/i);
-  if(a){data.admins['steam:'+a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Steam ID ${a[1]} → web-admin.`});}
+  if(a){data.admins['steam:'+a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Steam ID ${a[1]} получил web-admin.`});}
+
   a=text.match(/^\/admin\s+(\d+)/i);
-  if(a){data.admins[a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Telegram ID ${a[1]} → admin.`});}
+  if(a){data.admins[a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Telegram ID ${a[1]} получил админку.`});}
+
   a=text.match(/^\/promo\s+([A-Za-z0-9_-]+)\s+(\d+(?:\.\d+)?)\s*(?:([\d.]+))?/i);
-  if(a){const p=makePromo(a[1],a[2],a[3]||0);return tg('sendMessage',{chat_id:chatId,text:`✅ Промокод <code>${p.code}</code>: +${p.percent}%`,parse_mode:'HTML'});}
+  if(a){
+    const p=makePromo(a[1],a[2],a[3]||0);
+    return tg('sendMessage',{chat_id:chatId,text:`✅ Промокод <code>${p.code}</code> создан: +${p.percent}%`,parse_mode:'HTML'});
+  }
+
+  return tg('sendMessage',{chat_id:chatId,text:'Неизвестная команда. /panel — админ-панель, /help — список.'});
 }
 
+// ============================================================
+//  ПЛАТЁЖНЫЙ БОТ (юзерский)
+// ============================================================
 function infoText(){
   return `<b>Zenodrop — информация</b>\n\n<b>Политика конфиденциальности:</b> <a href="/privacy">открыть</a>\n<b>Пользовательское соглашение:</b> <a href="/terms">открыть</a>\n\n<b>Поддержка:</b> ${SUPPORT_CONTACT}`;
 }
@@ -408,9 +617,10 @@ async function processPaymentTelegramUpdate(u){
   const payload=raw.split(/\s+/).slice(1).join(' ').trim();
 
   if(command==='/start'){
-    const payloadId=(payload.match(/(?:deposit[_-])?(ZN-\d{8})/i)||[])[1];
-    if(payloadId){
-      const user=findUserByZenodropId(payloadId);
+    const matchId=payload.match(/ZN[\-\s]?(\d{8,10})/i);
+    const zenoFull=matchId?('ZN-'+matchId[1]):null;
+    if(zenoFull){
+      const user=findUserByZenodropId(zenoFull);
       if(user){
         user.tgId=chatId;
         data.links[chatId]=user.steamid;
@@ -468,8 +678,12 @@ async function telegramStart(){
     const me=await tg('getMe',{});
     if(!me?.ok){ console.error('Telegram: invalid token'); return; }
     await tg('setMyCommands',{commands:[
-      {command:'start',description:'Открыть Zenodrop'},
-      {command:'status',description:'Показать баланс'},
+      {command:'start',description:'Открыть меню'},
+      {command:'panel',description:'Админ-панель'},
+      {command:'deposits',description:'Заявки на пополнение'},
+      {command:'withdrawals',description:'Заявки на вывод'},
+      {command:'stats',description:'Статистика'},
+      {command:'status',description:'Мой баланс'},
       {command:'link',description:'Привязать Steam ID'},
       {command:'help',description:'Список команд'}
     ]});
@@ -501,7 +715,7 @@ async function startTelegramPollingFallback(){
 }
 
 // ===============================
-// CS2.SH + КЭШ КАТАЛОГА НА ДИСК
+// CS2.SH + КЭШ
 // ===============================
 const CATALOG_FILE = path.join(__dirname, 'cs2_catalog_cache.json');
 let cs2CatalogCache = { data: null, expires: 0 };
@@ -520,9 +734,8 @@ function loadCatalogFromDisk(){
   return false;
 }
 function saveCatalogToDisk(items){
-  try{
-    fs.writeFileSync(CATALOG_FILE, JSON.stringify({items, savedAt:Date.now()}));
-  }catch(e){ console.error('catalog cache save:',e.message); }
+  try{ fs.writeFileSync(CATALOG_FILE, JSON.stringify({items, savedAt:Date.now()})); }
+  catch(e){ console.error('catalog cache save:',e.message); }
 }
 async function refreshCatalogInBackground(){
   try{
@@ -890,7 +1103,6 @@ const server = http.createServer(async (req, res) => {
             const u=ensureUser(sessionUser.steamid);
             ensureZenodropId(u);
             if(Number.isFinite(Number(body.balance))) u.balance=Math.max(0,Number(body.balance));
-            // stats: НЕ трогаем totalDeposited, и берём максимум для счётчиков
             if(body.stats && typeof body.stats==='object'){
                 if(typeof body.stats.upgradesTotal==='number')
                     u.stats.upgradesTotal=Math.max(u.stats.upgradesTotal||0, body.stats.upgradesTotal);
@@ -971,7 +1183,13 @@ const server = http.createServer(async (req, res) => {
             amount,bonus,method,promo,status:'pending',createdAt:Date.now()
         });
         saveStore();
-        await notifyAdmins(`💳 <b>Новое пополнение</b>\nID: <code>${id}</code>\nSteam: <code>${sessionUser.steamid}</code>\nСумма: ${amount.toFixed(2)} ₽\nМетод: ${method}\nПромо: ${promo||'—'}\nК начислению: ${(amount+bonus).toFixed(2)} ₽`);
+        await notifyAdmins(
+          `💳 <b>Новое пополнение</b>\nID: <code>${id}</code>\nSteam: <code>${sessionUser.steamid}</code>\nСумма: ${amount.toFixed(2)} ₽\nМетод: ${method}\nПромо: ${promo||'—'}\nК начислению: ${(amount+bonus).toFixed(2)} ₽`,
+          [[
+            {text:'✅ Зачислить',callback_data:`dep:${id}:approve`},
+            {text:'❌ Отклонить',callback_data:`dep:${id}:reject`}
+          ]]
+        );
         res.writeHead(200,{'Content-Type':'application/json'});
         return res.end(JSON.stringify({ok:true,id,bonus,total:amount+bonus}));
     }
