@@ -1,1432 +1,1203 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Zenodrop</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+.zeno-toast-container{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;align-items:center;gap:8px;width:min(92vw,420px);pointer-events:none}.zeno-toast{background:rgba(22,25,36,.97);border:1px solid rgba(245,158,11,.35);color:#fff;border-radius:12px;padding:11px 15px;font-size:12px;font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.45);animation:toastIn .2s ease,toastOut .25s ease 2.75s forwards;text-align:center}.zeno-toast.error{border-color:rgba(248,113,113,.45)}.zeno-toast.success{border-color:rgba(74,222,128,.45)}@keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}@keyframes toastOut{to{opacity:0;transform:translateY(8px)}}
+body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px;overflow-x:hidden}
+.container{width:100%;max-width:480px;display:flex;flex-direction:column;gap:16px}
+.header{display:flex;justify-content:space-between;align-items:center;padding:0 4px}
+.logo-area{font-weight:900;font-size:18px;color:#fff;text-transform:uppercase;letter-spacing:1.5px;text-shadow:0 0 15px rgba(245,158,11,.4)}
+.logo-area span{color:#f59e0b}
+.profile-avatar-btn{width:38px;height:38px;border-radius:50%;background:#161924;border:2px solid rgba(245,158,11,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:.2s}
+.profile-avatar-btn img{width:100%;height:100%;object-fit:cover}
+.main-nav{display:flex;gap:8px;background:#161924;padding:4px;border-radius:12px;border:1px solid rgba(255,255,255,.06)}
+.main-tab{flex:1;background:transparent;border:none;color:#9ca3af;padding:10px 0;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:.2s}
+.main-tab.active{background:#f59e0b;color:#11131c;box-shadow:0 0 15px rgba(245,158,11,.3)}
+.tab-content{display:none;flex-direction:column;gap:16px;width:100%}.tab-content.active{display:flex}
+.zeno-layout{display:flex;flex-direction:column;gap:16px;width:100%}
+.wheel-container{display:flex;flex-direction:column;align-items:center;gap:16px;width:100%}
+.wheel-wrapper{position:relative;width:230px;height:230px;filter:drop-shadow(0 0 25px rgba(245,158,11,.25))}
+.fast-spin-btn{position:absolute;top:0;right:0;width:36px;height:36px;background:#161924;border:1px solid rgba(245,158,11,.3);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:25;transition:.2s;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.fast-spin-btn:hover{background:rgba(245,158,11,.15);border-color:#f59e0b;transform:scale(1.05)}
+.fast-spin-btn.active{background:#f59e0b;border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.5)}
+.fast-spin-btn.active svg{fill:#11131c}
+.fast-spin-btn svg{width:16px;height:16px;fill:#f59e0b;transition:.2s}
+.wheel-pointer{position:absolute;inset:0;width:100%;height:100%;transform:rotate(0deg);transform-origin:50% 50%;z-index:20;pointer-events:none;will-change:transform}.wheel-pointer:after{content:'';position:absolute;top:6px;left:50%;width:0;height:0;transform:translateX(-50%);border-left:8px solid transparent;border-right:8px solid transparent;border-top:15px solid #f59e0b;filter:drop-shadow(0 0 6px rgba(245,158,11,.75));}
+.wheel-canvas-box{width:100%;height:100%;border-radius:50%;position:relative;overflow:hidden;box-shadow:0 0 30px rgba(245,158,11,.15), inset 0 0 15px rgba(0,0,0,.8);background:#161924;border:2px solid rgba(245,158,11,.2)}
+.wheel-wrapper canvas{width:100%;height:100%;display:block;transform-origin:center center}
+.wheel-center-content{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:6}
+.wheel-percent{font-size:26px;font-weight:900;color:#4ade80;line-height:1;text-shadow:0 0 12px rgba(74,222,128,.5)}
+.wheel-chance-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;margin-top:4px;font-weight:600}
+.disabled-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);border-radius:50%;z-index:10;display:none}
+#resultOverlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(11,13,20,.88);border-radius:50%;display:none;justify-content:center;align-items:center;z-index:15;flex-direction:column;backdrop-filter:blur(3px)}
+#resultText{font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:1px;text-shadow:0 2px 10px rgba(0,0,0,.8)}
+.btn-upgrade{background:linear-gradient(135deg,#f59e0b,#d97706);border:none;color:#11131c;padding:14px 0;width:100%;border-radius:14px;font-weight:900;font-size:15px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;transition:all .3s ease;box-shadow:0 4px 20px rgba(245,158,11,.4)}
+.btn-upgrade:hover:not(:disabled){box-shadow:0 6px 25px rgba(245,158,11,.6);transform:translateY(-2px)}
+.btn-upgrade:active:not(:disabled){transform:scale(0.97)}
+.btn-upgrade:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.quick-chance-panel{display:flex;gap:6px;width:100%;justify-content:center;align-items:center;flex-wrap:wrap}
+.q-btn{background:#161924;border:1px solid rgba(255,255,255,.08);color:#d1d5db;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:.2s}
+.q-btn:hover,.q-btn.active{border-color:#f59e0b;color:#f59e0b;background:rgba(245,158,11,.05)}
+.q-btn.settings-btn{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:#f59e0b}
+.skins-selection-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;min-width:0}
+.card-skin{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:center;text-align:center;min-height:180px;justify-content:space-between;position:relative;box-shadow:0 10px 20px rgba(0,0,0,.4);min-width:0;width:100%;overflow:hidden}
+.skin-type{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:700}
+.skin-name{font-size:12px;font-weight:800;color:#fff;margin:4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;min-width:0}
+.skin-img-wrap{width:100%;height:75px;display:flex;align-items:center;justify-content:center;position:relative;min-width:0;overflow:hidden}
+.skin-img-wrap img{max-width:100%;max-height:70px;width:auto;height:auto;object-fit:contain;filter:drop-shadow(0 5px 10px rgba(0,0,0,.8))}
+.skin-price{font-size:14px;font-weight:800;color:#fbbf24}
+.inventory-section{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.inv-header-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.inv-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.inv-tab{background:#11131c;border:1px solid rgba(255,255,255,.06);color:#9ca3af;padding:6px 12px;border-radius:8px;font-weight:700;font-size:11px;cursor:pointer}
+.inv-tab.active{background:#f59e0b;color:#11131c;border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.3)}
+.inv-total-value{font-size:12px;font-weight:800;color:#fbbf24;background:#11131c;padding:6px 10px;border-radius:8px;border:1px solid rgba(245,158,11,.2)}
+.sell-all-btn{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.4);color:#f59e0b;padding:6px 12px;border-radius:8px;font-weight:800;font-size:11px;cursor:pointer;transition:.2s;text-transform:uppercase}
+.sell-all-btn:hover{background:#f59e0b;color:#11131c}
+.price-filter-box{display:none;gap:6px;align-items:center}.price-filter-box.active{display:flex}
+.price-input{background:#11131c;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;padding:4px 8px;width:75px;font-size:11px;outline:none;font-weight:600}
+.items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;max-height:300px;overflow-y:auto;padding:8px 4px;min-width:0;width:100%}
+#tabUpgradeContent .items-grid{max-height:none;overflow:visible}
+.profile-items-grid{grid-template-columns:repeat(2,minmax(0,1fr));max-height:none;overflow:visible;padding:8px 4px}
+.profile-items-grid .item-card{padding:8px 7px}
+.profile-items-grid .item-card img{height:52px;margin:6px 0}
+.profile-items-grid .item-card .iname{font-size:10px}
+.profile-items-grid .item-card .iprice{font-size:11px}
+.item-card{background:#11131c;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;position:relative;transition:all .25s ease;min-width:0;overflow:hidden}
+.item-card:hover{border-color:rgba(245,158,11,.4);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,0.5)}
+.item-card.selected{border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.35)}
+.item-card img{width:100%;height:58px;object-fit:contain;margin:8px 0;filter:drop-shadow(0 4px 8px rgba(0,0,0,.6));max-width:100%;display:block}
+.item-card .iname{font-size:11px;font-weight:700;color:#d1d5db;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;margin-bottom:2px}
+.item-card .iprice{font-size:12px;font-weight:800;color:#fbbf24;margin-top:4px}
+.item-card-actions{display:flex;gap:5px;width:100%;margin-top:8px;justify-content:stretch;flex-shrink:0}
+.mini-action-btn{background:#151822;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#8f96a5;height:23px;flex:1;min-width:0;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;font-weight:900;letter-spacing:.2px;transition:.18s;padding:0;line-height:1}
+.mini-action-btn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b}
+.mini-action-btn.up-btn{letter-spacing:1px;font-size:10px}
+.cases-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%}
+.case-card{position:relative;background:radial-gradient(circle at 50% 38%,rgba(245,158,11,.12),transparent 42%),linear-gradient(145deg,#191c28,#0f1119);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:12px 11px 11px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;min-width:0;overflow:hidden;box-shadow:inset 0 1px rgba(255,255,255,.035),0 8px 22px rgba(0,0,0,.18);transition:.22s}
+.case-card::before{content:'';position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);width:90px;height:90px;background:radial-gradient(circle, rgba(245,158,11,0.22) 0%, rgba(0,0,0,0) 70%);border-radius:50%;z-index:0;transition:opacity 0.3s ease, transform 0.3s ease;pointer-events:none}
+.case-card:hover{border-color:rgba(245,158,11,0.6);transform:translateY(-5px);box-shadow:0 12px 30px rgba(0,0,0,0.5), 0 0 20px rgba(245,158,11,0.15)}
+.case-card:hover::before{transform:translate(-50%,-50%) scale(1.4);opacity:0.9}
+.case-card-glow{position:absolute;width:130px;height:130px;border-radius:50%;background:rgba(245,158,11,.12);filter:blur(28px);pointer-events:none}
+.case-topline,.case-meta{position:relative;z-index:2;width:100%;display:flex;justify-content:space-between;align-items:center;font-size:8px;font-weight:800;color:#737b8d;text-transform:uppercase;letter-spacing:.5px}
+.case-topline b{color:#fbbf24;font-size:9px}
+.case-card img{position:relative;z-index:2;width:125px;height:76px;object-fit:contain;margin:5px 0 2px;filter:drop-shadow(0 7px 13px rgba(0,0,0,.75))}
+.case-title{position:relative;z-index:2;font-size:12px;font-weight:900;color:#fff;margin-bottom:6px}
+.case-price{position:relative;z-index:2;width:100%;margin-top:7px;padding:7px 6px;border-radius:7px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.18);font-size:10px;font-weight:900;color:#fbbf24}
+.case-opening-view{display:none;flex-direction:column;gap:16px;width:100%;align-items:center}.case-opening-view.active{display:flex}
+.back-cases-btn{align-self:flex-start;background:#161924;border:1px solid rgba(255,255,255,.08);color:#9ca3af;padding:6px 12px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer}
+.roulette-container{position:relative;overflow:hidden;width:100%;height:130px;background:#12141c;border-radius:14px;border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 4px 15px rgba(0,0,0,.6)}
+.roulette-track{display:flex;gap:12px;position:absolute;left:0;top:0;height:100%;will-change:transform;align-items:center;padding-left:6px}
+.roulette-item{width:112px;min-width:112px;height:112px;background:radial-gradient(circle at 50% 42%,rgba(245,158,11,.10),transparent 58%),linear-gradient(145deg,#181b26,#13151f);border:1px solid rgba(255,255,255,.07);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:7px;position:relative;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.4),inset 0 1px rgba(255,255,255,.04)}
+.roulette-item img{width:94px;height:66px;object-fit:contain;filter:drop-shadow(0 5px 9px rgba(0,0,0,.75));margin-bottom:2px}
+.roulette-item strong{font-size:9px;font-weight:800;color:#e5e7eb;max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;opacity:.9}
+.roulette-pointer{position:absolute;left:50%;top:0;bottom:0;width:3px;transform:translateX(-50%);background:linear-gradient(180deg,#f59e0b,#d97706);z-index:20;pointer-events:none;box-shadow:0 0 12px rgba(245,158,11,.8)}
+.case-actions-panel{display:flex;flex-direction:column;gap:8px;width:100%}
+.case-open-count-title{font-size:10px;font-weight:800;color:#6f7686;text-transform:uppercase;letter-spacing:.8px;text-align:center;margin-top:-2px}
+.multi-open-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;width:100%}
+.multi-btn{height:34px;background:#11131c;border:1px solid rgba(255,255,255,.08);color:#8f96a5;padding:0;border-radius:8px;font-weight:900;font-size:11px;cursor:pointer;transition:.18s;min-width:0}
+.multi-btn:hover{border-color:rgba(245,158,11,.55);color:#fbbf24;background:#171a24}
+.multi-btn.active{background:rgba(245,158,11,.13);border-color:#f59e0b;color:#fbbf24;box-shadow:0 0 12px rgba(245,158,11,.12)}
+#mainOpenBtn{width:100%;min-height:42px;margin-top:1px}
+.fast-case-toggle{display:flex;align-items:center;justify-content:center;gap:8px;background:#161924;border:1px solid rgba(255,255,255,.08);padding:8px;border-radius:10px;cursor:pointer;font-size:11px;font-weight:700;color:#9ca3af;user-select:none}
+.fast-case-toggle input{accent-color:#f59e0b;cursor:pointer}
+.action-buttons{display:none;gap:10px;width:100%}.action-btn{flex:1;padding:12px 10px;border-radius:12px;font-weight:900;cursor:pointer;font-size:14px;border:none;text-transform:uppercase}
+.sell-btn{background:#2a2a2e;color:#ffb800;border:1px solid #ffb800}.retry-btn{background:linear-gradient(135deg,#ffb800,#ff8c00);color:#000}
+.profile-wrapper{display:flex;flex-direction:column;gap:12px;width:100%}
+.profile-main-card{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.profile-top-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:#9ca3af}
+.profile-username{color:#fff;font-weight:800;font-size:14px}
+.profile-center-row{display:flex;align-items:center;justify-content:center}.profile-avatar-large{width:72px;height:72px;border-radius:50%;background:#000;border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.profile-avatar-large img{width:100%;height:100%;object-fit:cover}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;margin-top:4px}
+.stat-card{background:#11131c;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px}
+.stat-title{font-size:9px;color:#9ca3af;text-transform:uppercase;font-weight:700}.stat-value{font-size:13px;font-weight:900;color:#fff}
+.profile-balance-row{display:flex;justify-content:space-between;align-items:center;background:#11131c;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.06)}
+.balance-amount{font-size:16px;font-weight:900;color:#fff}.balance-history{font-size:11px;color:#9ca3af;cursor:pointer} .zeno-id-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:9px 11px;background:#0d0f17;border:1px solid rgba(255,255,255,.07);border-radius:10px}.zeno-id-label{font-size:10px;color:#8d94a6;text-transform:uppercase}.zeno-id-value{font-size:12px;font-weight:900;color:#fff;letter-spacing:.5px}.zeno-id-copy{border:0;background:#242938;color:#fff;border-radius:7px;padding:5px 8px;font-size:10px;font-weight:800;cursor:pointer}
+.topup-btn{background:linear-gradient(135deg,#f59e0b,#d97706);color:#11131c;border:none;padding:10px 18px;border-radius:10px;font-weight:900;font-size:12px;cursor:pointer;text-transform:uppercase}
+.best-drop-card{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.best-drop-title{font-size:10px;font-weight:800;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px}.best-drop-content{display:flex;justify-content:space-between;align-items:center}
+.best-drop-name{font-size:12px;font-weight:700;color:#d1d5db}.best-drop-price{font-size:14px;font-weight:900;color:#fbbf24}.best-drop-img{width:55px;height:40px;object-fit:contain}
+.profile-inventory-box{display:flex;flex-direction:column;gap:12px;background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px}
+#modalOverlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:none;justify-content:center;align-items:center;z-index:100;backdrop-filter:blur(4px)}
+.modal-card{background:#161924;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px;width:300px;display:flex;flex-direction:column;gap:12px}
+.modal-inputs input{background:#11131c;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:8px;font-size:13px;width:100%}
+.modal-buttons{display:flex;gap:8px;margin-top:8px}.modal-buttons button{flex:1;padding:8px;border-radius:8px;font-weight:700;cursor:pointer;border:none}
+.btn-save{background:#f59e0b;color:#11131c}.btn-close{background:#272a37;color:#9ca3af}
+.loading-screen{position:fixed;inset:0;background:#0d0f17;display:flex;justify-content:center;align-items:center;z-index:999;color:#fff;overflow:hidden;transition:opacity .7s cubic-bezier(.22,1,.36,1)}
+.loading-screen:before{content:'';position:absolute;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.16),rgba(245,158,11,0) 68%);filter:blur(8px);animation:zenoGlow 2.4s ease-in-out infinite}
+.zeno-intro{position:relative;font-size:54px;line-height:1;font-weight:950;letter-spacing:-3px;transform:scale(.72);opacity:0;filter:blur(14px);animation:zenoReveal 1.25s cubic-bezier(.16,1,.3,1) .08s forwards}
+.zeno-intro span{color:#f59e0b}
+.zeno-intro:after{content:'';position:absolute;left:-18%;right:-18%;bottom:-16px;height:2px;background:linear-gradient(90deg,transparent,#f59e0b,transparent);transform:scaleX(0);transform-origin:center;animation:zenoLine 1s cubic-bezier(.16,1,.3,1) .7s forwards}
+.loading-subtitle{position:absolute;margin-top:112px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#6b7280;opacity:0;animation:zenoSub .7s ease 1s forwards}
+@keyframes zenoReveal{0%{opacity:0;transform:scale(.72);filter:blur(14px)}65%{opacity:1;filter:blur(0);transform:scale(1.06)}100%{opacity:1;filter:blur(0);transform:scale(1)}}
+@keyframes zenoLine{to{transform:scaleX(1)}}
+@keyframes zenoSub{to{opacity:1}}
+@keyframes zenoGlow{0%,100%{transform:scale(.85);opacity:.55}50%{transform:scale(1.18);opacity:1}}
+@media (max-width:420px){
+  body{padding:10px}
+  .container{max-width:100%;gap:10px}
+  .main-nav{gap:4px;padding:3px}
+  .main-tab{padding:9px 0;font-size:12px}
+  .profile-main-card{padding:12px;gap:10px;border-radius:14px}
+  .profile-inventory-box{padding:11px;gap:8px;border-radius:14px}
+  .profile-items-grid{gap:8px;padding:5px 2px}
+  .profile-items-grid .item-card{padding:7px 6px;border-radius:10px;min-height:132px}
+  .profile-items-grid .item-card img{height:48px;margin:4px 0}
+  .profile-items-grid .item-card .iname{font-size:9px}
+  .profile-items-grid .item-card .iprice{font-size:10px}
+  .item-card-actions{gap:4px;margin-top:6px}
+  .mini-action-btn{height:21px;font-size:8px;border-radius:5px}
+  .case-card{padding:10px 8px 9px;border-radius:13px}
+  .case-card img{width:132px;height:78px}
+  .case-title{font-size:11px}
+  .case-price{font-size:9px;padding:6px 4px}
+  .case-actions-panel{gap:6px}
+  .multi-open-row{gap:5px}
+  .multi-btn{height:32px;font-size:10px}
+  #mainOpenBtn{min-height:40px;font-size:12px}
+}
+.item-card-actions{display:flex;gap:4px;width:100%;margin-top:8px;justify-content:stretch;flex-shrink:0}
+.mini-action-btn{min-width:0;height:24px;padding:0 5px;background:#151822;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#8f96a5;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;line-height:1;cursor:pointer;transition:.18s}
+.mini-action-btn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b}
+.profile-items-grid .item-card{min-height:156px}
+@media (max-width:420px){
+  .profile-items-grid .item-card{min-height:148px;padding:7px 6px}
+  .profile-items-grid .item-card img{height:56px;margin:5px 0}
+  .profile-items-grid .item-card .iname{font-size:9px;line-height:1.2;min-height:22px}
+  .profile-items-grid .item-card .iprice{font-size:10px;margin-top:3px}
+  .profile-items-grid .item-card .item-card-actions{margin-top:7px;gap:3px}
+  .profile-items-grid .item-card .mini-action-btn{height:22px;font-size:7px}
+}
+.topup-modal{position:fixed;inset:0;background:rgba(4,6,12,.86);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:1000;padding:14px}.topup-modal.active{display:flex}.topup-card{width:min(560px,100%);max-height:94vh;overflow:auto;background:linear-gradient(180deg,#181d2a,#111520);border:1px solid rgba(245,158,11,.28);border-radius:22px;box-shadow:0 28px 100px rgba(0,0,0,.7);padding:18px}.topup-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.topup-title{font-size:21px;font-weight:950;color:#fff}.topup-subtitle{font-size:10px;color:#7f899c;margin-top:3px}.topup-close{background:#222838;border:0;color:#f7b32b;font-size:23px;width:38px;height:38px;border-radius:11px;cursor:pointer}.payment-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:8px 0 14px}.payment-tab{background:#1b2130;border:1px solid rgba(255,255,255,.06);color:#8e96a8;padding:11px 4px;border-radius:11px;font-weight:900;font-size:10px;cursor:pointer;transition:.18s}.payment-tab.active{color:#fff;border-color:#f59e0b;background:linear-gradient(180deg,#2a3040,#202636);box-shadow:0 6px 20px rgba(245,158,11,.09)}.pay-panel{background:#0f141f;border:1px solid rgba(255,255,255,.055);padding:14px;border-radius:15px}.pay-info-card{display:flex;align-items:center;gap:10px;background:#171d2b;border:1px solid rgba(255,255,255,.05);padding:11px;border-radius:12px;margin-bottom:11px}.pay-info-title{font-size:12px;color:#fff;font-weight:900}.pay-info-text{font-size:9px;color:#7f899c;margin-top:2px;line-height:1.35}.pay-input{width:100%;background:#1a2030;border:1px solid #30384c;color:#fff;padding:12px;border-radius:11px;font-size:15px;outline:none;margin-bottom:8px}.pay-input:focus{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.08)}.quick-amounts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:-2px 0 9px}.quick-amount{background:#202738;border:1px solid rgba(255,255,255,.05);color:#bfc6d5;border-radius:9px;padding:8px 4px;font-size:10px;font-weight:900;cursor:pointer}.quick-amount:hover{border-color:rgba(245,158,11,.5);color:#fff}.promo-box{display:flex;align-items:center;gap:8px;margin-bottom:9px}.promo-box .pay-input{margin:0}.promo-active{font-size:9px;color:#f7b32b;min-height:13px;margin:-3px 0 8px}.pay-action{width:100%;border:0;background:linear-gradient(135deg,#ffb52e,#e8790c);color:#17120a;padding:14px;border-radius:12px;font-weight:950;cursor:pointer;box-shadow:0 9px 24px rgba(245,158,11,.16)}.tg-pay-action{background:linear-gradient(135deg,#42b5ff,#2186d5);color:#fff}.promo-chip{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;border-radius:9px;padding:7px 10px;font-size:11px;font-weight:900;margin:3px;cursor:pointer}.withdraw-note{font-size:10px;color:#8b93a4;margin-top:7px;line-height:1.35}.admin-box{background:#111520;border:1px solid rgba(245,158,11,.25);border-radius:13px;padding:12px;margin-top:12px}.admin-row{display:grid;grid-template-columns:1.3fr .8fr .8fr;gap:6px;margin:6px 0}.admin-input{width:100%;box-sizing:border-box;background:#1b2130;color:#fff;border:1px solid #30384d;border-radius:8px;padding:8px;font-size:11px}.admin-btn{background:#242b3b;color:#fff;border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:8px;font-size:10px;font-weight:800;cursor:pointer}.promo-small{font-size:9px;color:#9ca3af;margin:4px 0}@media(max-width:520px){.payment-tabs{grid-template-columns:repeat(3,1fr)}.payment-tab{font-size:9px}.quick-amounts{grid-template-columns:repeat(4,1fr)}}
+.promo-heading{padding:22px 22px 18px;background:linear-gradient(180deg,#171c29,#111520);border:1px solid rgba(245,158,11,.22);border-radius:18px;cursor:pointer;box-shadow:0 16px 45px rgba(0,0,0,.22)}.promo-heading-title{font-size:21px;font-weight:950;color:#fff}.promo-heading-subtitle{font-size:12px;color:#8e98aa;margin-top:6px;line-height:1.45}.cases-section-title{font-size:20px;font-weight:950;color:#fff;margin:2px 2px 0}.promo-list{display:flex;gap:9px;overflow:auto;padding:16px 0 4px;scrollbar-width:none}.promo-list::-webkit-scrollbar{display:none}.promo-timer{font-size:11px;color:#f4b942;margin-top:7px}.promo-refresh{min-height:56px;padding:0 18px;background:#222a3a;border:1px solid rgba(245,158,11,.28);color:#fff;border-radius:13px;font-size:13px;font-weight:900;cursor:pointer}.deposit-footnote{margin-top:16px;font-size:11px;color:#777f90;line-height:1.5}.field-label{font-size:12px;color:#aeb7c7;font-weight:850;margin:0 0 8px}
+.steam-icon{width:16px;height:16px;display:block;flex:0 0 auto}
+.topup-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+#steamAuthBtn{background:#161924;color:#fff;border:1px solid rgba(245,158,11,.35);padding:7px 11px;border-radius:9px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:7px;transition:.2s}
+#steamAuthBtn:hover{background:#1d2230;border-color:#f59e0b;box-shadow:0 0 14px rgba(245,158,11,.16)}
+.steam-mini-btn{padding:0!important}
+.steam-mini-btn .steam-icon{width:15px;height:15px}
+.inv-action-icon{width:15px;height:15px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.mini-action-btn:hover .inv-action-icon{stroke:#11131c}
 
-const PORT = process.env.PORT || 8787;
+/* MP3 плеер */
+.zeno-mp3{position:fixed;bottom:14px;right:14px;z-index:9998;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db}
+.mp3-mini{display:flex;align-items:center;gap:6px;background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:6px 8px;box-shadow:0 8px 28px rgba(0,0,0,.55);min-width:200px;max-width:min(300px,calc(100vw - 28px))}
+.mp3-ico{background:#1a1f2e;border:1px solid rgba(255,255,255,.08);color:#f59e0b;width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;transition:.15s}
+.mp3-ico:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b}
+.mp3-now{flex:1;font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mp3-panel{display:none;background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:8px;margin-bottom:6px;box-shadow:0 10px 32px rgba(0,0,0,.6);width:min(300px,calc(100vw - 28px))}
+.mp3-panel.open{display:block;animation:mp3In .2s ease both}
+@keyframes mp3In{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.mp3-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:10px;font-weight:900;color:#f59e0b;text-transform:uppercase;letter-spacing:.5px}
+.mp3-tracks{display:flex;flex-direction:column;gap:3px;margin-bottom:6px;max-height:120px;overflow-y:auto}
+.mp3-tr{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;border:1px solid transparent;transition:.15s}
+.mp3-tr:hover{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2)}
+.mp3-tr.active{background:rgba(245,158,11,.14);border-color:#f59e0b;color:#fbbf24}
+.mp3-tr-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mp3-ctrl{display:flex;align-items:center;gap:4px}
+.mp3-btn{background:#1a1f2e;border:1px solid rgba(255,255,255,.08);color:#f59e0b;min-width:30px;height:26px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 8px;text-transform:uppercase;letter-spacing:.3px}
+.mp3-btn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b}
+#mp3Seek{flex:1;accent-color:#f59e0b;height:3px;min-width:40px}
+#mp3Vol{width:44px;accent-color:#f59e0b;height:3px}
+#mp3Time{font-size:9px;color:#8d94a6;min-width:58px;text-align:center}
+@media (max-width:420px){.zeno-mp3{bottom:8px;right:8px}.mp3-mini{min-width:170px}}
+</style>
+</head>
+<body>
+<div class="loading-screen" id="loadingScreen"><div class="zeno-intro"><span>Zeno</span>drop</div><div class="loading-subtitle">CS2 UPGRADE</div></div>
+<div class="container">
+<div class="zeno-toast-container" id="zenoToastContainer"></div>
+<div class="header">
+  <div class="logo-area"><span>Zeno</span>drop</div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button id="steamAuthBtn" onclick="initSteamAuth()"><svg class="steam-icon" viewBox="0 0 24 24" aria-hidden="true">
+<defs><linearGradient id="steamGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#66c0f4"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs>
+<circle cx="16.9" cy="7.1" r="4.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/>
+<circle cx="6.2" cy="16.9" r="3.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/>
+<path d="M8.9 15.1 14.2 10.2" fill="none" stroke="url(#steamGrad)" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="16.9" cy="7.1" r="1.35" fill="#fff"/>
+<circle cx="6.2" cy="16.9" r="1" fill="#fff"/>
+</svg>Войти через Steam</button>
+    <div class="profile-avatar-btn" id="headerProfileBtn" onclick="switchMainTab('profile')" style="display:none;"><div id="headerAvatarContainer" style="width:100%;height:100%;background:#000;"></div></div>
+  </div>
+</div>
+<div class="main-nav">
+<button class="main-tab" id="navUpgrade" onclick="switchMainTab('upgrade')">Апгрейд</button>
+<button class="main-tab active" id="navCases" onclick="switchMainTab('cases')">Кейсы</button>
+<button class="main-tab" id="navProfile" onclick="switchMainTab('profile')">Профиль</button>
+</div>
 
-const KEY = (
-    process.env.CS2SH_API_KEY ||
-    process.env.CS2_API_KEY ||
-    process.env.CS2SH_KEY ||
-    ''
-).trim();
+<div class="tab-content" id="tabUpgradeContent">
+<div class="zeno-layout">
+<div class="wheel-container">
+<div class="wheel-wrapper">
+  <div class="fast-spin-btn" id="fastSpinBtn" title="Быстрый апгрейд" onclick="toggleFastSpin()">
+    <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+  </div>
+  <div class="wheel-pointer"></div>
+  <div class="wheel-canvas-box"><canvas id="wheelCanvas" width="300" height="300"></canvas></div>
+  <div class="wheel-center-content"><div class="wheel-percent" id="wheelPercent">0.00%</div><div class="wheel-chance-label">шанс</div></div>
+  <div class="disabled-overlay" id="wheelOverlay"></div>
+  <div id="resultOverlay"><span id="resultText">Неудача</span></div>
+</div>
+<button class="btn-upgrade" id="upgradeBtn" disabled>Прокачать</button>
+</div>
+<div class="quick-chance-panel" id="quickChancePanel"></div>
+<div class="skins-selection-row">
+<div class="card-skin"><div class="skin-type">Ваш скин</div><div class="skin-name" id="selectedSkinName">--</div><div class="skin-img-wrap"><img id="selectedSkinImg" src="" alt="" style="display:none;max-height:70px;object-fit:contain;"><span id="selectedSkinPlaceholder" style="color:#4b5563;font-size:11px;">Выберите</span></div><div class="skin-price" id="selectedSkinPrice">0.00</div></div>
+<div class="card-skin" style="border-color:rgba(245,158,11,.2);"><div class="skin-type">Желаемый дроп</div><div class="skin-name" id="targetSkinName">--</div><div class="skin-img-wrap"><img id="targetSkinImg" src="" alt="" style="display:none;max-height:70px;object-fit:contain;"><span id="targetSkinPlaceholder" style="color:#4b5563;font-size:11px;">Из каталога</span></div><div class="skin-price" id="targetSkinPrice">0.00</div></div>
+</div>
+<div class="inventory-section">
+<div class="inv-header-row"><div class="inv-tabs">
+<button class="inv-tab active" id="tabInventory" onclick="switchCatalogTab('inventory')">Инвентарь</button>
+<button class="inv-tab" id="tabCatalogSkins" onclick="switchCatalogTab('skins')">Скины</button>
+</div>
+<div class="inv-total-value" id="invTotalValue">Сумма: 0.00 ₽</div>
+<div class="price-filter-box" id="priceFilterBox"><input type="number" id="minPriceInput" class="price-input" placeholder="От" value="0"><span style="color:#6b7280;font-size:11px;">-</span><input type="number" id="maxPriceInput" class="price-input" placeholder="До" value="1000000"></div>
+</div>
+<div class="items-grid" id="itemsGrid"></div>
+</div>
+</div>
+</div>
 
-const STEAM_API_KEY = (process.env.STEAM_API_KEY || '').trim();
+<div class="tab-content" id="tabCasesContent">
+<div id="casesListContainer" style="display:flex;flex-direction:column;gap:14px;"><div class="promo-heading" onclick="topUpBalance()"><div class="promo-heading-title">Промокоды на пополнение</div><div class="promo-heading-subtitle">Введите код при пополнении и получите дополнительный бонус</div><div id="promoCodesBlock" class="promo-list"></div><div id="promoHeadingTimer" class="promo-timer"></div></div><div class="cases-section-title">Коллекция кейсов</div><div class="cases-grid" id="casesGrid"></div></div>
+<div class="case-opening-view" id="caseOpeningView">
+<button class="back-cases-btn" onclick="closeCaseOpening()">← Назад к кейсам</button>
+<div style="font-size:16px;font-weight:900;color:#fff;" id="activeCaseTitle">Кейс</div>
+<div class="roulette-container"><div class="roulette-pointer"></div><div class="roulette-track" id="rouletteTrack"></div></div>
+<div class="case-actions-panel" id="caseActionsPanel">
+  <div class="case-open-count-title">Количество открытий</div>
+  <div class="multi-open-row">
+    <button class="multi-btn active" data-count="1" onclick="selectOpenCount(1)">1×</button>
+    <button class="multi-btn" data-count="2" onclick="selectOpenCount(2)">2×</button>
+    <button class="multi-btn" data-count="3" onclick="selectOpenCount(3)">3×</button>
+    <button class="multi-btn" data-count="4" onclick="selectOpenCount(4)">4×</button>
+    <button class="multi-btn" data-count="5" onclick="selectOpenCount(5)">5×</button>
+  </div>
+  <button class="btn-upgrade" id="mainOpenBtn" onclick="startOpening()">Открыть 1×</button>
+  <label class="fast-case-toggle">
+    <input type="checkbox" id="fastCaseCheckbox"> Быстрое открытие
+  </label>
+</div>
+<div class="action-buttons" id="actionButtons"><button class="action-btn sell-btn" id="sellBtn" onclick="sellCurrentItem()">Продать</button><button class="action-btn retry-btn" onclick="startOpening(selectedOpenCount)">Еще раз</button></div>
+<div class="inventory-section" style="width:100%;margin-top:4px;flex:1;"><div style="font-size:12px;font-weight:800;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Содержимое кейса</div><div class="items-grid" id="caseContentsGrid" style="max-height:none;flex:1;min-height:220px;"></div></div>
+</div>
+</div>
 
-if (!KEY) {
-    console.error('ERROR: Set CS2SH_API_KEY in Render Environment Variables');
-    process.exit(1);
+<div class="tab-content" id="tabProfileContent"><div class="profile-wrapper" id="profileContentArea"></div></div>
+</div>
+
+<div class="topup-modal" id="topupModal"><div class="topup-card"><div class="topup-head"><div><div class="topup-title">Пополнение баланса</div><div class="topup-subtitle">Выберите способ, укажите сумму и при наличии введите промокод</div></div><button class="topup-close" onclick="closeTopup()">×</button></div><div class="payment-tabs"><button class="payment-tab active" data-method="СБП" onclick="selectPaymentMethod('СБП')">СБП</button><button class="payment-tab" data-method="Крипта" onclick="selectPaymentMethod('Крипта')">Криптовалюта</button><button class="payment-tab" data-method="Telegram" onclick="selectPaymentMethod('Telegram')">Telegram</button></div><div class="pay-panel"><div class="pay-info-card"><div><div class="pay-info-title" id="paymentTitle">СБП</div><div id="paymentInfo" class="pay-info-text">Заявка создаётся прямо на сайте.</div></div></div><div class="field-label">Сумма пополнения</div><input id="depositAmount" class="pay-input" type="number" min="50" placeholder="Введите сумму, ₽" oninput="updateDepositPreview()"><div class="quick-amounts"><button class="quick-amount" onclick="setDepositAmount(100)">100 ₽</button><button class="quick-amount" onclick="setDepositAmount(500)">500 ₽</button><button class="quick-amount" onclick="setDepositAmount(1000)">1 000 ₽</button><button class="quick-amount" onclick="setDepositAmount(5000)">5 000 ₽</button></div><div class="field-label">Промокод</div><div class="promo-box"><input id="depositPromo" class="pay-input" placeholder="Введите промокод" oninput="updateDepositPreview()"><button class="promo-refresh" onclick="loadPromoCodes(true)">Обновить</button></div><div id="promoActiveText" class="promo-active"></div><button id="depositMainAction" class="pay-action" onclick="createDepositRequest()">Пополнить баланс</button><button id="telegramDepositAction" class="pay-action tg-pay-action" onclick="openTelegramDeposit()" style="display:none;margin-top:10px">Открыть Telegram</button><div id="depositResult" class="withdraw-note"></div></div></div></div>
+
+<div id="modalOverlay"><div class="modal-card"><h3>Настройка быстрых кнопок</h3><p style="font-size:11px;color:#9ca3af;">Введите проценты (максимум до 70%)</p><div class="modal-inputs"><input type="text" id="quickValuesInput" value="10, 20, 30, 40, 50, 70"></div><div class="modal-buttons"><button class="btn-close" onclick="document.getElementById('modalOverlay').style.display='none'">Отмена</button><button class="btn-save" onclick="saveQuickSettings()">Сохранить</button></div></div></div>
+
+<div class="zeno-mp3">
+  <div class="mp3-panel" id="mp3Panel">
+    <div class="mp3-head"><span>Музыка</span><button class="mp3-ico" onclick="mp3TogglePanel()" title="Свернуть">×</button></div>
+    <div class="mp3-tracks">
+      <div class="mp3-tr" data-src="https://muzend.net/uploads/music/2026/08/The_Limba_Cha_sha.mp3">
+        <span class="mp3-tr-name">The Limba — Ча ща</span>
+      </div>
+      <div class="mp3-tr" data-sc="https://soundcloud.com/korol-saundklauda/tantsui-pantera-speed-up-2">
+        <span class="mp3-tr-name">Kagramanov — Танцуй, пантера</span>
+      </div>
+    </div>
+    <div class="mp3-ctrl">
+      <button class="mp3-btn" id="mp3Play">Пауза</button>
+      <input type="range" id="mp3Seek" value="0" min="0" max="100" step="0.1">
+      <span id="mp3Time">0:00 / 0:00</span>
+      <input type="range" id="mp3Vol" min="0" max="1" step="0.05" value="0.7">
+    </div>
+  </div>
+  <div class="mp3-mini">
+    <button class="mp3-ico" id="mp3MiniPlay" onclick="mp3TogglePlay(event)" title="Играть/Пауза">▶</button>
+    <span class="mp3-now" id="mp3Now">Музыка</span>
+    <button class="mp3-ico" onclick="mp3TogglePanel(event)" title="Плейлист">≡</button>
+  </div>
+  <audio id="zenoAudio" preload="none" style="display:none"></audio>
+  <iframe id="zenoSC" width="1" height="1" frameborder="0" allow="autoplay" style="display:none;border:0"></iframe>
+</div>
+
+<script>
+const API={catalog:'/api/cs2/catalog'};
+let USD_RUB_RATE=80;
+let CATALOG_ITEMS=[],CASES_DATA=[];
+let currentUser=null,currentTab='inventory';
+let activeCase=null,isCaseSpinning=false,currentWonItem=null,currentWonItemsList=[];
+let selectedItemIndex=null,targetWeapon=null,isSpinning=false,currentRotation=0,activeQuickChance=null;
+let quickChances=[10,20,30,40,50,70],MAX_CHANCE=70,isFastSpinActive=false;
+let selectedOpenCount=1;
+const canvas=document.getElementById('wheelCanvas'),ctx=canvas.getContext('2d'),track=document.getElementById('rouletteTrack');
+
+let audioCtx=null;
+function getAudioContext(){if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx;}
+function playTickSound(){try{const c=getAudioContext(),n=c.currentTime,o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.setValueAtTime(880,n);o.frequency.exponentialRampToValueAtTime(430,n+.055);g.gain.setValueAtTime(.055,n);g.gain.exponentialRampToValueAtTime(.001,n+.055);o.connect(g);g.connect(c.destination);o.start(n);o.stop(n+.06);}catch(e){}}
+function playUpgradeSpinSound(){try{const c=getAudioContext(),n=c.currentTime,o=c.createOscillator(),g=c.createGain();o.type='square';o.frequency.setValueAtTime(680,n);o.frequency.exponentialRampToValueAtTime(260,n+.035);g.gain.setValueAtTime(.045,n);g.gain.exponentialRampToValueAtTime(.001,n+.045);o.connect(g);g.connect(c.destination);o.start(n);o.stop(n+.05);}catch(e){}}
+function playUpgradeFailSound(){try{const c=getAudioContext(),n=c.currentTime;[980,760,560,390].forEach((f,i)=>{const t=n+i*.09,o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*.62,t+.075);g.gain.setValueAtTime(.075,t);g.gain.exponentialRampToValueAtTime(.001,t+.09);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+.095);});}catch(e){}}
+function playCaseResultSound(value,price){try{if(value>=price*1.5){const c=getAudioContext(),n=c.currentTime;[392,523.25,659.25,783.99].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.setValueAtTime(f,n+i*.07);g.gain.setValueAtTime(.08,n+i*.07);g.gain.exponentialRampToValueAtTime(.001,n+i*.07+.28);o.connect(g);g.connect(c.destination);o.start(n+i*.07);o.stop(n+i*.07+.3);});}else{const c=getAudioContext(),n=c.currentTime,o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.setValueAtTime(260,n);o.frequency.exponentialRampToValueAtTime(145,n+.18);g.gain.setValueAtTime(.035,n);g.gain.exponentialRampToValueAtTime(.001,n+.2);o.connect(g);g.connect(c.destination);o.start(n);o.stop(n+.21);}}catch(e){}}
+function playSuccessSound(){try{const c=getAudioContext(),n=c.currentTime;[523.25,659.25,783.99,1046.5].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.setValueAtTime(f,n+i*.08);g.gain.setValueAtTime(.1,n+i*.08);g.gain.exponentialRampToValueAtTime(.001,n+i*.08+.3);o.connect(g);g.connect(c.destination);o.start(n+i*.08);o.stop(n+i*.08+.3);});}catch(e){}}
+function playCaseSpinTick(){try{const c=getAudioContext(),o=c.createOscillator(),g=c.createGain();o.type='square';o.frequency.setValueAtTime(320,c.currentTime);g.gain.setValueAtTime(.025,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.018);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.02);}catch(e){}}
+
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function silentNotice(message,type='info'){const box=document.getElementById('zenoToastContainer');if(!box||!message)return;const t=document.createElement('div');t.className='zeno-toast '+(type==='error'?'error':type==='success'?'success':'');t.textContent=String(message);box.appendChild(t);setTimeout(()=>t.remove(),3050);}
+function escapeAttr(s){return escapeHtml(s)}
+function cleanName(s){return String(s||'').trim().replace(/\\u2122/g,'™')}
+function saveSelectedCatalog(items){try{localStorage.setItem('zeno_selected_1500_v5',JSON.stringify({time:Date.now(),items}))}catch(e){}}
+function loadSelectedCatalog(){try{const x=JSON.parse(localStorage.getItem('zeno_selected_1500_v5')||'null');if(x?.items?.length)return x.items}catch(e){}return null}
+function finishIntro(){const el=document.getElementById('loadingScreen');if(!el)return;el.style.opacity='0';setTimeout(()=>el.style.display='none',420)}
+function stableHash(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+
+async function loadUsdRubRate(){
+  try{const c=JSON.parse(localStorage.getItem('zeno_usd_rate')||'null');if(c&&Number(c.rate)>0&&Date.now()-c.ts<6*60*60*1000)USD_RUB_RATE=Number(c.rate);}catch(e){}
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),3000);
+  try{
+    const r=await fetch('/api/usd-rub',{cache:'no-store',headers:{Accept:'application/json'},signal:controller.signal});
+    if(!r.ok)return;
+    const d=await r.json();
+    const rate=Number(d?.rate);
+    if(Number.isFinite(rate)&&rate>0){USD_RUB_RATE=rate;try{localStorage.setItem('zeno_usd_rate',JSON.stringify({rate,ts:Date.now()}));}catch(e){}}
+  }catch(e){}
+  finally{clearTimeout(timer);}
 }
 
-const html = fs.readFileSync(path.join(__dirname, 'Zenodrop_CS2SH_400.html'));
-
-// ===============================
-// SESSIONS
-// ===============================
-const sessions = new Map();
-const SESSION_SECRET = (process.env.SESSION_SECRET || process.env.STEAM_SESSION_SECRET || KEY).trim();
-
-function makeSessionCookie(steamid){
-  const id=String(steamid||'');
-  const sig=crypto.createHmac('sha256',SESSION_SECRET).update(id).digest('hex');
-  return `steam_${id}_${sig}`;
-}
-function steamFromSessionCookie(value){
-  const m=String(value||'').match(/^steam_(\d{17})_([a-f0-9]{64})$/);
-  if(!m)return null;
-  const expected=crypto.createHmac('sha256',SESSION_SECRET).update(m[1]).digest('hex');
-  try{if(!crypto.timingSafeEqual(Buffer.from(m[2]),Buffer.from(expected)))return null;}catch(e){return null;}
-  return m[1];
+async function fetchCs2ShJSON(url,options={}){
+  const headers={Accept:'application/json',...(options.headers||{})};
+  const r=await fetch(url,{...options,headers,cache:'no-store'});
+  if(!r.ok){
+    let message='HTTP '+r.status;
+    try{const data=await r.clone().json();if(data?.error)message+=': '+data.error;if(data?.message)message+=': '+data.message;}catch(e){}
+    throw new Error(message);
+  }
+  return r.json();
 }
 
-// ===============================
-// STORE / TELEGRAM
-// ===============================
-const DATA_FILE = path.join(__dirname, 'zenodrop_data.json');
-const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
-const TG_BOT_URL = (process.env.TELEGRAM_BOT_URL || '').trim();
-const TG_WEBHOOK_URL = (process.env.TELEGRAM_WEBHOOK_URL || ((process.env.RENDER_EXTERNAL_URL || '').trim() ? (process.env.RENDER_EXTERNAL_URL.trim().replace(/\/$/,'') + '/telegram/admin-webhook') : '')).trim();
-const PAY_TG_TOKEN = (process.env.TELEGRAM_PAYMENT_BOT_TOKEN || '').trim();
-const PAY_TG_BOT_URL = (process.env.TELEGRAM_PAYMENT_BOT_URL || 'https://t.me/ZenodropPayBot').trim();
-const SUPPORT_CONTACT = '@Zenodropsupport';
+async function loadCs2ShCatalog(){
+  for(let attempt=0; attempt<8; attempt++){
+    const data=await fetchCs2ShJSON(API.catalog);
+    if(data?.warming){ await new Promise(r=>setTimeout(r,2500)); continue; }
+    const raw=data?.items||[];
+    const arr=Array.isArray(raw)?raw:Object.values(raw||{});
+    const items=arr.map((x,i)=>{
+      const name=cleanName(x?.name||x?.market_hash_name||'');
+      const image=x?.img||x?.image||x?.icon_url||x?.image_url||'';
+      const usd=Number(x?.usd||x?.price_usd||0);
+      const value=usd*USD_RUB_RATE;
+      return {id:x?.id||('skin_'+stableHash(name).toString(36)+'_'+i),name,category:'skins',value,usd,img:image,api:x?.api||x};
+    }).filter(x=>x.name&&x.img&&Number.isFinite(x.value)&&x.value>=8);
+    items.sort((a,b)=>a.value-b.value);
+    return items;
+  }
+  throw new Error('Каталог CS2 не прогрелся за 20 секунд');
+}
 
-// ============================================================
-//  КЕЙСЫ
-// ============================================================
-const CASES = {
-  micro:     { price: 13,    rtp: 0.95 },
-  basic:     { price: 100,   rtp: 0.82 },
-  small:     { price: 250,   rtp: 0.82 },
-  premium:   { price: 500,   rtp: 0.83 },
-  expensive: { price: 1000,  rtp: 0.84 },
-  elite:     { price: 2500,  rtp: 0.84 },
-  legendary: { price: 5000,  rtp: 0.85 },
-  titan:     { price: 10000, rtp: 0.86 }
+function buildCaseContents(price,index){
+  const valid=CATALOG_ITEMS.filter(x=>x&&x.img&&Number(x.value)>=8);
+  if(!valid.length)return [];
+  const tier = price <= 20 ? 0 : price <= 100 ? 1 : price <= 500 ? 2 : price <= 2000 ? 3 : 4;
+  const losses   = [24, 20, 16, 13, 10][tier];
+  const lowflats = [18, 16, 14, 12, 10][tier];
+  const flats    = [26, 30, 34, 38, 42][tier];
+  const bigs     = [18, 20, 22, 23, 24][tier];
+  const megas    = [10, 10, 10, 10, 10][tier];
+  const jackpots = [4,  4,  4,  4,  4][tier];
+
+  const pools={
+    loss:valid.filter(x=>x.value>=Math.max(8,price*.55)&&x.value<price*.86),
+    lowflat:valid.filter(x=>x.value>=price*.86&&x.value<price*.96),
+    flat:valid.filter(x=>x.value>=price*.96&&x.value<price*1.08),
+    big:valid.filter(x=>x.value>=price*1.08&&x.value<price*1.50),
+    mega:valid.filter(x=>x.value>=price*1.50&&x.value<price*3.00),
+    jackpot:valid.filter(x=>x.value>=price*3.00&&x.value<price*12.00)
+  };
+  const used=new Set(),out=[];
+  const addRandom=(pool,n)=>{const shuffled=pool.slice().sort(()=>Math.random()-.5);for(const x of shuffled){if(out.length>=n)break;if(!used.has(x.id)){used.add(x.id);out.push({...x});}}};
+  addRandom(pools.loss,losses);
+  addRandom(pools.lowflat,lowflats);
+  addRandom(pools.flat,flats);
+  addRandom(pools.big,bigs);
+  addRandom(pools.mega,megas);
+  addRandom(pools.jackpot,jackpots);
+  if(out.length<100){const rest=valid.slice().sort((a,b)=>Math.abs(a.value-price)-Math.abs(b.value-price));addRandom(rest,100-out.length);}
+  while(out.length<100)out.push({...valid[Math.floor(Math.random()*valid.length)]});
+  return out.slice(0,100);
+}
+
+const CASE_IMAGES={
+  13:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJn7-MhvnwNrTglIhC68sh3r2Yrdms2Vbtr0VuYWmmLYOQJgE9M1jWqFS8ku6808e068vJn3Ngu3Ur-z-DyG2w7g/360fx360f',
+  100:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpopujwezhmrP7PYSRD49GJlY20kPf9J4Tdn2xZ_IpmibvEp4-giQO1r1VtZ2ChJ9SSIAc3MwmEr1ntkLzoh8K_v52Zn3Uxu3Ur5n3UmB22hBtEa_swh7jRMgE/360fx360f',
+  250:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpotLu8JAllx8zJYQJD_9O7m5O0m_7zO6-fkDgOvpt03uuToIqgjQO1qUdsMTqmLY_EdwZsYF-FqVK-lbjsgJ7puZ2fy3RlpCkm5XqMmxC1hElHO-Nvz7uVJQo/360fx360f',
+  500:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV09-5lpKKqPrxN7LEmyVQ7MEpiLuSrYmt3wK3-kZsZj2nd4-cd1VoZAvR8li5k7q-05a-uMmdmyRqvHVysnfD30xgmR0g/360fx360f',
+  1000:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FBRw7P7NYjV95N24j4yOhvLjJ4Tdn2xZ_Ipmj-vEo4j02wDjqUY-Y2v2co_Edwc6ZArYqFi_yOa6gMO5vsuZyXQw7yMgsn7Vnxezgx1IcKU807I9Ew/360fx360f',
+  2500:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV09-5lpKKqPrxN7LEmyVQ7MEpiLuSrYmt3wK3-kZsZj2nd4-cd1VoZAvR8li5k7q-05a-uMmdmyRqvHVysnfD30xgmR0g/360fx360f',
+  5000:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FBRw7P7NYjV95N24j4yOhvLjJ4Tdn2xZ_Ipmj-vEo4j02wDjqUY-Y2v2co_Edwc6ZArYqFi_yOa6gMO5vsuZyXQw7yMgsn7Vnxezgx1IcKU807I9Ew/360fx360f',
+  10000:'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpopujwezhmrP7PYSRD49GJlY20kPf9J4Tdn2xZ_IpmibvEp4-giQO1r1VtZ2ChJ9SSIAc3MwmEr1ntkLzoh8K_v52Zn3Uxu3Ur5n3UmB22hBtEa_swh7jRMgE/360fx360f'
 };
 
-function itemPrice(s){
-  const v = Number(s?.price ?? s?.value ?? s?.usd ?? 0);
-  return Number.isFinite(v) && v > 0 ? v : 0;
+function getRandomCaseSkinImage(fallback){
+  const all=CATALOG_ITEMS.filter(x=>{if(!x?.img)return false;const n=String(x?.name||'').toLowerCase();if(n.includes('sticker')||n.includes('agent')||n.includes('gloves'))return false;return n.includes('|');});
+  if(!all.length)return fallback||'';
+  const regular=all.filter(x=>!/^★\s/.test(String(x.name||'')));
+  const knives=all.filter(x=>/^★\s/.test(String(x.name||'')));
+  const pool=(regular.length && Math.random()<0.82) ? regular : (knives.length ? knives : regular);
+  return pool[Math.floor(Math.random()*pool.length)]?.img || fallback || '';
 }
 
-function fitToRtp(list, cp, rtp){
-  if (!list.length || !cp || !rtp) return list;
-  const ev = list.reduce((s,x) => s + x.weight * itemPrice(x), 0);
-  if (ev <= 0) return list;
-  const target = cp * rtp;
-  if (ev <= target) return list;
-  const k = target / ev;
-  return list.map(x => {
-    const p = itemPrice(x);
-    const exp = p >= cp * 1.5 ? 1.6 : p >= cp ? 1.0 : 0.4;
-    return { ...x, weight: Math.max(1e-9, x.weight * Math.pow(k, exp)) };
-  });
-}
-
-function rangeWeight(price, cp){
-  const r = cp > 0 ? price / cp : 0;
-  if (r < 0.78) return 0.04;
-  if (r < 0.86) return 0.55;
-  if (r < 0.94) return 1.60;
-  if (r < 0.98) return 2.20;
-  if (r < 1.00) return 2.30;
-  if (r < 1.06) return 2.30;
-  if (r < 1.15) return 1.20;
-  if (r < 1.35) return 0.40;
-  if (r < 1.70) return 0.12;
-  if (r < 2.50) return 0.03;
-  if (r < 4.00) return 0.006;
-  return 0.0005;
-}
-
-function microWeight(price){
-  if (price <= 8)   return 3.0;
-  if (price <= 15)  return 7.5;
-  if (price <= 25)  return 5.0;
-  if (price <= 50)  return 1.5;
-  if (price <= 120) return 0.25;
-  return 0.02;
-}
-
-function weightedRandom(skins, casePrice){
-  if(!Array.isArray(skins) || !skins.length) return null;
-  const cp = Number(casePrice || 0);
-  const total = skins.reduce((s, x) => s + Number(x.weight || 0), 0);
-  let list = skins.map(s => ({
-    ...s,
-    weight: total > 0 ? Number(s.weight || 0) / total : 1 / skins.length
+function buildCases(){
+  const defs=[
+    {key:'micro',    price:13,    name:'Мини'},
+    {key:'basic',    price:100,   name:'Бронза'},
+    {key:'small',    price:250,   name:'Серебро'},
+    {key:'premium',  price:500,   name:'Классик'},
+    {key:'expensive',price:1000,  name:'Феникс'},
+    {key:'elite',    price:2500,  name:'Рейд'},
+    {key:'legendary',price:5000,  name:'Охотник'},
+    {key:'titan',    price:10000, name:'Премиум'}
+  ];
+  CASES_DATA=defs.map((d,i)=>({
+    id:'case_'+d.key,
+    key:d.key,
+    name:'Кейс '+d.name,
+    price:d.price,
+    img:getRandomCaseSkinImage(CASE_IMAGES[d.price]||''),
+    items:buildCaseContents(d.price,i)
   }));
-  list = list.map(s => {
-    const price = itemPrice(s);
-    const m = cp <= 20 ? microWeight(price) : rangeWeight(price, cp);
-    return { ...s, weight: Math.max(1e-9, s.weight * m), _price: price };
+}
+
+function newInventoryUid(){try{if(window.crypto?.randomUUID)return window.crypto.randomUUID();}catch(e){}return 'inv_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);}
+function isWithdrawalLocked(item){
+  if(!item||!currentUser?.serverAccount)return false;
+  const list=Array.isArray(currentUser.serverAccount.pendingWithdrawals)?currentUser.serverAccount.pendingWithdrawals:[];
+  return list.some(w=>{
+    if(w.itemUid&&item.uid)return w.itemUid===item.uid;
+    const lName=w.itemName||w.name,lVal=Number(w.itemValue||w.value);
+    return !w.itemUid && lName===item.name && Number(item.value)===lVal;
   });
-  const rtp = Number(CASES[Object.keys(CASES).find(k => CASES[k].price === cp)]?.rtp || 0);
-  if (rtp > 0 && cp > 0) list = fitToRtp(list, cp, rtp);
-  const total2 = list.reduce((sum, x) => sum + x.weight, 0);
-  if (total2 <= 0) {
-    const fb = list[list.length - 1];
-    if (!fb) return null;
-    const { _price, ...rest } = fb;
-    return rest;
-  }
-  const roll = Math.random();
-  let cur = 0;
-  for (const x of list) {
-    cur += x.weight / total2;
-    if (roll <= cur) {
-      const { _price, ...rest } = x;
-      return rest;
-    }
-  }
-  const last = list[list.length - 1];
-  const { _price, ...rest } = last;
-  return rest;
 }
+function ensureInventoryUids(user){if(!user||!Array.isArray(user.inventory))return;user.inventory.forEach(x=>{if(!x.uid)x.uid=newInventoryUid();});}
 
-function openCase(caseKey, skins){
-  const cfg = CASES[String(caseKey)];
-  if (!cfg || !Array.isArray(skins) || !skins.length) return null;
-  const skin = weightedRandom(skins, cfg.price);
-  if (!skin) return null;
-  return { skin, price: cfg.price };
-}
-
-// ============================================================
-//  АПГРЕЙД
-// ============================================================
-function upgrade(chance, steamid, targetPrice){
-  chance = Number(chance);
-  if (!Number.isFinite(chance)) return false;
-  if (chance < 0)   chance = 0;
-  if (chance > 100) chance = 100;
-  const price = Number(targetPrice || 0);
-  let real = chance;
-  if (price >= 20000)      real *= 0.35;
-  else if (price >= 15000) real *= 0.50;
-  else if (price >= 10000) real *= 0.60;
-  else if (price >= 5000)  real *= 0.75;
-  if (real < 0.5) real = 0.5;
-  if (real > 95)  real = 95;
-  return Math.random() * 100 < real;
-}
-
-const PAY_TG_WEBHOOK_URL = (process.env.TELEGRAM_PAYMENT_WEBHOOK_URL || ((process.env.RENDER_EXTERNAL_URL || '').trim() ? (process.env.RENDER_EXTERNAL_URL.trim().replace(/\/$/,'') + '/telegram/payment-webhook') : '')).trim();
-const TG_ADMIN_IDS = new Set(String(process.env.TG_ADMIN_IDS || '').split(',').map(x=>x.trim()).filter(Boolean));
-
-const data = loadStore();
-for(const u of Object.values(data.users)){ ensureZenodropId(u); }
-saveStore();
-
-function loadStore(){
-  try {
-    const x=JSON.parse(fs.readFileSync(DATA_FILE,'utf8'));
-    return {
-      users: x.users || {},
-      withdrawals: x.withdrawals || [],
-      deposits: x.deposits || [],
-      promos: x.promos || {},
-      admins: x.admins || {},
-      links: x.links || {}
-    };
-  } catch(e) {
-    return {users:{},withdrawals:[],deposits:[],promos:{},admins:{},links:{}};
-  }
-}
-function saveStore(){
-  try { fs.writeFileSync(DATA_FILE, JSON.stringify(data,null,2)); } catch(e){ console.error('store save:',e.message); }
-}
-function ensureUser(steamid){
-  const id=String(steamid||''); if(!id)return null;
-  if(!data.users[id]) data.users[id]={
-    steamid:id,
-    balance:0,
-    stats:{totalDeposited:0, upgradesTotal:0, casesOpened:0},
-    withdrawDisabled:false,
-    tgId:null,
-    createdAt:Date.now(),
-    inventory:[],
-    bestDrop:{name:'--',value:0,img:''}
+function defaultUser(steamUser){
+  return {
+    steamid: steamUser ? steamUser.steamid : null,
+    username: steamUser ? steamUser.username : '',
+    avatar: steamUser ? steamUser.avatar : '',
+    balance: 0,
+    stats: {upgradesTotal:0, casesOpened:0, totalDeposited:0},
+    bestDrop: {name:'--', value:0, img:''},
+    inventory: []
   };
-  if(!data.users[id].stats) data.users[id].stats={totalDeposited:0, upgradesTotal:0, casesOpened:0};
-  if(typeof data.users[id].stats.totalDeposited!=='number') data.users[id].stats.totalDeposited=0;
-  if(typeof data.users[id].stats.upgradesTotal!=='number') data.users[id].stats.upgradesTotal=0;
-  if(typeof data.users[id].stats.casesOpened!=='number') data.users[id].stats.casesOpened=0;
-  if(!Array.isArray(data.users[id].inventory)) data.users[id].inventory=[];
-  if(!data.users[id].bestDrop) data.users[id].bestDrop={name:'--',value:0,img:''};
-  return data.users[id];
 }
-function makeZenodropId(userOrSteam){
-  const steam=typeof userOrSteam==='object' ? String(userOrSteam?.steamid||'') : String(userOrSteam||'');
-  if(/^\d{17}$/.test(steam)){
-    const hex=crypto.createHash('sha256').update('zenodrop:'+steam).digest('hex').slice(0,12);
-    const num=(parseInt(hex,16)%90000000)+10000000;
-    return 'ZN-'+String(num);
-  }
-  let id='';
-  do { id='ZN-'+String(crypto.randomInt(10000000,100000000)); }
-  while(Object.values(data.users).some(u=>u.zenoId===id));
-  return id;
+
+function normalizeUser(user, steamUser){
+  if(!user||typeof user!=='object')return defaultUser(steamUser);
+  if(steamUser){user.steamid=steamUser.steamid;user.username=steamUser.username;user.avatar=steamUser.avatar;}
+  if(typeof user.balance!=='number')user.balance=0;
+  if(!user.stats)user.stats={upgradesTotal:0,casesOpened:0,totalDeposited:0};
+  ['upgradesTotal','casesOpened','totalDeposited'].forEach(k=>{if(typeof user.stats[k]!=='number')user.stats[k]=0});
+  if(!user.bestDrop)user.bestDrop={name:'--',value:0,img:''};
+  if(!Array.isArray(user.inventory))user.inventory=[];
+  ensureInventoryUids(user);
+  return user;
 }
-function ensureZenodropId(user){
-  if(!user.zenoId || !/^ZN-\d{8,10}$/.test(String(user.zenoId))) user.zenoId=makeZenodropId(user);
-  return user.zenoId;
+function findApiSkin(name){if(!name)return null;const n=cleanName(name).toLowerCase();return CATALOG_ITEMS.find(x=>x.name.toLowerCase()===n)||CATALOG_ITEMS.find(x=>x.name.toLowerCase().replace(/\s*\([^)]*\)$/,'')===n.replace(/\s*\([^)]*\)$/,''))||null}
+
+let __saveInFlight=false;
+let __savePending=false;
+
+async function saveUserData(){
+  if(!currentUser) return;
+  const storageKey='zeno_local_user_'+(currentUser.steamid||'anon');
+  try{ localStorage.setItem(storageKey, JSON.stringify(currentUser)); }catch(e){}
+  if(!currentUser.steamid) return;
+  if(__saveInFlight){ __savePending=true; return; }
+  await __doFlush();
+  if(__savePending){ __savePending=false; await __doFlush(); }
 }
-function findUserByZenodropId(zenoId){
-  const id=String(zenoId||'').trim().toUpperCase().replace(/\s+/g,'');
-  if(!id) return null;
-  let found=Object.values(data.users).find(u=>String(u.zenoId||'').toUpperCase()===id);
-  if(found) return found;
-  const digits=id.replace(/\D/g,'');
-  if(digits.length>=6){
-    found=Object.values(data.users).find(u=>String(u.zenoId||'').replace(/\D/g,'')===digits);
-    if(found) return found;
-  }
-  return null;
-}
-function findSteamByTelegram(chatId){
-  return data.links[String(chatId)] || Object.values(data.users).find(u=>String(u.tgId||'')===String(chatId))?.steamid || null;
-}
-function pendingWithdrawalsForUser(steamid){
-  return data.withdrawals
-    .filter(w=>w.steamid===steamid && (w.status==='pending' || w.status==='approved'))
-    .map(w=>({
-      id:w.id,
-      itemUid:w.item?.uid||null,
-      itemName:w.item?.name||'',
-      itemValue:Number(w.item?.value)||0,
-      status:w.status,
-      index:w.index,
-      createdAt:w.createdAt||0
-    }));
-}
-function isTgAdmin(id){return TG_ADMIN_IDS.has(String(id)) || !!data.admins[String(id)];}
-function isWebAdmin(steamid){return !!data.admins['steam:'+String(steamid)];}
-async function tg(method, body={}){ return tgWithToken(TG_TOKEN,'admin',method,body); }
-async function tgPay(method, body={}){ return tgWithToken(PAY_TG_TOKEN,'payment',method,body); }
-async function tgWithToken(token,label,method,body={}){
-  if(!token){ console.error(`Telegram ${label}: token is not set`); return null; }
+
+async function __doFlush(){
+  __saveInFlight=true;
   try{
-    const r=await fetch(`https://api.telegram.org/bot${token}/${method}`,{
+    const r=await fetch('/api/account/sync',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body)
+      credentials:'same-origin',
+      keepalive:true,
+      body:JSON.stringify({
+        balance: currentUser.balance,
+        stats: {upgradesTotal: currentUser.stats.upgradesTotal, casesOpened: currentUser.stats.casesOpened},
+        inventory: currentUser.inventory,
+        bestDrop: currentUser.bestDrop
+      })
     });
-    const json=await r.json();
-    if(!json?.ok) console.error(`Telegram ${label} API`,method,json?.description||'unknown error');
-    return json;
-  }catch(e){ console.error(`Telegram ${label}`,method,e.message); return null; }
-}
-async function notifyAdmins(text, keyboard){
-  for(const id of TG_ADMIN_IDS){
-    await tg('sendMessage',{chat_id:id,text,parse_mode:'HTML',reply_markup:keyboard?{inline_keyboard:keyboard}:undefined});
-  }
-  for(const [id,v] of Object.entries(data.admins)){
-    if(v && !TG_ADMIN_IDS.has(id)){
-      await tg('sendMessage',{chat_id:id,text,parse_mode:'HTML',reply_markup:keyboard?{inline_keyboard:keyboard}:undefined});
-    }
-  }
-}
-function promoList(){
-  return Object.values(data.promos)
-    .filter(x=>x.active!==false && (!x.expiresAt || x.expiresAt>Date.now()) && (!x.maxUses || Number(x.uses||0)<Number(x.maxUses)))
-    .sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0));
-}
-function makePromo(code,percent,maxBonus=0,extra={}){
-  const c=String(code||'').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,32);
-  const pct=Math.max(1,Math.min(100,Number(percent)||0));
-  if(!c) return null;
-  for(const p of Object.values(data.promos)){ p.active=false; }
-  data.promos[c]={code:c,percent:pct,maxBonus:Math.max(0,Number(maxBonus)||0),active:true,createdAt:Date.now(),uses:0,...extra};
-  saveStore();
-  return data.promos[c];
-}
-function createAutoPromo(){
-  const percent=[10,12,15,18,20,25][crypto.randomInt(0,6)];
-  return makePromo('ZEN'+percent,percent,0,{auto:true,expiresAt:Date.now()+15*60*1000,maxUses:0});
-}
-function ensureOneActivePromo(){
-  const active=promoList();
-  if(active.length){
-    const keep=active[0];
-    for(const p of Object.values(data.promos)){ if(p.code!==keep.code) p.active=false; }
-    saveStore();
-    return keep;
-  }
-  return createAutoPromo();
-}
-ensureOneActivePromo();
-setInterval(()=>{
-  const active=promoList()[0];
-  if(!active || (active.expiresAt && active.expiresAt<=Date.now()) || active.auto) createAutoPromo();
-},15*60*1000);
-
-// ============================================================
-//  АДМИН-БОТ
-// ============================================================
-async function sendAdminMenu(chatId){
-  const pendingWd=data.withdrawals.filter(x=>x.status==='pending').length;
-  const pendingDep=data.deposits.filter(x=>x.status==='pending').length;
-  return tg('sendMessage',{
-    chat_id:chatId,
-    text:`<b>Zenodrop — Админ-панель</b>\n\nОжидают вывода: <b>${pendingWd}</b>\nОжидают пополнения: <b>${pendingDep}</b>\n\nВыберите действие:`,
-    parse_mode:'HTML',
-    reply_markup:{inline_keyboard:[
-      [{text:'💳 Пополнения',callback_data:'adm:deposits'},{text:'🎁 Выводы',callback_data:'adm:withdrawals'}],
-      [{text:'📊 Статистика',callback_data:'adm:stats'},{text:'🎟 Промокоды',callback_data:'adm:promo'}],
-      [{text:'🔄 Обновить',callback_data:'adm:menu'}]
-    ]}
-  });
-}
-
-async function processTelegramUpdate(u){
-  // ============ CALLBACKS ============
-  if(u.callback_query){
-    const q=u.callback_query;
-    const id=String(q.from.id);
-    const d=String(q.data||'');
-    if(!isTgAdmin(id)){
-      await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Нет доступа',show_alert:true});
-      return;
-    }
-    if(d.startsWith('wd:')){
-      const parts=d.split(':');
-      const wid=parts[1], action=parts[2];
-      const w=data.withdrawals.find(x=>x.id===wid);
-      if(!w){
-        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка не найдена',show_alert:true});
-        return;
-      }
-      if(action==='send'){
-        w.status='approved';w.updatedAt=Date.now();saveStore();
-        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка подтверждена'});
-        await tg('sendMessage',{chat_id:q.message.chat.id,text:`🎁 Заявка <b>${wid}</b> подтверждена.\nСкин: ${w.item?.name}\nСумма: ${Number(w.value).toFixed(2)} ₽`,parse_mode:'HTML'});
-        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Вывод <b>${wid}</b> подтверждён. Скины отправляются.`,parse_mode:'HTML'});
-      } else if(action==='reject'){
-        const user=ensureUser(w.steamid);
-        if(user){user.balance+=Number(w.refund||0);saveStore();}
-        w.status='rejected';w.updatedAt=Date.now();saveStore();
-        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка отклонена'});
-        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`❌ Вывод <b>${wid}</b> отклонён. ${Number(w.refund||0).toFixed(2)} ₽ возвращены на баланс.`,parse_mode:'HTML'});
-      }
-      return;
-    }
-    if(d.startsWith('dep:')){
-      const parts=d.split(':');
-      const did=parts[1], action=parts[2];
-      const dep=data.deposits.find(x=>x.id===did);
-      if(!dep){
-        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка не найдена',show_alert:true});
-        return;
-      }
-      if(dep.status!=='pending'){
-        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Уже обработана'});
-        return;
-      }
-      if(action==='approve'){
-        const u=ensureUser(dep.steamid);
-        const total=Number(dep.amount||0)+Number(dep.bonus||0);
-        u.balance+=total;
-        u.stats.totalDeposited=(u.stats.totalDeposited||0)+total;
-        if(dep.promo && data.promos[dep.promo]) data.promos[dep.promo].uses=(data.promos[dep.promo].uses||0)+1;
-        dep.status='paid';
-        dep.updatedAt=Date.now();
-        saveStore();
-        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'✅ Зачислено'});
-        await tg('sendMessage',{chat_id:q.message.chat.id,text:`✅ Пополнение <b>${did}</b> зачислено: <b>+${total.toFixed(2)} ₽</b>\nSteam: <code>${dep.steamid}</code>`,parse_mode:'HTML'});
-        if(dep.tgId) await tg('sendMessage',{chat_id:dep.tgId,text:`✅ Баланс пополнен на <b>${total.toFixed(2)} ₽</b>`,parse_mode:'HTML'});
-      } else if(action==='reject'){
-        dep.status='rejected';
-        dep.updatedAt=Date.now();
-        saveStore();
-        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Отклонено'});
-        if(dep.tgId) await tg('sendMessage',{chat_id:dep.tgId,text:`❌ Пополнение <b>${did}</b> отклонено.`,parse_mode:'HTML'});
-      }
-      return;
-    }
-    if(d==='adm:menu'){
-      await tg('answerCallbackQuery',{callback_query_id:q.id});
-      return sendAdminMenu(q.message.chat.id);
-    }
-    if(d==='adm:withdrawals'){
-      await tg('answerCallbackQuery',{callback_query_id:q.id});
-      const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
-      if(!list.length) return tg('sendMessage',{chat_id:q.message.chat.id,text:'Заявок на вывод нет.'});
-      for(const w of list){
-        await tg('sendMessage',{chat_id:q.message.chat.id,
-          text:`🟠 <b>${w.id}</b>\nSteam: <code>${w.steamid}</code>\nСумма: ${Number(w.value).toFixed(2)} ₽\nПредмет: ${w.item.name}`,
-          parse_mode:'HTML',
-          reply_markup:{inline_keyboard:[[
-            {text:'🎁 Выдать',callback_data:`wd:${w.id}:send`},
-            {text:'❌ Отклонить',callback_data:`wd:${w.id}:reject`}
-          ]]}
-        });
-      }
-      return;
-    }
-    if(d==='adm:deposits'){
-      await tg('answerCallbackQuery',{callback_query_id:q.id});
-      const list=data.deposits.filter(x=>x.status==='pending').slice(-10).reverse();
-      if(!list.length) return tg('sendMessage',{chat_id:q.message.chat.id,text:'Заявок на пополнение нет.'});
-      for(const dep of list){
-        await tg('sendMessage',{chat_id:q.message.chat.id,
-          text:`💳 <b>${dep.id}</b>\nSteam: <code>${dep.steamid}</code>\nСумма: ${Number(dep.amount).toFixed(2)} ₽\nПромо: ${dep.promo||'—'}\nК начислению: ${(Number(dep.amount)+Number(dep.bonus||0)).toFixed(2)} ₽`,
-          parse_mode:'HTML',
-          reply_markup:{inline_keyboard:[[
-            {text:'✅ Зачислить',callback_data:`dep:${dep.id}:approve`},
-            {text:'❌ Отклонить',callback_data:`dep:${dep.id}:reject`}
-          ]]}
-        });
-      }
-      return;
-    }
-    if(d==='adm:stats'){
-      await tg('answerCallbackQuery',{callback_query_id:q.id});
-      const users=Object.values(data.users);
-      const totalBal=users.reduce((s,u)=>s+(Number(u.balance)||0),0);
-      const totalDep=users.reduce((s,u)=>s+(Number(u.stats?.totalDeposited)||0),0);
-      const totalCases=users.reduce((s,u)=>s+(Number(u.stats?.casesOpened)||0),0);
-      const totalUpg=users.reduce((s,u)=>s+(Number(u.stats?.upgradesTotal)||0),0);
-      const pendingWd=data.withdrawals.filter(x=>x.status==='pending').length;
-      const pendingDep=data.deposits.filter(x=>x.status==='pending').length;
-      return tg('sendMessage',{chat_id:q.message.chat.id,
-        text:`📊 <b>Статистика</b>\n\nПользователей: <b>${users.length}</b>\nСуммарный баланс: <b>${totalBal.toFixed(2)} ₽</b>\nДепозитов всего: <b>${totalDep.toFixed(2)} ₽</b>\nКейсов открыто: <b>${totalCases}</b>\nАпгрейдов: <b>${totalUpg}</b>\n\nОжидают вывода: <b>${pendingWd}</b>\nОжидают пополнения: <b>${pendingDep}</b>`,
-        parse_mode:'HTML',
-        reply_markup:{inline_keyboard:[[{text:'◀ Меню',callback_data:'adm:menu'}]]}
-      });
-    }
-    if(d==='adm:promo'){
-      await tg('answerCallbackQuery',{callback_query_id:q.id});
-      const active=promoList().slice(0,5);
-      const list=active.length?active.map(p=>`<code>${p.code}</code> +${p.percent}% (исп: ${Number(p.uses||0)})`).join('\n'):'—';
-      return tg('sendMessage',{chat_id:q.message.chat.id,
-        text:`🎟 <b>Промокоды</b>\n\n${list}\n\nСоздать: <code>/promo CODE PERCENT</code>`,
-        parse_mode:'HTML',
-        reply_markup:{inline_keyboard:[[{text:'◀ Меню',callback_data:'adm:menu'}]]}
-      });
-    }
-    return;
-  }
-
-  // ============ MESSAGES ============
-  const m=u.message;
-  if(!m || !m.chat) return;
-  const chatId=String(m.chat.id);
-  const rawText=String(m.text||'').trim();
-  const text=rawText.replace(/^\/(\w+)(?:@[^\s]+)?/, '/$1');
-  const admin=isTgAdmin(chatId);
-
-  if(/^\/start(?:\s|$)/i.test(text)){
-    if(admin) return sendAdminMenu(chatId);
-    return tg('sendMessage',{chat_id:chatId,
-      text:'<b>Zenodrop</b>\n\nВаш Telegram ID: <code>'+chatId+'</code>\n\n/link STEAMID — привязать Steam\n/status — баланс и привязка\n/help — команды',
-      parse_mode:'HTML'
-    });
-  }
-
-  if(text==='/help'){
-    return tg('sendMessage',{chat_id:chatId,
-      text:'<b>Zenodrop</b>\n\n/link STEAMID\n/status\n/help'+(admin?'\n\n<b>Админ:</b>\n/panel — панель\n/deposits — заявки на пополнение\n/withdrawals — заявки на вывод\n/stats — статистика\n/give STEAMID SUM\n/withdrawlock STEAMID on|off\n/adminsteam STEAMID\n/promo CODE PERCENT':''),
-      parse_mode:'HTML'
-    });
-  }
-
-  if(text==='/status'){
-    const steam=data.links[chatId];
-    const u2=steam?ensureUser(steam):null;
-    return tg('sendMessage',{chat_id:chatId,
-      text:steam?`Steam ID: <code>${steam}</code>\nБаланс: <b>${Number(u2?.balance||0).toFixed(2)} ₽</b>`:'Steam ID ещё не привязан. Напишите /link ВАШ_STEAMID',
-      parse_mode:'HTML'
-    });
-  }
-
-  if(text.startsWith('/link ')){
-    const steam=text.split(/\s+/)[1];
-    if(!/^\d{17}$/.test(steam)) return tg('sendMessage',{chat_id:chatId,text:'Формат: /link 7656119XXXXXXXXXX'});
-    data.links[chatId]=steam;
-    const u2=ensureUser(steam);u2.tgId=chatId;saveStore();
-    return tg('sendMessage',{chat_id:chatId,text:`✅ Привязан Steam ID <code>${steam}</code>`,parse_mode:'HTML'});
-  }
-
-  if(!admin)return;
-
-  if(text==='/panel') return sendAdminMenu(chatId);
-
-  if(text==='/withdrawals'){
-    const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
-    if(!list.length)return tg('sendMessage',{chat_id:chatId,text:'Заявок на вывод нет.'});
-    for(const w of list){
-      await tg('sendMessage',{chat_id:chatId,
-        text:`🟠 <b>${w.id}</b>\nSteam: <code>${w.steamid}</code>\nСумма: ${Number(w.value).toFixed(2)} ₽\nПредмет: ${w.item.name}`,
-        parse_mode:'HTML',
-        reply_markup:{inline_keyboard:[[
-          {text:'🎁 Выдать',callback_data:`wd:${w.id}:send`},
-          {text:'❌ Отклонить',callback_data:`wd:${w.id}:reject`}
-        ]]}
-      });
-    }
-    return;
-  }
-
-  if(text==='/deposits'){
-    const list=data.deposits.filter(x=>x.status==='pending').slice(-10).reverse();
-    if(!list.length)return tg('sendMessage',{chat_id:chatId,text:'Заявок на пополнение нет.'});
-    for(const dep of list){
-      await tg('sendMessage',{chat_id:chatId,
-        text:`💳 <b>${dep.id}</b>\nSteam: <code>${dep.steamid}</code>\nСумма: ${Number(dep.amount).toFixed(2)} ₽\nПромо: ${dep.promo||'—'}\nК начислению: ${(Number(dep.amount)+Number(dep.bonus||0)).toFixed(2)} ₽`,
-        parse_mode:'HTML',
-        reply_markup:{inline_keyboard:[[
-          {text:'✅ Зачислить',callback_data:`dep:${dep.id}:approve`},
-          {text:'❌ Отклонить',callback_data:`dep:${dep.id}:reject`}
-        ]]}
-      });
-    }
-    return;
-  }
-
-  if(text==='/stats'){
-    const users=Object.values(data.users);
-    const totalBal=users.reduce((s,u)=>s+(Number(u.balance)||0),0);
-    const totalDep=users.reduce((s,u)=>s+(Number(u.stats?.totalDeposited)||0),0);
-    const totalCases=users.reduce((s,u)=>s+(Number(u.stats?.casesOpened)||0),0);
-    const totalUpg=users.reduce((s,u)=>s+(Number(u.stats?.upgradesTotal)||0),0);
-    return tg('sendMessage',{chat_id:chatId,
-      text:`📊 <b>Статистика</b>\n\nПользователей: <b>${users.length}</b>\nБаланс всех: <b>${totalBal.toFixed(2)} ₽</b>\nДепозитов всего: <b>${totalDep.toFixed(2)} ₽</b>\nКейсов открыто: <b>${totalCases}</b>\nАпгрейдов: <b>${totalUpg}</b>`,
-      parse_mode:'HTML'
-    });
-  }
-
-  let a=text.match(/^\/give\s+(\d{17})\s+([\d.]+)/i);
-  if(a){
-    const u2=ensureUser(a[1]);
-    u2.balance+=Number(a[2]);
-    saveStore();
-    return tg('sendMessage',{chat_id:chatId,text:`✅ Начислено ${Number(a[2]).toFixed(2)} ₽\nSteam: <code>${a[1]}</code>\nБаланс: <b>${Number(u2.balance).toFixed(2)} ₽</b>`,parse_mode:'HTML'});
-  }
-
-  a=text.match(/^\/withdrawlock\s+(\d{17})\s+(on|off)/i);
-  if(a){
-    const u2=ensureUser(a[1]);
-    u2.withdrawDisabled=a[2].toLowerCase()==='on';
-    saveStore();
-    return tg('sendMessage',{chat_id:chatId,text:`✅ Вывод для <code>${a[1]}</code>: ${u2.withdrawDisabled?'запрещён':'разрешён'}`,parse_mode:'HTML'});
-  }
-
-  a=text.match(/^\/adminsteam\s+(\d{17})/i);
-  if(a){data.admins['steam:'+a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Steam ID ${a[1]} получил web-admin.`});}
-
-  a=text.match(/^\/admin\s+(\d+)/i);
-  if(a){data.admins[a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Telegram ID ${a[1]} получил админку.`});}
-
-  a=text.match(/^\/promo\s+([A-Za-z0-9_-]+)\s+(\d+(?:\.\d+)?)\s*(?:([\d.]+))?/i);
-  if(a){
-    const p=makePromo(a[1],a[2],a[3]||0);
-    return tg('sendMessage',{chat_id:chatId,text:`✅ Промокод <code>${p.code}</code> создан: +${p.percent}%`,parse_mode:'HTML'});
-  }
-
-  return tg('sendMessage',{chat_id:chatId,text:'Неизвестная команда. /panel — админ-панель, /help — список.'});
-}
-
-// ============================================================
-//  ПЛАТЁЖНЫЙ БОТ (юзерский)
-// ============================================================
-function infoText(){
-  return `<b>Zenodrop — информация</b>\n\n<b>Политика конфиденциальности:</b> <a href="/privacy">открыть</a>\n<b>Пользовательское соглашение:</b> <a href="/terms">открыть</a>\n\n<b>Поддержка:</b> ${SUPPORT_CONTACT}`;
-}
-
-async function processPaymentTelegramUpdate(u){
-  if(u.callback_query){
-    const q=u.callback_query, chatId=String(q.from?.id||q.message?.chat?.id||'');
-    const d=String(q.data||'');
-    if(d==='pay:menu'){ await tgPay('answerCallbackQuery',{callback_query_id:q.id}); return sendPaymentMenu(chatId); }
-    if(d==='pay:profile'){
-      const steam=findSteamByTelegram(chatId), user=steam?ensureUser(steam):null;
-      await tgPay('answerCallbackQuery',{callback_query_id:q.id});
-      if(!user) return tgPay('sendMessage',{chat_id:chatId,text:'Аккаунт не привязан.'});
-      return tgPay('sendMessage',{chat_id:chatId,text:`<b>Профиль Zenodrop</b>\n\nID: <code>${ensureZenodropId(user)}</code>\nSteam ID: <code>${user.steamid}</code>\nБаланс: <b>${Number(user.balance||0).toFixed(2)} ₽</b>`,parse_mode:'HTML'});
-    }
-    if(d==='pay:topup'){ await tgPay('answerCallbackQuery',{callback_query_id:q.id}); return sendPaymentMenu(chatId); }
-    return tgPay('answerCallbackQuery',{callback_query_id:q.id});
-  }
-  const m=u.message;
-  if(!m || !m.chat) return;
-  const chatId=String(m.chat.id);
-  const raw=String(m.text||'').trim();
-  const command=raw.replace(/^\/(\w+)(?:@[^\s]+)?/,'/$1').toLowerCase();
-  const payload=raw.split(/\s+/).slice(1).join(' ').trim();
-
-  if(command==='/start'){
-    const matchId=payload.match(/ZN[\-\s]?(\d{8,10})/i);
-    const zenoFull=matchId?('ZN-'+matchId[1]):null;
-    if(zenoFull){
-      const user=findUserByZenodropId(zenoFull);
-      if(user){
-        user.tgId=chatId;
-        data.links[chatId]=user.steamid;
-        saveStore();
-        return tgPay('sendMessage',{chat_id:chatId,text:`<b>Zenodrop — Пополнение</b>\n\nID: <code>${ensureZenodropId(user)}</code>\nБаланс: <b>${Number(user.balance||0).toFixed(2)} ₽</b>`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'💰 Пополнить',callback_data:'pay:topup'},{text:'👤 Профиль',callback_data:'pay:profile'}]]}});
+    if(r.ok){
+      const d=await r.json();
+      if(d?.user){
+        currentUser.serverAccount=d.user;
+        currentUser.balance=Number(d.user.balance)||0;
+        if(Array.isArray(d.user.inventory)) currentUser.inventory=d.user.inventory;
+        if(d.user.bestDrop) currentUser.bestDrop=d.user.bestDrop;
+        if(d.user.stats) currentUser.stats={...currentUser.stats,...d.user.stats};
       }
     }
-    return sendPaymentMenu(chatId);
-  }
-  if(command==='/info') return tgPay('sendMessage',{chat_id:chatId,text:infoText(),parse_mode:'HTML',disable_web_page_preview:true});
-  if(command==='/deposit' || command==='/pay') return sendPaymentMenu(chatId);
-  if(command==='/id'){
-    const steam=findSteamByTelegram(chatId), user=steam?ensureUser(steam):null;
-    return tgPay('sendMessage',{chat_id:chatId,text:user?`Ваш Zenodrop ID: <code>${ensureZenodropId(user)}</code>`:'Аккаунт ещё не привязан.',parse_mode:'HTML'});
-  }
-  if(command==='/balance'){
-    const steam=findSteamByTelegram(chatId), user=steam?ensureUser(steam):null;
-    return tgPay('sendMessage',{chat_id:chatId,text:user?`Баланс: <b>${Number(user.balance||0).toFixed(2)} ₽</b>`:'Аккаунт ещё не привязан.',parse_mode:'HTML'});
-  }
-  return sendPaymentMenu(chatId);
+  }catch(e){ console.warn('sync error:',e.message); }
+  finally { __saveInFlight=false; }
 }
 
-async function sendPaymentMenu(chatId){
-  const steam=findSteamByTelegram(chatId), user=steam?ensureUser(steam):null;
-  const id=user?ensureZenodropId(user):null;
-  return tgPay('sendMessage',{
-    chat_id:chatId,
-    text:`<b>Zenodrop — Пополнение</b>\n\n${id?`Ваш ID: <code>${id}</code>\nБаланс: <b>${Number(user.balance||0).toFixed(2)} ₽</b>\n\n`:'Откройте пополнение через Telegram с сайта.\n\n'}Выберите действие:`,
-    parse_mode:'HTML',
-    reply_markup:{inline_keyboard:[[{text:'💰 Пополнить',callback_data:'pay:topup'},{text:'👤 Профиль',callback_data:'pay:profile'}]]}
-  });
+function initSteamAuth(){window.location.href='/auth/steam';}
+function updateAuthUI(){
+  const btn=document.getElementById('steamAuthBtn'),profileBtn=document.getElementById('headerProfileBtn');
+  if(currentUser&&currentUser.steamid){if(btn)btn.style.display='none';if(profileBtn)profileBtn.style.display='flex';updateHeaderAvatar();}
+  else{if(btn)btn.style.display='flex';if(profileBtn)profileBtn.style.display='none';}
 }
 
-async function paymentTelegramStart(){
-  if(!PAY_TG_TOKEN){ console.error('Payment Telegram bot disabled: no token'); return; }
+async function initializeApp(){
   try{
-    const me=await tgPay('getMe',{});
-    if(!me?.ok){ console.error('Payment Telegram: invalid token'); return; }
-    await tgPay('setMyCommands',{commands:[
-      {command:'start',description:'Открыть меню'},
-      {command:'deposit',description:'Пополнить'},
-      {command:'id',description:'Zenodrop ID'},
-      {command:'balance',description:'Баланс'}
-    ]});
-    if(PAY_TG_WEBHOOK_URL){
-      const secret=crypto.createHash('sha256').update(PAY_TG_TOKEN).digest('hex').slice(0,32);
-      await tgPay('setWebhook',{url:PAY_TG_WEBHOOK_URL,secret_token:secret,allowed_updates:['message','callback_query'],drop_pending_updates:false});
-    }
-  }catch(e){ console.error('Payment Telegram init:',e.message); }
-}
-
-async function telegramStart(){
-  if(!TG_TOKEN){ console.error('Telegram bot disabled: no token'); return; }
-  try{
-    const me=await tg('getMe',{});
-    if(!me?.ok){ console.error('Telegram: invalid token'); return; }
-    await tg('setMyCommands',{commands:[
-      {command:'start',description:'Открыть меню'},
-      {command:'panel',description:'Админ-панель'},
-      {command:'deposits',description:'Заявки на пополнение'},
-      {command:'withdrawals',description:'Заявки на вывод'},
-      {command:'stats',description:'Статистика'},
-      {command:'status',description:'Мой баланс'},
-      {command:'link',description:'Привязать Steam ID'},
-      {command:'help',description:'Список команд'}
-    ]});
-    if(TG_WEBHOOK_URL){
-      const secret=crypto.createHash('sha256').update(TG_TOKEN).digest('hex').slice(0,32);
-      await tg('setWebhook',{url:TG_WEBHOOK_URL,secret_token:secret,allowed_updates:['message','callback_query'],drop_pending_updates:false});
+    let steamUser=null;
+    try{const res=await fetch('/api/current-user',{cache:'no-store',credentials:'same-origin'});steamUser=await res.json();}catch(e){}
+    if(steamUser&&steamUser.steamid){
+      currentUser=defaultUser(steamUser);
+      if(steamUser.serverAccount){
+        currentUser.balance=Number(steamUser.serverAccount.balance)||0;
+        currentUser.serverAccount=steamUser.serverAccount;
+        currentUser.webAdmin=!!steamUser.webAdmin;
+        currentUser.tgId=steamUser.serverAccount.tgId||null;
+        if(Array.isArray(steamUser.serverAccount.inventory))currentUser.inventory=steamUser.serverAccount.inventory.map(x=>({...x}));
+        if(steamUser.serverAccount.bestDrop)currentUser.bestDrop=steamUser.serverAccount.bestDrop;
+        if(steamUser.serverAccount.stats)currentUser.stats={...currentUser.stats,...steamUser.serverAccount.stats};
+      }
+      ensureInventoryUids(currentUser);
     }else{
-      await tg('deleteWebhook',{drop_pending_updates:false});
-      startTelegramPollingFallback();
+      let anon=null;
+      try{ anon=JSON.parse(localStorage.getItem('zeno_local_user_anon')||'null'); }catch(e){}
+      currentUser = anon ? normalizeUser(anon, null) : defaultUser(null);
+      currentUser.steamid = null;
+      ensureInventoryUids(currentUser);
     }
-  }catch(e){ console.error('Telegram init:',e.message); }
-}
 
-let tgPollingFallback=false;
-async function startTelegramPollingFallback(){
-  if(tgPollingFallback)return;
-  tgPollingFallback=true;
-  let offset=0;
-  while(tgPollingFallback){
-    try{
-      const r=await tg('getUpdates',{offset,timeout:30,allowed_updates:['message','callback_query']});
-      if(!r?.ok){ await new Promise(res=>setTimeout(res,3000)); continue; }
-      for(const u of (r.result||[])){
-        offset=Math.max(offset,u.update_id+1);
-        try{ await processTelegramUpdate(u); }catch(e){ console.error('TG update:',e.message); }
-      }
-    }catch(e){ await new Promise(res=>setTimeout(res,3000)); }
+    loadUsdRubRate().catch(()=>{});
+    const cached=loadSelectedCatalog();
+    if(cached){
+      CATALOG_ITEMS=cached.map(x=>({...x})).filter(x=>Number(x.value)>=8&&x.img);
+      buildCases();renderQuickChances();updateAuthUI();switchMainTab('cases');loadPromoCodes();finishIntro();
+      loadCs2ShCatalog().then(items=>{
+        if(items?.length){CATALOG_ITEMS=items;saveSelectedCatalog(CATALOG_ITEMS);buildCases();renderGrid();updateUI();}
+      }).catch(e=>console.warn('cs2.sh background update failed',e));
+      return;
+    }
+    CATALOG_ITEMS=await loadCs2ShCatalog();
+    if(!CATALOG_ITEMS.length)throw new Error('cs2.sh не вернул предметы с ценами');
+    saveSelectedCatalog(CATALOG_ITEMS);
+    buildCases();renderQuickChances();updateAuthUI();switchMainTab('cases');loadPromoCodes();finishIntro();
+  }catch(e){
+    console.error(e);
+    CATALOG_ITEMS=[];
+    buildCases();renderQuickChances();updateAuthUI();switchMainTab('cases');loadPromoCodes();finishIntro();
+    silentNotice('Не удалось загрузить цены CS2. Проверь API-ключ на Render и серверные маршруты.');
   }
 }
+function updateHeaderAvatar(){const b=document.getElementById('headerAvatarContainer');if(!b)return;b.innerHTML=currentUser?.avatar?`<img src="${escapeAttr(currentUser.avatar)}" alt="Avatar">`:'<div style="width:100%;height:100%;background:#333"></div>';}
 
-// ===============================
-// CS2.SH + КЭШ
-// ===============================
-const CATALOG_FILE = path.join(__dirname, 'cs2_catalog_cache.json');
-let cs2CatalogCache = { data: null, expires: 0 };
-const CS2_CACHE_MS = 10 * 60 * 1000;
+function switchMainTab(tab){
+  if(isCaseSpinning&&tab!=='cases')return;
+  if(tab!=='cases')resetCaseResultState();
+  ['navUpgrade','navCases','navProfile'].forEach(x=>document.getElementById(x).classList.remove('active'));
+  ['tabUpgradeContent','tabCasesContent','tabProfileContent'].forEach(x=>document.getElementById(x).classList.remove('active'));
+  if(tab==='upgrade'){document.getElementById('navUpgrade').classList.add('active');document.getElementById('tabUpgradeContent').classList.add('active');renderGrid();updateUI();}
+  else if(tab==='cases'){document.getElementById('navCases').classList.add('active');document.getElementById('tabCasesContent').classList.add('active');document.getElementById('caseOpeningView').classList.remove('active');document.getElementById('casesListContainer').style.display='flex';renderCasesList();}
+  else{document.getElementById('navProfile').classList.add('active');document.getElementById('tabProfileContent').classList.add('active');renderProfile();}
+}
+function switchCatalogTab(t){currentTab=t;['tabInventory','tabCatalogSkins'].forEach(x=>document.getElementById(x).classList.remove('active'));document.getElementById({inventory:'tabInventory',skins:'tabCatalogSkins'}[t]).classList.add('active');renderGrid()}
 
-function loadCatalogFromDisk(){
+function renderProfile(){
+  const a=document.getElementById('profileContentArea'),s=currentUser.stats,b=currentUser.bestDrop;
+  if(!a)return;
+  if(!currentUser.steamid){
+    a.innerHTML=`<div class="profile-main-card" style="text-align:center;padding:30px 16px;"><div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:12px;">Требуется авторизация</div><p style="font-size:12px;color:#9ca3af;margin-bottom:16px;">Войдите через Steam, чтобы получить доступ к профилю, инвентарю и балансу.</p><button class="topup-btn" onclick="initSteamAuth()">Войти через Steam</button></div>`;
+    return;
+  }
+  a.innerHTML=`<div class="profile-main-card">
+    <div class="profile-top-row"><div class="profile-username">${escapeHtml(currentUser.username)}</div><a href="/auth/logout" style="color:#f87171;font-size:11px;text-decoration:none;font-weight:700;">Выйти</a></div>
+    <div class="profile-center-row"><div class="profile-avatar-large">${currentUser.avatar?`<img src="${escapeAttr(currentUser.avatar)}">`:''}</div></div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-title">Апгрейды</div><div class="stat-value">${s.upgradesTotal}</div></div>
+      <div class="stat-card"><div class="stat-title">Кейсы</div><div class="stat-value">${s.casesOpened}</div></div>
+      <div class="stat-card"><div class="stat-title">Депозит</div><div class="stat-value">${s.totalDeposited} ₽</div></div>
+    </div>
+    <div class="profile-balance-row"><div><div class="balance-amount">${currentUser.balance.toFixed(2)} ₽</div><div class="balance-history">Баланс привязан к Steam</div></div><button class="topup-btn" onclick="topUpBalance()">Пополнить</button></div>
+    <div class="zeno-id-row"><div><div class="zeno-id-label">Zenodrop ID</div><div class="zeno-id-value" id="zenoIdValue">${escapeHtml(currentUser.serverAccount?.zenoId||'—')}</div></div><button class="zeno-id-copy" onclick="copyZenodropId()">Копировать</button><button class="zeno-id-copy" onclick="openTelegramDeposit()">Пополнить TG</button></div>
+  </div>
+  ${currentUser.webAdmin?`<div class="admin-box"><div style="font-size:12px;font-weight:900;color:#f59e0b">ADMIN PANEL</div><div class="admin-row"><input id="adminSteamId" class="admin-input" placeholder="Steam ID"><input id="adminAmount" class="admin-input" type="number" placeholder="Баланс"><button class="admin-btn" onclick="adminGiveBalance()">Выдать</button><button class="admin-btn" onclick="adminToggleWithdraw()">Вывод ON/OFF</button></div><div class="admin-row"><input id="adminPromoCode" class="admin-input" placeholder="PROMO"><input id="adminPromoPercent" class="admin-input" type="number" placeholder="%"><button class="admin-btn" onclick="adminCreatePromo()">Промо</button></div><div id="adminState" class="promo-small">Загрузка...</div></div>`:''}
+  <div class="best-drop-card"><div class="best-drop-title">Лучший дроп</div><div class="best-drop-content"><div><div class="best-drop-name">${escapeHtml(b.name)}</div><div class="best-drop-price">${b.value>0?b.value.toFixed(2)+' ₽':'--'}</div></div>${b.img?`<img src="${escapeAttr(b.img)}" class="best-drop-img">`:''}</div></div>
+  <div class="profile-inventory-box">
+    <div class="inv-header-row"><div style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase">Инвентарь (${currentUser.inventory.length})</div>${currentUser.inventory.length>0?'<button class="sell-all-btn" onclick="sellAllProfileItems()">Продать все</button>':''}</div>
+    <div class="items-grid profile-items-grid" id="profileItemsGrid"></div>
+  </div>`;
+  renderProfileInventory();
+}
+
+let selectedPaymentMethod='СБП';
+let promoExpiresAt=0;
+let promoTimer=null;
+const PAYMENT_META={'СБП':{title:'СБП',text:''},'Крипта':{title:'Криптовалюта',text:''},'Telegram':{title:'Telegram-бот',text:''}};
+function topUpBalance(){if(!currentUser?.steamid){silentNotice('Сначала войдите через Steam!');return;}document.getElementById('topupModal').classList.add('active');selectPaymentMethod(selectedPaymentMethod);loadPromoCodes();updateDepositPreview();}
+function closeTopup(){
+  document.getElementById('topupModal')?.classList.remove('active');
+  refreshUserFromServer();
+}
+function selectPaymentMethod(method){selectedPaymentMethod=method;document.querySelectorAll('.payment-tab').forEach(x=>x.classList.toggle('active',x.dataset.method===method));const m=PAYMENT_META[method]||PAYMENT_META['СБП'];document.getElementById('paymentTitle').textContent=m.title;document.getElementById('paymentInfo').textContent=m.text;const main=document.getElementById('depositMainAction'),tg=document.getElementById('telegramDepositAction');if(method==='Telegram'){main.style.display='none';tg.style.display='block';}else{main.style.display='block';tg.style.display='none';}}
+function setDepositAmount(v){const i=document.getElementById('depositAmount');i.value=v;updateDepositPreview();}
+function updateDepositPreview(){const amount=Number(document.getElementById('depositAmount')?.value||0);const p=document.getElementById('depositPromo')?.value.trim().toUpperCase();const el=document.getElementById('promoActiveText');if(!el)return;if(!p){el.textContent='';return;}fetch('/api/promos').then(r=>r.json()).then(d=>{const x=(d.items||[]).find(a=>a.code===p);el.textContent=x?`Бонус ${Number(x.percent).toFixed(0)}% → +${(amount*Number(x.percent)/100).toFixed(2)} ₽`:'Промокод не найден или уже истёк';}).catch(()=>{});}
+async function openTelegramDeposit(){
+  const win=window.open('about:blank','_blank');
   try{
-    const x=JSON.parse(fs.readFileSync(CATALOG_FILE,'utf8'));
-    if(Array.isArray(x?.items) && x.items.length){
-      cs2CatalogCache.data=x.items;
-      cs2CatalogCache.expires=Date.now()+CS2_CACHE_MS;
-      console.log('CS2 catalog loaded from disk:',x.items.length);
-      return true;
+    let zenoId=currentUser?.serverAccount?.zenoId||'';
+    if(!zenoId){
+      try{
+        const r=await fetch('/api/current-user',{cache:'no-store',credentials:'same-origin'});
+        const u=await r.json();
+        if(u?.serverAccount?.zenoId){
+          zenoId=u.serverAccount.zenoId;
+          if(currentUser) currentUser.serverAccount=u.serverAccount;
+        }
+      }catch(e){}
+    }
+    if(!zenoId){
+      if(win) win.close();
+      silentNotice('Не удалось получить ваш Zenodrop ID. Попробуйте позже.','error');
+      return;
+    }
+    const r=await fetch('/api/config');
+    const d=await r.json();
+    const bot=d.paymentTelegramBotUrl||'https://t.me/ZenodropPayBot';
+    const payload='deposit_'+zenoId;
+    const url=bot+(bot.includes('?')?'&':'?')+'start='+encodeURIComponent(payload);
+    if(win)win.location=url;else window.location=url;
+  }catch(e){
+    if(win)win.close();
+    silentNotice('Не удалось открыть Telegram-бота.');
+  }
+}
+async function createDepositRequest(){const amount=Number(document.getElementById('depositAmount').value),promo=document.getElementById('depositPromo').value.trim();const out=document.getElementById('depositResult');if(selectedPaymentMethod==='Telegram'){openTelegramDeposit();return;}if(!Number.isFinite(amount)||amount<50){out.textContent='Минимальная сумма — 50 ₽.';return;}try{const r=await fetch('/api/deposit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,method:selectedPaymentMethod,promo})});const d=await r.json();if(!r.ok)throw new Error(d.error==='promo_invalid'?'Промокод недействителен или уже истёк':d.error||'Ошибка');out.textContent=`Заявка ${d.id} создана. К начислению: ${Number(d.total||amount).toFixed(2)} ₽.`;}catch(e){out.textContent='Не удалось создать заявку: '+e.message;}}
+async function loadPromoCodes(openModal=false){try{const r=await fetch('/api/promos');const d=await r.json();const items=(d.items||[]).slice(0,1);const el=document.getElementById('promoCodesBlock');if(el)el.innerHTML=items.map(x=>`<span class="promo-chip" onclick="document.getElementById('depositPromo').value='${escapeAttr(x.code)}';topUpBalance()">${escapeHtml(x.code)} <span>+${Number(x.percent).toFixed(0)}%</span></span>`).join('');const auto=items.find(x=>x.auto)||items[0];if(auto){promoExpiresAt=Number(auto.expiresAt||0);const inp=document.getElementById('depositPromo');if(inp&&!inp.value&&openModal)inp.value=auto.code;}if(promoTimer)clearInterval(promoTimer);promoTimer=setInterval(()=>{const left=Math.max(0,promoExpiresAt-Date.now());const min=Math.floor(left/60000),sec=Math.floor((left%60000)/1000);const el2=document.getElementById('promoActiveText'),el3=document.getElementById('promoHeadingTimer');const timerText=auto?`Действует ${auto.code}: +${Number(auto.percent).toFixed(0)}% · обновление через ${min}:${String(sec).padStart(2,'0')}`:'';if(el2&&!document.getElementById('depositPromo').value)el2.textContent=timerText;if(el3)el3.textContent=timerText;if(left<=0){loadPromoCodes(false);}},1000);}catch(e){}}
+
+async function copyZenodropId(){const id=currentUser?.serverAccount?.zenoId||'';if(!id)return;try{await navigator.clipboard.writeText(id);silentNotice('Zenodrop ID скопирован','success');}catch(e){}}
+async function adminGiveBalance(){const steam=document.getElementById('adminSteamId')?.value.trim(),amount=Number(document.getElementById('adminAmount')?.value);if(!/^\d{17}$/.test(steam)||!amount)return silentNotice('Укажи Steam ID и сумму');const r=await fetch('/api/admin/user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steamid:steam,balanceDelta:amount})});const d=await r.json();silentNotice(r.ok?`Баланс: ${Number(d.user.balance).toFixed(2)} ₽`:d.error);}
+async function adminToggleWithdraw(){const steam=document.getElementById('adminSteamId')?.value.trim();if(!/^\d{17}$/.test(steam))return silentNotice('Укажи Steam ID');const r=await fetch('/api/admin/user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steamid:steam,withdrawDisabled:true})});const d=await r.json();silentNotice(r.ok?'Вывод отключён':d.error)}
+async function adminCreatePromo(){const code=document.getElementById('adminPromoCode')?.value.trim().toUpperCase(),percent=Number(document.getElementById('adminPromoPercent')?.value);if(!/^[A-Z0-9_-]{3,32}$/.test(code)||!percent)return silentNotice('Укажи код и процент');const r=await fetch('/api/admin/promo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,percent})});const d=await r.json();if(!r.ok)return silentNotice(d.error||'Ошибка');silentNotice('Промокод '+d.promo.code+' создан','success');loadPromoCodes();}
+
+function renderProfileInventory(){
+  const g=document.getElementById('profileItemsGrid');
+  if(!g)return;
+  g.innerHTML='';
+  if(currentUser.inventory.length===0){g.innerHTML='<div style="grid-column: 1/-1; text-align: center; color: #6b7280; font-size: 12px; padding: 20px;">Инвентарь пуст</div>';return;}
+  const frag=document.createDocumentFragment();
+  currentUser.inventory.forEach((x,index)=>{
+    const c=document.createElement('div');
+    c.className='item-card';
+    c.style.cursor='default';
+    c.innerHTML=`<img src="${escapeAttr(x.img)}" alt=""><div class="iname">${escapeHtml(x.name)}</div><div class="iprice">${x.value.toFixed(2)} ₽</div><div class="item-card-actions"><button class="mini-action-btn up-btn" title="${isWithdrawalLocked(x)?'Скин в заявке на вывод':'Апгрейд'}" ${isWithdrawalLocked(x)?'disabled style="opacity:.35;cursor:not-allowed"':''} onclick="event.stopPropagation(); sendItemToUpgrade(${index})">UP</button><button class="mini-action-btn" title="${isWithdrawalLocked(x)?'Скин в заявке на вывод':'Продать'}" ${isWithdrawalLocked(x)?'disabled style="opacity:.35;cursor:not-allowed"':''} onclick="event.stopPropagation(); sellProfileItem(${index})"><svg class="inv-action-icon" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v5c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 11v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/></svg></button><button class="mini-action-btn steam-mini-btn" title="Вывести в Steam" onclick="event.stopPropagation(); withdrawProfileItem(${index})"><svg class="steam-icon" viewBox="0 0 24 24"><defs><linearGradient id="steamGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#66c0f4"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs><circle cx="16.9" cy="7.1" r="4.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/><circle cx="6.2" cy="16.9" r="3.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/><path d="M8.9 15.1 14.2 10.2" fill="none" stroke="url(#steamGrad)" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>`;
+    frag.appendChild(c);
+  });
+  g.appendChild(frag);
+}
+
+function sendItemToUpgrade(index){
+  const item=currentUser.inventory[index];if(!item)return;
+  if(isWithdrawalLocked(item)){silentNotice('Этот скин уже находится в заявке на вывод.');return;}
+  switchMainTab('upgrade');
+  const invIndex=currentUser.inventory.findIndex(x=>x.uid===item.uid);
+  if(invIndex!==-1){selectedItemIndex=invIndex;activeQuickChance=null;targetWeapon=null;renderQuickChances();renderGrid();updateUI();}
+}
+async function sellProfileItem(index){
+  const item=currentUser.inventory[index];if(!item)return;
+  if(isWithdrawalLocked(item)){silentNotice('Скин в заявке на вывод.');return;}
+  const value=Number(item.value)||0;
+  currentUser.balance+=value;
+  currentUser.inventory.splice(index,1);
+  saveUserData();
+  renderProfile();
+  renderGrid();
+  updateUI();
+  silentNotice(`Продано за ${value.toFixed(2)} ₽`,'success');
+}
+async function withdrawProfileItem(index){
+  const item=currentUser.inventory[index];if(!item)return;
+  if(!currentUser?.steamid){silentNotice('Сначала войдите через Steam!');return;}
+  if(currentUser.serverAccount?.withdrawDisabled){silentNotice('Для этого аккаунта вывод скинов отключён.');return;}
+  if(isWithdrawalLocked(item)){silentNotice('Этот скин уже находится в заявке на вывод.');return;}
+  try{
+    const r=await fetch('/api/withdrawals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index,item})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error==='item_withdraw_pending'?'Этот скин уже находится в заявке на вывод.':(d.error||'Ошибка'));
+    if(!currentUser.serverAccount)currentUser.serverAccount={};
+    if(!Array.isArray(currentUser.serverAccount.pendingWithdrawals))currentUser.serverAccount.pendingWithdrawals=[];
+    currentUser.serverAccount.pendingWithdrawals.push({id:d.id,itemUid:item.uid,status:'pending',index});
+    saveUserData();renderProfile();renderGrid();updateUI();
+    silentNotice(`Заявка ${d.id} отправлена в Telegram-бот.`,'success');
+  }catch(e){silentNotice('Ошибка вывода: '+e.message,'error');}
+}
+async function sellAllProfileItems(){
+  if(currentUser.inventory.length===0)return;
+  const unlocked=currentUser.inventory.filter(item=>!isWithdrawalLocked(item));
+  if(unlocked.length===0){silentNotice('Все скины находятся в заявках на вывод.');return;}
+  const totalSum=unlocked.reduce((acc,item)=>acc+item.value,0);
+  currentUser.balance+=totalSum;
+  currentUser.inventory=currentUser.inventory.filter(item=>isWithdrawalLocked(item));
+  saveUserData();
+  renderProfile();renderGrid();updateUI();
+  silentNotice(`Продано за ${totalSum.toFixed(2)} ₽`,'success');
+}
+
+function renderCasesList(){
+  const g=document.getElementById('casesGrid');if(!g)return;g.innerHTML='';
+  CASES_DATA.forEach(c=>{
+    const d=document.createElement('div');
+    d.className='case-card';
+    d.innerHTML=`<div class="case-card-glow"></div><div class="case-topline"><span>CASE</span><b>${c.price} ₽</b></div><img src="${escapeAttr(c.img)}" alt=""><div class="case-title">${escapeHtml(c.name)}</div><div class="case-price">Открыть · ${c.price} ₽</div>`;
+    d.onclick=()=>openCaseScreen(c);
+    g.appendChild(d);
+  });
+}
+function selectOpenCount(count){
+  if(isCaseSpinning)return;
+  selectedOpenCount=Math.max(1,Math.min(5,Number(count)||1));
+  document.querySelectorAll('.multi-btn[data-count]').forEach(btn=>{btn.classList.toggle('active',Number(btn.dataset.count)===selectedOpenCount);});
+  const btn=document.getElementById('mainOpenBtn');
+  if(btn)btn.textContent=`Открыть ${selectedOpenCount}×`;
+}
+function resetCaseResultState(){
+  if(isCaseSpinning)return;
+  currentWonItem=null;currentWonItemsList=[];
+  const actionButtons=document.getElementById('actionButtons'),caseActionsPanel=document.getElementById('caseActionsPanel');
+  if(actionButtons)actionButtons.style.display='none';
+  if(caseActionsPanel)caseActionsPanel.style.display='flex';
+}
+function openCaseScreen(c){
+  if(isCaseSpinning)return;
+  resetCaseResultState();
+  selectOpenCount(1);
+  activeCase=c;
+  document.getElementById('casesListContainer').style.display='none';
+  document.getElementById('caseOpeningView').classList.add('active');
+  document.getElementById('activeCaseTitle').textContent=c.name+' · '+c.price+' ₽';
+  renderCaseContents();
+  renderTrack();
+}
+function closeCaseOpening(){
+  if(isCaseSpinning)return;
+  resetCaseResultState();
+  document.getElementById('caseOpeningView').classList.remove('active');
+  document.getElementById('casesListContainer').style.display='flex';
+}
+function renderCaseContents(){const g=document.getElementById('caseContentsGrid');if(!g||!activeCase)return;g.innerHTML='';const frag=document.createDocumentFragment();activeCase.items.forEach(x=>frag.appendChild(createCard(x,false,()=>{})));g.appendChild(frag);}
+function renderTrack(){
+  if(!activeCase)return;
+  let h='';
+  for(let i=0;i<8;i++){activeCase.items.forEach(x=>{h+=`<div class="roulette-item"><img src="${escapeAttr(x.img)}"><strong>${escapeHtml(x.name)}</strong></div>`;});}
+  track.innerHTML=h;
+}
+
+async function startOpening(count){
+  count=Math.max(1,Math.min(5,Number(count)||selectedOpenCount||1));
+  if(!currentUser||!currentUser.steamid){silentNotice('Для открытия кейсов необходимо войти через Steam!');return;}
+  if(isCaseSpinning||!activeCase)return;
+  if(!activeCase.key){silentNotice('Кейс не настроен. Обнови страницу.');return;}
+  const totalPrice=activeCase.price*count;
+  if(currentUser.balance<totalPrice){silentNotice('Недостаточно средств!');return;}
+
+  isCaseSpinning=true;
+  document.getElementById('caseActionsPanel').style.display='none';
+  document.getElementById('actionButtons').style.display='none';
+  track.style.transition='none';
+  track.style.transform='translate3d(0,0,0)';
+
+  currentWonItemsList=[];
+  const payloadSkins=activeCase.items.map(x=>({id:x.id,name:x.name,value:x.value,img:x.img}));
+  let serverBalance=currentUser.balance;
+  let serverError=null;
+  try{
+    for(let i=0;i<count;i++){
+      const r=await fetch('/api/case/open',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        cache:'no-store',
+        body:JSON.stringify({case:activeCase.key,skins:payloadSkins})
+      });
+      const d=await r.json();
+      if(!r.ok){ serverError=d.error||'open_failed'; break; }
+      serverBalance=Number(d.balance);
+      const idxInPool=activeCase.items.findIndex(x=>x.name===d.skin.name);
+      const poolItem=idxInPool>=0?activeCase.items[idxInPool]:(findApiSkin(d.skin.name)||d.skin);
+      currentWonItemsList.push({
+        id: poolItem.id||d.skin.id||('skin_'+stableHash(d.skin.name).toString(36)),
+        name: poolItem.name||d.skin.name,
+        category:'skins',
+        value: Number(d.skin.value ?? poolItem.value ?? 0),
+        img: poolItem.img||d.skin.img,
+        uid: newInventoryUid()
+      });
+    }
+  }catch(e){ serverError=e.message; }
+
+  if(serverError){
+    isCaseSpinning=false;
+    document.getElementById('caseActionsPanel').style.display='flex';
+    silentNotice(serverError==='insufficient_balance'?'Недостаточно средств!':serverError,'error');
+    renderGrid();updateUI();
+    return;
+  }
+
+  currentUser.balance=serverBalance;
+  currentWonItem=currentWonItemsList[0];
+
+  let winIdx=activeCase.items.findIndex(x=>x.id===currentWonItem.id);
+  if(winIdx<0) winIdx=activeCase.items.findIndex(x=>x.name===currentWonItem.name);
+  if(winIdx<0) winIdx=0;
+
+  const itemWidth=112,gap=12,leftPad=6,step=itemWidth+gap;
+  const cycles=5;
+  const containerWidth=document.querySelector('.roulette-container')?.clientWidth||360;
+  const center=(containerWidth-itemWidth)/2;
+  const isFast=document.getElementById('fastCaseCheckbox').checked;
+  const animDuration=isFast?800:4200;
+
+  setTimeout(()=>{
+    track.style.transition=`transform ${animDuration/1000}s cubic-bezier(.15,.85,.35,1)`;
+    const targetX=leftPad+winIdx*step;
+    track.style.transform=`translate3d(-${cycles*activeCase.items.length*step+targetX-center}px,0,0)`;
+  },50);
+
+  let spinTicks=0;
+  const spinInterval=setInterval(()=>{
+    playCaseSpinTick();spinTicks++;
+    if(spinTicks>(isFast?8:32))clearInterval(spinInterval);
+  },isFast?50:110);
+
+  setTimeout(async()=>{
+    clearInterval(spinInterval);
+    isCaseSpinning=false;
+    currentUser.stats.casesOpened+=count;
+    let totalWonSum=0;
+    currentWonItemsList.forEach(item=>{
+      currentUser.inventory.push({...item});
+      totalWonSum+=item.value;
+      if(item.value>currentUser.bestDrop.value)currentUser.bestDrop={name:item.name,value:item.value,img:item.img};
+    });
+    saveUserData();
+    playCaseResultSound(totalWonSum/count,activeCase.price);
+    document.getElementById('sellBtn').textContent=count>1
+      ? `Продать всё за ${totalWonSum.toFixed(2)} ₽`
+      : `Продать за ${currentWonItem.value.toFixed(2)} ₽`;
+    document.getElementById('actionButtons').style.display='flex';
+    renderGrid();updateUI();
+  }, animDuration+100);
+}
+
+async function sellCurrentItem(){
+  if(!currentWonItemsList||currentWonItemsList.length===0)return;
+  let sum=0;
+  currentWonItemsList.forEach(wonItem=>{
+    sum+=wonItem.value;
+    const i=currentUser.inventory.findIndex(x=>x.uid===wonItem.uid);
+    if(i>=0)currentUser.inventory.splice(i,1);
+  });
+  currentUser.balance+=sum;
+  saveUserData();
+  document.getElementById('actionButtons').style.display='none';
+  document.getElementById('caseActionsPanel').style.display='flex';
+  currentWonItemsList=[];currentWonItem=null;
+  silentNotice(`Продано за ${sum.toFixed(2)} ₽`,'success');
+}
+
+function toggleFastSpin(){isFastSpinActive=!isFastSpinActive;const btn=document.getElementById('fastSpinBtn');if(isFastSpinActive)btn.classList.add('active');else btn.classList.remove('active');}
+
+function renderQuickChances(){const p=document.getElementById('quickChancePanel');p.innerHTML='';quickChances.forEach(ch=>{const b=document.createElement('button');b.className=`q-btn ${activeQuickChance===ch?'active':''}`;b.textContent=ch+'%';b.onclick=()=>applyChance(ch);p.appendChild(b)});const s=document.createElement('button');s.className='q-btn settings-btn';s.textContent='⚙';s.onclick=()=>document.getElementById('modalOverlay').style.display='flex';p.appendChild(s)}
+function saveQuickSettings(){const a=[...new Set(document.getElementById('quickValuesInput').value.split(',').map(v=>parseInt(v.trim())).filter(n=>Number.isFinite(n)&&n>0&&n<=70))];if(a.length){quickChances=a;renderQuickChances()}document.getElementById('modalOverlay').style.display='none'}
+function applyChance(ch){
+  if(selectedItemIndex===null||!currentUser.inventory[selectedItemIndex]){silentNotice('Выберите скин из инвентаря!');return}
+  const src=Number(currentUser.inventory[selectedItemIndex].value)||0;
+  const desired=src/(ch/100);
+  const candidates=CATALOG_ITEMS.filter(x=>x&&x.value>desired).sort((a,b)=>a.value-b.value);
+  if(!candidates.length){targetWeapon=null;activeQuickChance=null;renderQuickChances();renderGrid();updateUI();silentNotice(`Для ${ch}% нужен скин дороже ${desired.toFixed(2)} ₽.`);return;}
+  targetWeapon=candidates[0];activeQuickChance=ch;renderQuickChances();renderGrid();updateUI();
+}
+
+function drawWheel(p){
+  const w=canvas.width,h=canvas.height,cx=w/2,cy=h/2,r=w/2-10;
+  ctx.clearRect(0,0,w,h);
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle='#161924';ctx.fill();
+  if(p>0){ctx.beginPath();ctx.moveTo(cx,cy);const span=p/100*Math.PI*2;const start=Math.PI/2-span/2;ctx.arc(cx,cy,r,start,start+span);ctx.closePath();ctx.fillStyle='#f59e0b';ctx.fill();}
+  ctx.beginPath();ctx.arc(cx,cy,r-28,0,Math.PI*2);ctx.fillStyle='#11131c';ctx.fill();
+}
+
+function updateUI(){
+  let sp=0,selectedLocked=false;
+  if(selectedItemIndex!==null&&currentUser.inventory[selectedItemIndex]){const x=currentUser.inventory[selectedItemIndex];selectedLocked=isWithdrawalLocked(x);sp=selectedLocked?0:x.value;selectedSkinName.textContent=x.name;selectedSkinPrice.textContent=x.value.toFixed(2);selectedSkinImg.src=x.img;selectedSkinImg.style.display='block';selectedSkinPlaceholder.style.display='none'}
+  else{selectedSkinName.textContent='--';selectedSkinPrice.textContent='0.00';selectedSkinImg.style.display='none';selectedSkinPlaceholder.style.display='block'}
+  const tp=targetWeapon?.value||0;
+  if(targetWeapon){targetSkinName.textContent=targetWeapon.name;targetSkinPrice.textContent=targetWeapon.value.toFixed(2);targetSkinImg.src=targetWeapon.img;targetSkinImg.style.display='block';targetSkinPlaceholder.style.display='none'}
+  else{targetSkinName.textContent='--';targetSkinPrice.textContent='0.00';targetSkinImg.style.display='none';targetSkinPlaceholder.style.display='block'}
+  const ch=sp>0&&tp>sp?Math.min(sp/tp*100,MAX_CHANCE):0;
+  wheelPercent.textContent=ch.toFixed(2)+'%';drawWheel(ch);
+  upgradeBtn.disabled=selectedLocked||!(sp>0&&tp>sp&&ch>0&&ch<=MAX_CHANCE)||isSpinning;
+}
+
+function renderGrid(){
+  const g=document.getElementById('itemsGrid');if(!g)return;
+  g.innerHTML='';
+  const frag=document.createDocumentFragment();
+  const totalInvValue=currentUser.inventory.reduce((sum,item)=>sum+(item.value||0),0);
+  const invTotalEl=document.getElementById('invTotalValue');
+  if(invTotalEl)invTotalEl.textContent=`Сумма: ${totalInvValue.toFixed(2)} ₽`;
+  if(currentTab==='inventory'){
+    priceFilterBox.classList.remove('active');
+    currentUser.inventory.forEach((x,i)=>frag.appendChild(createCard(x,selectedItemIndex===i,()=>{
+      if(isSpinning)return;
+      if(isWithdrawalLocked(x)){silentNotice('Этот скин уже находится в заявке на вывод.');return;}
+      selectedItemIndex=selectedItemIndex===i?null:i;activeQuickChance=null;targetWeapon=null;renderQuickChances();renderGrid();updateUI();
+    })));
+  }else{
+    priceFilterBox.classList.add('active');
+    const min=Number(minPriceInput.value)||0,max=Number(maxPriceInput.value)||Infinity;
+    let shown=0;
+    for(const x of CATALOG_ITEMS){
+      if(x.category!==currentTab||x.value<min||x.value>max) continue;
+      frag.appendChild(createCard(x,targetWeapon?.id===x.id,()=>{
+        if(isSpinning)return;
+        targetWeapon=targetWeapon?.id===x.id?null:x;activeQuickChance=null;renderQuickChances();renderGrid();updateUI();
+      }));
+      if(++shown>=400) break;
+    }
+  }
+  g.appendChild(frag);
+}
+function createCard(x,sel,click){
+  const c=document.createElement('div');
+  c.className=`item-card ${sel?'selected':''} ${isWithdrawalLocked(x)?'withdraw-locked':''}`;
+  c.innerHTML=`<img src="${escapeAttr(x.img)}" alt=""><div class="iname">${escapeHtml(x.name)}</div><div class="iprice">${x.value.toFixed(2)} ₽</div>${isWithdrawalLocked(x)?'<div style="font-size:9px;color:#f59e0b;margin-top:4px;font-weight:800">ВЫВОД</div>':''}`;
+  c.onclick=click;
+  return c;
+}
+minPriceInput.addEventListener('input',renderGrid);maxPriceInput.addEventListener('input',renderGrid);
+
+let pointerSpinRaf=0;
+let pointerSpinStart=0;
+function startUpgradePointerSpin(duration, finalAngle){
+  const pointer=document.querySelector('.wheel-pointer');
+  if(!pointer)return;
+  cancelAnimationFrame(pointerSpinRaf);
+  pointerSpinStart=performance.now();
+  const target=360*5+finalAngle;
+  const animate=(now)=>{
+    const elapsed=now-pointerSpinStart;
+    const t=Math.min(1,elapsed/duration);
+    const eased=1-Math.pow(1-t,3);
+    pointer.style.transform=`rotate(${target*eased}deg)`;
+    if(t<1 && isSpinning) pointerSpinRaf=requestAnimationFrame(animate);
+  };
+  pointerSpinRaf=requestAnimationFrame(animate);
+}
+function resetUpgradePointer(){
+  cancelAnimationFrame(pointerSpinRaf);
+  const pointer=document.querySelector('.wheel-pointer');
+  if(pointer)pointer.style.transform='rotate(0deg)';
+}
+
+document.getElementById('upgradeBtn').onclick=async()=>{
+  if(!currentUser||!currentUser.steamid){silentNotice('Для апгрейда необходимо войти через Steam!');return;}
+  if(isSpinning||selectedItemIndex===null||!targetWeapon)return;
+  const source=currentUser.inventory[selectedItemIndex];
+  if(!source)return;
+  if(isWithdrawalLocked(source)){silentNotice('Этот скин уже находится в заявке на вывод.');return;}
+  const baseChance=activeQuickChance??Math.min(source.value/targetWeapon.value*100,MAX_CHANCE);
+  const chance=Math.max(0,Math.min(MAX_CHANCE,baseChance));
+  if(chance<=0||chance>MAX_CHANCE)return;
+  isSpinning=true;upgradeBtn.disabled=true;wheelOverlay.style.display='block';
+
+  let success;
+  try{
+    const rollRes=await fetch('/api/upgrade-roll',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      cache:'no-store',
+      body:JSON.stringify({chance, targetPrice:Number(targetWeapon.value)||0})
+    });
+    const roll=await rollRes.json().catch(()=>null);
+    if(!rollRes.ok||!roll?.ok)throw new Error(roll?.error||'upgrade_roll_failed');
+    success=!!roll.success;
+  }catch(e){
+    isSpinning=false;upgradeBtn.disabled=false;wheelOverlay.style.display='none';
+    silentNotice('Не удалось получить результат апгрейда. Попробуйте ещё раз.','error');
+    return;
+  }
+
+  const sector=chance*3.6;
+  const finalAngle=success
+    ? 180-sector/2+sector*(0.16+Math.random()*0.68)
+    : (()=>{const start=180-sector/2;const offset=Math.random()*(360-sector);return offset<start?offset:offset+sector;})();
+  if(!isFastSpinActive) startUpgradePointerSpin(3700,finalAngle);
+  currentUser.stats.upgradesTotal++;
+  saveUserData();
+
+  const handleUpgradeResult=()=>{
+    resultOverlay.style.display='flex';
+    resultText.textContent=success?'Успех!':'Неудача';
+    resultText.style.color=success?'#4ade80':'#f87171';
+    if(success) playSuccessSound(); else playUpgradeFailSound();
+    const i=currentUser.inventory.findIndex(x=>x.uid===source.uid);
+    if(i>=0)currentUser.inventory.splice(i,1);
+    if(success){
+      const won={...targetWeapon};
+      currentUser.inventory.push({...won,uid:newInventoryUid()});
+      if(won.value>currentUser.bestDrop.value)currentUser.bestDrop={name:won.name,value:won.value,img:won.img};
+    }
+    saveUserData();
+    resetCaseResultState();
+    setTimeout(()=>{
+      resultOverlay.style.display='none';wheelOverlay.style.display='none';isSpinning=false;resetUpgradePointer();selectedItemIndex=null;targetWeapon=null;activeQuickChance=null;renderQuickChances();renderGrid();updateUI();canvas.style.transition='none';canvas.style.transform='none';
+    },isFastSpinActive?600:2000);
+  };
+
+  if(isFastSpinActive){handleUpgradeResult();return;}
+
+  let tickCount=0;
+  const tickInterval=setInterval(()=>{playUpgradeSpinSound();tickCount++;if(tickCount>25)clearInterval(tickInterval);},120);
+  setTimeout(()=>{clearInterval(tickInterval);handleUpgradeResult();},3700);
+};
+
+// MP3 плеер
+let mp3CurrentIdx = 0;
+let mp3HasLoaded = false;
+const mp3Audio = document.getElementById('zenoAudio');
+const mp3SC = document.getElementById('zenoSC');
+const mp3Tracks = document.querySelectorAll('.mp3-tr');
+const mp3PlayBtn = document.getElementById('mp3Play');
+const mp3MiniPlay = document.getElementById('mp3MiniPlay');
+const mp3NowEl = document.getElementById('mp3Now');
+const mp3Seek = document.getElementById('mp3Seek');
+const mp3TimeEl = document.getElementById('mp3Time');
+const mp3Vol = document.getElementById('mp3Vol');
+const mp3Panel = document.getElementById('mp3Panel');
+
+function mp3TogglePanel(e){
+  if(e) e.stopPropagation();
+  mp3Panel.classList.toggle('open');
+}
+function mp3ScEmbed(url){
+  return 'https://w.soundcloud.com/player/?url='+encodeURIComponent(url)+'&color=%23f59e0b&auto_play=true&hide_related=true&show_comments=false&show_user=false&show_reposts=false&visual=false';
+}
+function mp3SetPlayIcon(isPlaying){
+  if(mp3PlayBtn) mp3PlayBtn.textContent = isPlaying ? 'Пауза' : 'Играть';
+  if(mp3MiniPlay) mp3MiniPlay.textContent = isPlaying ? '❚❚' : '▶';
+}
+function mp3LoadTrack(i){
+  mp3Tracks.forEach(t=>t.classList.remove('active'));
+  const t=mp3Tracks[i]; if(!t)return;
+  t.classList.add('active');
+  mp3CurrentIdx=i;
+  mp3HasLoaded = true;
+  if(mp3NowEl) mp3NowEl.textContent = t.querySelector('.mp3-tr-name')?.textContent || 'Музыка';
+  if(t.dataset.src){
+    mp3SC.style.display='none';
+    mp3Audio.style.display='block';
+    mp3Audio.src=t.dataset.src;
+    mp3Audio.volume=mp3Vol.value;
+    mp3Audio.play().catch(()=>{});
+    mp3SetPlayIcon(true);
+  } else if(t.dataset.sc){
+    mp3Audio.pause(); mp3Audio.removeAttribute('src'); mp3Audio.style.display='none';
+    mp3SC.src=mp3ScEmbed(t.dataset.sc);
+    mp3SC.style.display='block';
+    mp3SetPlayIcon(true);
+  }
+}
+function mp3TogglePlay(e){
+  if(e) e.stopPropagation();
+  if(!mp3HasLoaded){ mp3LoadTrack(0); return; }
+  if(mp3Audio.src){
+    if(mp3Audio.paused){ mp3Audio.play(); mp3SetPlayIcon(true); }
+    else{ mp3Audio.pause(); mp3SetPlayIcon(false); }
+  } else {
+    mp3Panel.classList.add('open');
+  }
+}
+mp3Tracks.forEach((t,i)=>t.addEventListener('click',()=>mp3LoadTrack(i)));
+mp3Audio.addEventListener('timeupdate',()=>{
+  if(mp3Audio.duration){
+    mp3Seek.value=(mp3Audio.currentTime/mp3Audio.duration)*100;
+    const m=Math.floor(mp3Audio.currentTime/60),s=Math.floor(mp3Audio.currentTime%60);
+    const dm=Math.floor(mp3Audio.duration/60),ds=Math.floor(mp3Audio.duration%60);
+    mp3TimeEl.textContent=`${m}:${String(s).padStart(2,'0')} / ${dm}:${String(ds).padStart(2,'0')}`;
+  }
+});
+mp3Audio.addEventListener('play',()=>mp3SetPlayIcon(true));
+mp3Audio.addEventListener('pause',()=>mp3SetPlayIcon(false));
+mp3Seek.addEventListener('input',()=>{ if(mp3Audio.duration) mp3Audio.currentTime=(mp3Seek.value/100)*mp3Audio.duration; });
+mp3Vol.addEventListener('input',()=>{ mp3Audio.volume=mp3Vol.value; });
+mp3Audio.addEventListener('ended',()=>mp3LoadTrack((mp3CurrentIdx+1)%mp3Tracks.length));
+
+// Автообновление баланса с сервера
+async function refreshUserFromServer(){
+  if(!currentUser || !currentUser.steamid) return;
+  try{
+    const r=await fetch('/api/current-user',{cache:'no-store',credentials:'same-origin'});
+    if(!r.ok) return;
+    const u=await r.json();
+    if(!u || !u.serverAccount) return;
+    const newBal=Number(u.serverAccount.balance)||0;
+    const changed = Math.abs((currentUser.balance||0) - newBal) > 0.001;
+    currentUser.balance=newBal;
+    if(Array.isArray(u.serverAccount.inventory)) currentUser.inventory=u.serverAccount.inventory.map(x=>({...x}));
+    if(u.serverAccount.bestDrop) currentUser.bestDrop=u.serverAccount.bestDrop;
+    if(u.serverAccount.stats) currentUser.stats={...currentUser.stats,...u.serverAccount.stats};
+    currentUser.serverAccount=u.serverAccount;
+    if(changed){
+      renderGrid();
+      updateUI();
+      if(document.getElementById('tabProfileContent')?.classList.contains('active')) renderProfile();
+      silentNotice(`Баланс обновлён: ${newBal.toFixed(2)} ₽`,'success');
     }
   }catch(e){}
-  return false;
 }
-function saveCatalogToDisk(items){
-  try{ fs.writeFileSync(CATALOG_FILE, JSON.stringify({items, savedAt:Date.now()})); }
-  catch(e){ console.error('catalog cache save:',e.message); }
-}
-async function refreshCatalogInBackground(){
+setInterval(refreshUserFromServer, 20000);
+window.addEventListener('focus', refreshUserFromServer);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshUserFromServer(); });
+
+window.addEventListener('beforeunload',()=>{
+  if(!currentUser||!currentUser.steamid) return;
   try{
-    const items=await buildCs2Catalog();
-    if(items?.length){
-      cs2CatalogCache={data:items, expires:Date.now()+CS2_CACHE_MS};
-      saveCatalogToDisk(items);
-      console.log('CS2 catalog refreshed:',items.length);
-    }
-  }catch(e){ console.error('catalog bg refresh:',e.message); }
-}
-
-async function cs2Fetch(url, options = {}) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => { controller.abort(); }, 30000);
-    try {
-        const r = await fetch(url, {
-            ...options,
-            signal: controller.signal,
-            headers: {
-                'Authorization': 'Bearer ' + KEY,
-                'Accept': 'application/json',
-                'Accept-Encoding': 'gzip',
-                ...(options.headers || {})
-            }
-        });
-        const text = await r.text();
-        let d = null;
-        try { d = JSON.parse(text); } catch (_) {}
-        if (!r.ok) {
-            const err = new Error(d?.message || d?.error || ('HTTP ' + r.status));
-            err.status = r.status;
-            err.body = d || text.slice(0, 1000);
-            throw err;
-        }
-        return d;
-    } finally { clearTimeout(timer); }
-}
-
-async function buildCs2Catalog() {
-    const schema = await cs2Fetch('https://api.cs2.sh/v1/schema');
-    const raw = schema?.items || schema || {};
-    const arr = Array.isArray(raw) ? raw : Object.values(raw);
-
-    const candidates = [];
-    const seen = new Set();
-    for (const x of arr) {
-        const name = String(x?.market_hash_name || x?.name || '').trim();
-        const image = x?.image || x?.icon_url || x?.image_url || '';
-        if (!name || !image || !name.includes('|')) continue;
-        const low = name.toLowerCase();
-        if (low.includes('sticker') || low.includes('patch') || low.includes('graffiti') || low.includes('music kit')) continue;
-        if (seen.has(name)) continue;
-        seen.add(name);
-        candidates.push({name, image});
-    }
-
-    const priorityWords = [
-        'ak-47 |','m4a1-s |','m4a4 |','awp |','usp-s |','glock-18 |','p250 |',
-        'deagle |','desert eagle |','famas |','galil ar |','mp9 |','mac-10 |',
-        'mp7 |','mp5-sd |','ump-45 |','p90 |','ssg 08 |','scar-20 |','aug |',
-        'sg 553 |','nova |','xm1014 |','mag-7 |','sawed-off |','tec-9 |',
-        'five-seven |','cz75-auto |','dual berettas |','r8 revolver |','negev |','m249 |'
-    ];
-    const isWeapon = x => {
-        const c=String(x?.category||'').toLowerCase();
-        const n=String(x?.name||'').toLowerCase();
-        return c==='skin' || n.includes(' | ');
-    };
-    const rarityTier = x => Number(x?.rarity?.tier || 0);
-    const isKnife = x => /^★\s/.test(x.name) || String(x?.category||'').toLowerCase().includes('knife');
-    const isGlove = x => String(x?.category||'').toLowerCase().includes('glove') || x.name.toLowerCase().includes('gloves');
-
-    const high = candidates.filter(x => isWeapon(x) && rarityTier(x) >= 5);
-    const knives = candidates.filter(x => isKnife(x) || isGlove(x));
-    const priority = candidates.filter(x => priorityWords.some(w => x.name.toLowerCase().startsWith(w)));
-    const cheapPool = candidates.filter(x => rarityTier(x) <= 4);
-
-    const selected = [];
-    const selectedSet = new Set();
-    const add = x => {
-        if(selected.length >= 7000 || !x || selectedSet.has(x.name)) return;
-        selectedSet.add(x.name); selected.push(x);
-    };
-
-    for (const x of high) add(x);
-    for (const x of knives) add(x);
-    for (const x of priority) add(x);
-
-    const rest = cheapPool.filter(x => !selectedSet.has(x.name));
-    const need = 7000 - selected.length;
-    if (need > 0 && rest.length) {
-        for (let i=0; i<Math.min(need, rest.length); i++) {
-            const idx=Math.floor(i * rest.length / Math.min(need, rest.length));
-            add(rest[idx]);
-        }
-    }
-    const remaining = candidates.filter(x => !selectedSet.has(x.name));
-    const left = 7000 - selected.length;
-    if (left > 0 && remaining.length) {
-        for (let i=0; i<Math.min(left, remaining.length); i++) {
-            const idx=Math.floor(i * remaining.length / Math.min(left, remaining.length));
-            add(remaining[idx]);
-        }
-    }
-
-    const batches = [];
-    for (let i = 0; i < selected.length; i += 100) batches.push(selected.slice(i, i + 100).map(x => x.name));
-
-    const priceMap = new Map();
-    let cursor = 0;
-    const workers = Math.min(8, batches.length);
-    async function worker() {
-        while (true) {
-            const i = cursor++;
-            if (i >= batches.length) return;
-            try {
-                const d = await cs2Fetch('https://api.cs2.sh/v1/prices/latest', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({items: batches[i]})
-                });
-                for (const [name, item] of Object.entries(d?.items || {})) priceMap.set(name, item);
-            } catch (e) { console.warn('CS2 batch failed:', e.message || e); }
-        }
-    }
-    await Promise.all(Array.from({length: workers}, worker));
-
-    const result = [];
-    const sources = ['steam','csfloat','buff','youpin','skinport','c5game'];
-    for (const x of selected) {
-        const p = priceMap.get(x.name);
-        if (!p) continue;
-        let usd = 0;
-        for (const source of sources) {
-            const ask = Number(p?.[source]?.ask);
-            if (Number.isFinite(ask) && ask > 0) { usd = ask; break; }
-        }
-        if (usd <= 0) continue;
-        if (usd * 80 < 8) continue;
-        result.push({
-            id: 'skin_' + crypto.createHash('sha1').update(x.name).digest('hex').slice(0, 12),
-            name: x.name,
-            img: x.image,
-            usd,
-            api: p
-        });
-    }
-
-    result.sort((a,b) => a.usd - b.usd);
-    return result.slice(0, 7000);
-}
-
-loadCatalogFromDisk();
-if(!cs2CatalogCache.data) refreshCatalogInBackground();
-setInterval(refreshCatalogInBackground, CS2_CACHE_MS);
-
-// ===============================
-// COOKIES / READ JSON
-// ===============================
-function parseCookies(req) {
-    const list = {};
-    const rc = req.headers.cookie;
-    if (!rc) return list;
-    rc.split(';').forEach(cookie => {
-        const parts = cookie.split('=');
-        const key = parts.shift().trim();
-        list[key] = decodeURI(parts.join('='));
+    const payload=JSON.stringify({
+      balance: currentUser.balance,
+      stats: {upgradesTotal: currentUser.stats.upgradesTotal, casesOpened: currentUser.stats.casesOpened},
+      inventory: currentUser.inventory,
+      bestDrop: currentUser.bestDrop
     });
-    return list;
-}
-async function readJson(req){
-  return new Promise((resolve,reject)=>{
-    let b='';
-    req.on('data',c=>{b+=c;if(b.length>2e6)req.destroy();});
-    req.on('end',()=>{try{resolve(JSON.parse(b||'{}'));}catch(e){reject(e);}});
-    req.on('error',reject);
-  });
-}
-
-// ===============================
-// SERVER
-// ===============================
-const server = http.createServer(async (req, res) => {
-
-    const urlObj = new URL(req.url, `http://${req.headers.host}`);
-    const pathname = urlObj.pathname;
-    const cookies = parseCookies(req);
-
-    let sessionUser = null;
-    if (cookies.session_id && sessions.has(cookies.session_id)) {
-        sessionUser = sessions.get(cookies.session_id);
-    } else {
-        const signedSteam=steamFromSessionCookie(cookies.session_id);
-        if(signedSteam){
-            const stored=ensureUser(signedSteam);
-            if(stored){
-                sessionUser={steamid:signedSteam,username:stored.username||'Игрок Zenodrop',avatar:stored.avatar||''};
-                ensureZenodropId(stored);
-            }
-        }
+    if(navigator.sendBeacon){
+      navigator.sendBeacon('/api/account/sync', new Blob([payload],{type:'application/json'}));
     }
-
-    if (pathname === '/auth/steam') {
-        const proto = req.headers['x-forwarded-proto'] || 'http';
-        const realm = `${proto}://${req.headers.host}`;
-        const returnTo = `${realm}/auth/steam/return`;
-        const params = new URLSearchParams({
-            'openid.ns': 'http://specs.openid.net/auth/2.0',
-            'openid.mode': 'checkid_setup',
-            'openid.return_to': returnTo,
-            'openid.realm': realm,
-            'openid.identity': 'http://specs.openid.net/auth/2.0/identifier_select',
-            'openid.claimed_id': 'http://specs.openid.net/auth/2.0/identifier_select'
-        });
-        res.writeHead(302, {Location: `https://steamcommunity.com/openid/login?${params.toString()}`});
-        return res.end();
-    }
-
-    if (pathname === '/auth/steam/return') {
-        try {
-            const params = new URLSearchParams();
-            params.append('openid.ns', 'http://specs.openid.net/auth/2.0');
-            params.append('openid.mode', 'check_authentication');
-            urlObj.searchParams.forEach((value, key) => {
-                if (key !== 'openid.mode') params.append(key, value);
-            });
-            const verification = await fetch('https://steamcommunity.com/openid/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: params.toString()
-            });
-            const verificationText = await verification.text();
-            if (verificationText.includes('is_valid:true')) {
-                const claimedId = urlObj.searchParams.get('openid.claimed_id');
-                const match = claimedId ? claimedId.match(/\/id\/([0-9]{17})/) : null;
-                const steamId = match ? match[1] : null;
-                if (steamId) {
-                    const playerRes = await fetch(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${steamId}`);
-                    const playerData = await playerRes.json();
-                    const player = playerData.response?.players?.[0] || {};
-                    const userData = {
-                        steamid: steamId,
-                        username: player.personaname || 'Unknown',
-                        avatar: player.avatarfull || player.avatarmedium || player.avatar || ''
-                    };
-                    const sessionId = makeSessionCookie(steamId);
-                    sessions.set(sessionId,userData);
-                    const stored=ensureUser(steamId);
-                    ensureZenodropId(stored);
-                    stored.username=userData.username;
-                    stored.avatar=userData.avatar;
-                    saveStore();
-                    res.writeHead(302, {
-                        Location: '/',
-                        'Set-Cookie': `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`
-                    });
-                    return res.end();
-                }
-            }
-        } catch (e) { console.error('Steam Auth Error:', e); }
-        res.writeHead(302, {Location: '/'});
-        return res.end();
-    }
-
-    if (pathname === '/api/current-user' && req.method === 'GET') {
-        res.writeHead(200, {'Content-Type':'application/json','Cache-Control':'no-store'});
-        if(sessionUser){
-            const stored=ensureUser(sessionUser.steamid);
-            ensureZenodropId(stored);
-            const serverAccount={
-                ...stored,
-                pendingWithdrawals:pendingWithdrawalsForUser(sessionUser.steamid)
-            };
-            return res.end(JSON.stringify({...sessionUser,serverAccount,webAdmin:isWebAdmin(sessionUser.steamid)}));
-        }
-        return res.end(JSON.stringify(null));
-    }
-
-    if (pathname === '/auth/logout') {
-        if (cookies.session_id) sessions.delete(cookies.session_id);
-        res.writeHead(302, {
-            Location: '/',
-            'Set-Cookie': 'session_id=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-        });
-        return res.end();
-    }
-
-    if (req.url === '/') {
-        res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
-        return res.end(html);
-    }
-
-    if(pathname==='/api/upgrade-roll' && req.method==='POST'){
-        if(!sessionUser?.steamid){
-            res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({error:'auth_required'}));
-        }
-        try{
-            const body=await readJson(req);
-            const chance=Number(body.chance);
-            if(!Number.isFinite(chance) || chance<0 || chance>100){
-                res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
-                return res.end(JSON.stringify({error:'invalid_chance'}));
-            }
-            const success=upgrade(chance, sessionUser.steamid, Number(body.targetPrice)||0);
-            const user=ensureUser(sessionUser.steamid);
-            user.stats.upgradesTotal=(user.stats.upgradesTotal||0)+1;
-            saveStore();
-            res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({ok:true,success,chance}));
-        }catch(e){
-            res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({error:'invalid_json'}));
-        }
-    }
-
-    if(pathname==='/api/case/open' && req.method==='POST'){
-        if(!sessionUser?.steamid){
-            res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({error:'auth_required'}));
-        }
-        try{
-            const body=await readJson(req);
-            const caseKey=String(body.case||'');
-            const skins=Array.isArray(body.skins)?body.skins:[];
-            const cfg=CASES[caseKey];
-            if(!cfg){
-                res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
-                return res.end(JSON.stringify({error:'invalid_case'}));
-            }
-            if(!skins.length){
-                res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
-                return res.end(JSON.stringify({error:'empty_pool'}));
-            }
-            const user=ensureUser(sessionUser.steamid);
-            ensureZenodropId(user);
-            if(Number(user.balance||0) < cfg.price){
-                res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
-                return res.end(JSON.stringify({error:'insufficient_balance',balance:Number(user.balance||0),price:cfg.price}));
-            }
-            const result=openCase(caseKey, skins);
-            if(!result || !result.skin){
-                res.writeHead(500,{'Content-Type':'application/json','Cache-Control':'no-store'});
-                return res.end(JSON.stringify({error:'roll_failed'}));
-            }
-            user.balance = Number(user.balance||0) - cfg.price;
-            user.stats.casesOpened=(user.stats.casesOpened||0)+1;
-            saveStore();
-            res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({ok:true,case:caseKey,price:cfg.price,skin:result.skin,balance:user.balance}));
-        }catch(e){
-            res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({error:'invalid_json'}));
-        }
-    }
-
-    if(pathname==='/api/account/sync' && req.method==='POST'){
-        if(!sessionUser?.steamid){
-            res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({error:'auth_required'}));
-        }
-        try{
-            const body=await readJson(req);
-            const u=ensureUser(sessionUser.steamid);
-            ensureZenodropId(u);
-            if(Number.isFinite(Number(body.balance))) u.balance=Math.max(0,Number(body.balance));
-            if(body.stats && typeof body.stats==='object'){
-                if(typeof body.stats.upgradesTotal==='number')
-                    u.stats.upgradesTotal=Math.max(u.stats.upgradesTotal||0, body.stats.upgradesTotal);
-                if(typeof body.stats.casesOpened==='number')
-                    u.stats.casesOpened=Math.max(u.stats.casesOpened||0, body.stats.casesOpened);
-            }
-            if(Array.isArray(body.inventory)){
-                u.inventory=body.inventory.slice(0,5000).map(x=>({
-                    id:String(x?.id||''),
-                    name:String(x?.name||''),
-                    category:'skins',
-                    value:Number(x?.value)||0,
-                    img:String(x?.img||''),
-                    uid:String(x?.uid||'')
-                })).filter(x=>x.name && x.uid);
-            }
-            if(body.bestDrop && typeof body.bestDrop==='object'){
-                u.bestDrop={
-                    name:String(body.bestDrop.name||'--'),
-                    value:Number(body.bestDrop.value)||0,
-                    img:String(body.bestDrop.img||'')
-                };
-            }
-            saveStore();
-            const responseUser={
-                ...u,
-                pendingWithdrawals:pendingWithdrawalsForUser(sessionUser.steamid)
-            };
-            res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({ok:true,user:responseUser}));
-        }catch(e){
-            res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({error:'invalid_json'}));
-        }
-    }
-
-    if(pathname==='/api/config' && req.method==='GET'){
-        res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-        return res.end(JSON.stringify({
-            telegramBotUrl:TG_BOT_URL||null,
-            paymentTelegramBotUrl:PAY_TG_BOT_URL||'https://t.me/ZenodropPayBot',
-            cases:CASES
-        }));
-    }
-
-    if(pathname==='/api/promos' && req.method==='GET'){
-        const list=promoList().slice(0,8).map(x=>({
-            code:x.code,
-            percent:x.percent,
-            maxBonus:x.maxBonus,
-            expiresAt:x.expiresAt||0,
-            auto:!!x.auto,
-            uses:Number(x.uses||0),
-            maxUses:Number(x.maxUses||0)
-        }));
-        res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-        return res.end(JSON.stringify({items:list}));
-    }
-
-    if(pathname==='/api/deposit' && req.method==='POST'){
-        if(!sessionUser?.steamid){
-            res.writeHead(401);return res.end(JSON.stringify({error:'auth_required'}));
-        }
-        const body=await readJson(req);
-        const amount=Number(body.amount)||0;
-        const method=String(body.method||'');
-        const promo=String(body.promo||'').toUpperCase();
-        if(amount<50){res.writeHead(400);return res.end(JSON.stringify({error:'min_50'}));}
-        const pc=promo?data.promos[promo]:null;
-        if(promo && (!pc || pc.active===false || (pc.expiresAt && pc.expiresAt<=Date.now()))){
-            res.writeHead(400);return res.end(JSON.stringify({error:'promo_invalid'}));
-        }
-        const bonus=pc?Math.min(amount*(Number(pc.percent)||0)/100,Number(pc.maxBonus)||Infinity):0;
-        const id='dep_'+Date.now().toString(36)+'_'+crypto.randomBytes(3).toString('hex');
-        data.deposits.push({
-            id,steamid:sessionUser.steamid,
-            tgId:ensureUser(sessionUser.steamid)?.tgId||null,
-            amount,bonus,method,promo,status:'pending',createdAt:Date.now()
-        });
-        saveStore();
-        await notifyAdmins(
-          `💳 <b>Новое пополнение</b>\nID: <code>${id}</code>\nSteam: <code>${sessionUser.steamid}</code>\nСумма: ${amount.toFixed(2)} ₽\nМетод: ${method}\nПромо: ${promo||'—'}\nК начислению: ${(amount+bonus).toFixed(2)} ₽`,
-          [[
-            {text:'✅ Зачислить',callback_data:`dep:${id}:approve`},
-            {text:'❌ Отклонить',callback_data:`dep:${id}:reject`}
-          ]]
-        );
-        res.writeHead(200,{'Content-Type':'application/json'});
-        return res.end(JSON.stringify({ok:true,id,bonus,total:amount+bonus}));
-    }
-
-    if(pathname==='/api/withdrawals' && req.method==='POST'){
-        if(!sessionUser?.steamid){
-            res.writeHead(401);return res.end(JSON.stringify({error:'auth_required'}));
-        }
-        const body=await readJson(req);
-        const index=Number(body.index);
-        const stored=ensureUser(sessionUser.steamid);
-        if(stored.withdrawDisabled){
-            res.writeHead(403);return res.end(JSON.stringify({error:'withdraw_disabled'}));
-        }
-        const item=body.item;
-        if(!item || !item.name || !Number(item.value)){
-            res.writeHead(400);return res.end(JSON.stringify({error:'item_required'}));
-        }
-        const itemUid=String(item.uid||'');
-        if(!itemUid){
-            res.writeHead(400);return res.end(JSON.stringify({error:'item_uid_required'}));
-        }
-        const alreadyPending=data.withdrawals.some(x=>x.steamid===sessionUser.steamid && x.item?.uid===itemUid && (x.status==='pending'||x.status==='approved'));
-        if(alreadyPending){
-            res.writeHead(409);return res.end(JSON.stringify({error:'item_withdraw_pending'}));
-        }
-        const id='wd_'+Date.now().toString(36)+'_'+crypto.randomBytes(3).toString('hex');
-        const w={
-            id,steamid:sessionUser.steamid,tgId:stored.tgId||null,index,
-            item:{name:item.name,value:Number(item.value),img:item.img||'',assetid:item.assetid||null,uid:itemUid},
-            value:Number(item.value),refund:Number(item.value),status:'pending',createdAt:Date.now()
-        };
-        data.withdrawals.push(w);saveStore();
-        await notifyAdmins(
-            `🟠 <b>Новая заявка на вывод</b>\nID: <code>${id}</code>\nSteam: <code>${sessionUser.steamid}</code>\nСумма: ${w.value.toFixed(2)} ₽\nСкин: ${item.name}`,
-            [[{text:'🎁 Выдать',callback_data:`wd:${id}:send`},{text:'❌ Отклонить',callback_data:`wd:${id}:reject`}]]
-        );
-        res.writeHead(200,{'Content-Type':'application/json'});
-        return res.end(JSON.stringify({ok:true,id,status:'pending'}));
-    }
-
-    if(pathname==='/api/admin/state' && req.method==='GET'){
-        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
-            res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
-        }
-        res.writeHead(200,{'Content-Type':'application/json'});
-        return res.end(JSON.stringify({
-            users:Object.values(data.users),
-            withdrawals:data.withdrawals.slice(-100).reverse(),
-            deposits:data.deposits.slice(-100).reverse(),
-            promos:promoList()
-        }));
-    }
-
-    if(pathname==='/api/admin/promo' && req.method==='POST'){
-        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
-            res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
-        }
-        const body=await readJson(req);
-        const code=String(body.code||'').trim().toUpperCase();
-        const percent=Number(body.percent);
-        const maxBonus=Number(body.maxBonus)||0;
-        const expiresMinutes=Number(body.expiresMinutes)||0;
-        if(!/^[A-Z0-9_-]{3,32}$/.test(code)||!Number.isFinite(percent)||percent<1||percent>100){
-            res.writeHead(400);return res.end(JSON.stringify({error:'invalid_promo'}));
-        }
-        const p=makePromo(code,percent,maxBonus,{auto:false,expiresAt:expiresMinutes>0?Date.now()+expiresMinutes*60000:0});
-        res.writeHead(200,{'Content-Type':'application/json'});
-        return res.end(JSON.stringify({ok:true,promo:p}));
-    }
-
-    if(pathname==='/api/admin/user' && req.method==='POST'){
-        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
-            res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
-        }
-        const body=await readJson(req);
-        const u=ensureUser(body.steamid);
-        if(!u){res.writeHead(400);return res.end(JSON.stringify({error:'steamid_required'}));}
-        if(body.balanceDelta!==undefined)u.balance+=Number(body.balanceDelta)||0;
-        if(body.balance!==undefined)u.balance=Number(body.balance)||0;
-        if(body.withdrawDisabled!==undefined)u.withdrawDisabled=!!body.withdrawDisabled;
-        saveStore();
-        res.writeHead(200,{'Content-Type':'application/json'});
-        return res.end(JSON.stringify({ok:true,user:u}));
-    }
-
-    if(pathname==='/api/admin/deposit-confirm' && req.method==='POST'){
-        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
-            res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
-        }
-        const body=await readJson(req);
-        const d=data.deposits.find(x=>x.id===body.id);
-        if(!d){res.writeHead(404);return res.end(JSON.stringify({error:'not_found'}));}
-        if(d.status!=='pending'){return res.end(JSON.stringify({ok:true,status:d.status}));}
-        const u=ensureUser(d.steamid);
-        u.balance+=d.amount+d.bonus;
-        u.stats.totalDeposited=(u.stats.totalDeposited||0)+d.amount+d.bonus;
-        if(d.promo&&data.promos[d.promo])data.promos[d.promo].uses=(data.promos[d.promo].uses||0)+1;
-        d.status='paid';d.updatedAt=Date.now();saveStore();
-        if(d.tgId)await tg('sendMessage',{chat_id:d.tgId,text:`✅ Пополнение <b>${d.id}</b> подтверждено: +${(d.amount+d.bonus).toFixed(2)} ₽`,parse_mode:'HTML'});
-        res.writeHead(200,{'Content-Type':'application/json'});
-        return res.end(JSON.stringify({ok:true,user:u}));
-    }
-
-    if (pathname === '/api/usd-rub' && req.method === 'GET') {
-        try {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 3000);
-            const r = await fetch('https://kurs-rublya.ru/api/v1/rates/USD/', {
-                signal: controller.signal, headers: {Accept: 'application/json'}
-            });
-            clearTimeout(timer);
-            const text = await r.text();
-            if (!r.ok) { res.writeHead(r.status, {'Content-Type':'application/json'}); return res.end(text); }
-            const d = JSON.parse(text);
-            const rate = Number(d.ratePerUnit || d.value || d.data?.ratePerUnit || d.data?.rate);
-            if (!Number.isFinite(rate) || rate <= 0) throw new Error('Invalid USD rate');
-            res.writeHead(200, {'Content-Type':'application/json','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({rate, source:'kurs-rublya.ru', updatedAt:new Date().toISOString()}));
-        } catch (e) {
-            res.writeHead(502, {'Content-Type':'application/json'});
-            return res.end(JSON.stringify({error:String(e)}));
-        }
-    }
-
-    if (pathname === '/api/cs2/catalog' && req.method === 'GET') {
-        if (cs2CatalogCache.data && cs2CatalogCache.data.length) {
-            res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'public, max-age=300'});
-            return res.end(JSON.stringify({currency:'USD', items:cs2CatalogCache.data, cached:true}));
-        }
-        refreshCatalogInBackground();
-        res.writeHead(202, {'Content-Type':'application/json','Cache-Control':'no-store'});
-        return res.end(JSON.stringify({currency:'USD', items:[], warming:true}));
-    }
-
-    if (pathname === '/api/cs2/schema' && req.method === 'GET') {
-        try {
-            const r = await fetch('https://api.cs2.sh/v1/schema', {
-                method: 'GET', headers: {'Authorization':'Bearer ' + KEY, 'Accept-Encoding':'gzip'}
-            });
-            const text = await r.text();
-            res.writeHead(r.status, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
-            return res.end(text);
-        } catch (e) {
-            res.writeHead(502, {'Content-Type':'application/json; charset=utf-8'});
-            return res.end(JSON.stringify({error:'cs2_schema_proxy_error', message:String(e)}));
-        }
-    }
-
-    if (pathname === '/api/prices' && req.method === 'POST') {
-        let body = '';
-        req.on('data', chunk => { body += chunk; });
-        req.on('end', async () => {
-            try {
-                const input = JSON.parse(body || '{}');
-                const items = Array.isArray(input.items) ? input.items.filter(x => typeof x === 'string' && x.trim()).slice(0, 100) : [];
-                if (!items.length) {
-                    res.writeHead(400, {'Content-Type':'application/json'});
-                    return res.end(JSON.stringify({error:'items_required'}));
-                }
-                const r = await fetch('https://api.cs2.sh/v1/prices/latest', {
-                    method: 'POST',
-                    headers: {'Authorization':'Bearer ' + KEY, 'Content-Type':'application/json', 'Accept-Encoding':'gzip'},
-                    body: JSON.stringify({items})
-                });
-                const text = await r.text();
-                res.writeHead(r.status, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
-                return res.end(text);
-            } catch (e) {
-                res.writeHead(502, {'Content-Type':'application/json'});
-                return res.end(JSON.stringify({error:'cs2_prices_proxy_error', message:String(e.message||e)}));
-            }
-        });
-        return;
-    }
-
-    if((pathname==='/telegram/admin-webhook' || pathname==='/telegram/webhook') && req.method==='POST'){
-        const update=await readJson(req);
-        const expected=TG_TOKEN ? crypto.createHash('sha256').update(TG_TOKEN).digest('hex').slice(0,32) : '';
-        const provided=String(req.headers['x-telegram-bot-api-secret-token']||'');
-        if(expected && provided!==expected){
-            res.writeHead(403,{'Content-Type':'application/json'});
-            res.end(JSON.stringify({ok:false,error:'forbidden'}));
-            return;
-        }
-        res.writeHead(200,{'Content-Type':'application/json'});
-        res.end(JSON.stringify({ok:true}));
-        Promise.resolve(processTelegramUpdate(update)).catch(e=>console.error('Admin TG webhook:',e.message));
-        return;
-    }
-
-    if(pathname==='/telegram/payment-webhook' && req.method==='POST'){
-        const update=await readJson(req);
-        const expected=PAY_TG_TOKEN ? crypto.createHash('sha256').update(PAY_TG_TOKEN).digest('hex').slice(0,32) : '';
-        const provided=String(req.headers['x-telegram-bot-api-secret-token']||'');
-        if(expected && provided!==expected){
-            res.writeHead(403,{'Content-Type':'application/json'});
-            res.end(JSON.stringify({ok:false,error:'forbidden'}));
-            return;
-        }
-        res.writeHead(200,{'Content-Type':'application/json'});
-        res.end(JSON.stringify({ok:true}));
-        Promise.resolve(processPaymentTelegramUpdate(update)).catch(e=>console.error('Payment TG webhook:',e.message));
-        return;
-    }
-
-    if(pathname==='/privacy' || pathname==='/terms' || pathname==='/info') {
-        const title = pathname==='/privacy' ? 'Политика конфиденциальности' : pathname==='/terms' ? 'Пользовательское соглашение' : 'Информация Zenodrop';
-        const body = pathname==='/privacy' ? `
-            <h1>Политика конфиденциальности Zenodrop</h1>
-            <p><b>Дата актуализации: 9 сентября 2026 года.</b></p>
-            <p>Настоящая политика описывает обработку данных при использовании сайта Zenodrop.</p>
-            <h2>1. Какие данные обрабатываются</h2><p>Steam ID, отображаемое имя и аватар Steam, данные аккаунта Zenodrop, операции пополнения и вывода, а также технические данные, необходимые для работы сайта.</p>
-            <h2>2. Цели обработки</h2><p>Авторизация, ведение аккаунта, выполнение операций, предотвращение злоупотреблений, поддержка пользователей и обеспечение безопасности.</p>
-            <h2>3. Хранение</h2><p>Данные хранятся только в объёме, необходимом для работы сервиса и исполнения операций.</p>
-            <h2>4. Передача</h2><p>Данные могут передаваться техническим и платёжным провайдерам только в объёме, необходимом для соответствующей операции.</p>
-            <h2>5. Обращения</h2><p>Поддержка: ${SUPPORT_CONTACT}</p>` : pathname==='/terms' ? `
-            <h1>Пользовательское соглашение Zenodrop</h1>
-            <p><b>Дата актуализации: 9 сентября 2026 года.</b></p>
-            <h2>1. Общие положения</h2><p>Используя Zenodrop, пользователь подтверждает, что ознакомился с настоящим соглашением и принимает его условия.</p>
-            <h2>2. Аккаунт</h2><p>Для использования функций аккаунта требуется авторизация через Steam.</p>
-            <h2>3. Пополнение</h2><p>Перед оплатой пользователь видит выбранный тариф и конкретную сумму.</p>
-            <h2>4. Вывод</h2><p>Заявки на вывод обрабатываются в соответствии с правилами сервиса.</p>
-            <h2>5. Поддержка</h2><p>${SUPPORT_CONTACT}</p>` : `
-            <h1>Zenodrop — информация</h1><p><b>Актуально на 9 сентября 2026 года.</b></p>
-            <p><a href="/privacy">Политика конфиденциальности</a></p><p><a href="/terms">Пользовательское соглашение</a></p>`;
-        const page=`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{font-family:Arial,sans-serif;background:#0d0f17;color:#e8ecf4;max-width:820px;margin:0 auto;padding:32px;line-height:1.6}h1{color:#f59e0b}h2{color:#fff;margin-top:28px}a{color:#f7b32b}code{background:#1b2130;padding:3px 7px;border-radius:6px}</style></head><body>${body}<hr><p><a href="/info">← Вернуться к информации</a></p></body></html>`;
-        res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
-        return res.end(page);
-    }
-
-    res.writeHead(404);
-    res.end('Not found');
+  }catch(e){}
 });
 
-server.listen(PORT, () => {
-    console.log('Zenodrop running on port ' + PORT);
-    if(TG_TOKEN){ console.log('Admin TG enabled'); telegramStart(); } else { console.log('Admin TG disabled: no token'); }
-    if(PAY_TG_TOKEN){ console.log('Payment TG enabled'); paymentTelegramStart(); } else { console.log('Payment TG disabled: no token'); }
+window.addEventListener('pagehide',()=>{
+  if(!currentUser||!currentUser.steamid) return;
+  try{
+    const payload=JSON.stringify({
+      balance: currentUser.balance,
+      stats: {upgradesTotal: currentUser.stats.upgradesTotal, casesOpened: currentUser.stats.casesOpened},
+      inventory: currentUser.inventory,
+      bestDrop: currentUser.bestDrop
+    });
+    fetch('/api/account/sync',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',keepalive:true,body:payload}).catch(()=>{});
+  }catch(e){}
 });
+
+window.onload=initializeApp;
+</script>
+<footer style="margin:30px 12px 20px;padding:16px 0;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#687184;text-align:center;line-height:1.7"><a href="/info" style="color:#aab3c3;text-decoration:none">Информация</a> · <a href="/privacy" style="color:#aab3c3;text-decoration:none">Политика конфиденциальности</a> · <a href="/terms" style="color:#aab3c3;text-decoration:none">Пользовательское соглашение</a> · Поддержка: @Zenodropsupport<br><span style="color:#687184">Кодовое слово: Agetalp</span></footer>
+</body>
+</html>
