@@ -184,28 +184,28 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .inv-action-icon{width:15px;height:15px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.mini-action-btn:hover .inv-action-icon{stroke:#11131c}
 
 /* MP3 плеер */
-#mp3OpenBtn{background:#161924;color:#f59e0b;border:1px solid rgba(245,158,11,.35);width:38px;height:38px;border-radius:50%;font-size:16px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;flex-shrink:0}
+#mp3OpenBtn{background:#161924;color:#f59e0b;border:1px solid rgba(245,158,11,.35);width:34px;height:34px;border-radius:50%;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;flex-shrink:0}
 #mp3OpenBtn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b;box-shadow:0 0 14px rgba(245,158,11,.4)}
-.zeno-mp3-player{position:fixed;bottom:16px;right:16px;z-index:9998;background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(245,158,11,.35);border-radius:14px;padding:12px 14px;width:min(320px,calc(100vw - 32px));box-shadow:0 10px 40px rgba(0,0,0,.6);font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;display:none}
+.zeno-mp3-player{position:fixed;bottom:16px;right:16px;z-index:9998;background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(245,158,11,.35);border-radius:12px;padding:10px 12px;width:min(280px,calc(100vw - 32px));box-shadow:0 10px 40px rgba(0,0,0,.6);font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;display:none}
 .zeno-mp3-player.active{display:block;animation:mp3In .25s ease both}
 @keyframes mp3In{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.mp3-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;font-weight:900;color:#f59e0b;text-transform:uppercase;letter-spacing:.5px}
-.mp3-close{background:transparent;border:1px solid rgba(255,255,255,.1);color:#9ca3af;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;transition:.15s;padding:0}
+.mp3-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:10px;font-weight:900;color:#f59e0b;text-transform:uppercase;letter-spacing:.5px}
+.mp3-close{background:transparent;border:1px solid rgba(255,255,255,.1);color:#9ca3af;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;transition:.15s;padding:0}
 .mp3-close:hover{background:#f87171;color:#fff;border-color:#f87171}
-.mp3-track-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:150px;overflow-y:auto}
-.mp3-track{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;transition:.15s;border:1px solid transparent;gap:6px}
+.mp3-track-list{display:flex;flex-direction:column;gap:3px;margin-bottom:6px;max-height:130px;overflow-y:auto}
+.mp3-track{display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;transition:.15s;border:1px solid transparent;gap:4px}
 .mp3-track:hover{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2)}
 .mp3-track.active{background:rgba(245,158,11,.14);border-color:#f59e0b;color:#fbbf24}
 .mp3-track-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
-.mp3-track-play{background:#1a1f2e;border:1px solid rgba(255,255,255,.08);color:#f59e0b;min-width:44px;height:24px;border-radius:6px;cursor:pointer;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 6px;flex-shrink:0}
+.mp3-track-play{background:#1a1f2e;border:1px solid rgba(255,255,255,.08);color:#f59e0b;min-width:40px;height:20px;border-radius:4px;cursor:pointer;font-size:8px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 4px;flex-shrink:0;letter-spacing:.3px}
 .mp3-track-play:hover{background:#f59e0b;color:#11131c}
-.mp3-controls{display:flex;align-items:center;gap:6px;margin-top:6px}
-.mp3-ctrl-btn{background:#1a1f2e;border:1px solid rgba(255,255,255,.08);color:#f59e0b;min-width:60px;height:30px;border-radius:8px;cursor:pointer;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;transition:.15s;padding:0 8px;text-transform:uppercase}
+.mp3-controls{display:flex;align-items:center;gap:4px;margin-top:4px}
+.mp3-ctrl-btn{background:#1a1f2e;border:1px solid rgba(255,255,255,.08);color:#f59e0b;min-width:44px;height:24px;border-radius:6px;cursor:pointer;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;transition:.15s;padding:0 6px;text-transform:uppercase;letter-spacing:.3px}
 .mp3-ctrl-btn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b}
-#mp3Seek{flex:1;accent-color:#f59e0b;height:4px}
-#mp3Volume{width:60px;accent-color:#f59e0b;height:4px}
-#mp3Time{font-size:10px;color:#8d94a6;min-width:70px;text-align:center}
-@media (max-width:420px){.zeno-mp3-player{bottom:8px;right:8px;padding:9px 10px}#mp3OpenBtn{width:34px;height:34px;font-size:14px}}
+#mp3Seek{flex:1;accent-color:#f59e0b;height:3px}
+#mp3Volume{width:48px;accent-color:#f59e0b;height:3px}
+#mp3Time{font-size:9px;color:#8d94a6;min-width:60px;text-align:center}
+@media (max-width:420px){.zeno-mp3-player{bottom:8px;right:8px;padding:8px 9px}#mp3OpenBtn{width:30px;height:30px;font-size:12px}}
 </style>
 </head>
 <body>
@@ -308,17 +308,17 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
       <span class="mp3-track-name">The Limba — Ча ща</span>
       <button class="mp3-track-play">Играть</button>
     </div>
-    <div class="mp3-track" data-sc="https://m.soundcloud.com/zaralarssonofficial/lush-life">
+    <div class="mp3-track" data-sc="https://soundcloud.com/zaralarssonofficial/lush-life">
       <span class="mp3-track-name">Zara Larsson — Lush Life</span>
       <button class="mp3-track-play">Играть</button>
     </div>
-    <div class="mp3-track" data-sc="https://m.soundcloud.com/korol-saundklauda/tantsui-pantera-speed-up-2">
+    <div class="mp3-track" data-sc="https://soundcloud.com/korol-saundklauda/tantsui-pantera-speed-up-2">
       <span class="mp3-track-name">Kagramanov — Танцуй, пантера</span>
       <button class="mp3-track-play">Играть</button>
     </div>
   </div>
   <audio id="zenoAudio" preload="none" style="display:none"></audio>
-  <iframe id="zenoSC" width="100%" height="120" frameborder="0" allow="autoplay" style="display:none;border-radius:10px;margin-top:6px"></iframe>
+  <iframe id="zenoSC" width="100%" height="100" frameborder="0" allow="autoplay" style="display:none;border-radius:8px;margin-top:6px"></iframe>
   <div class="mp3-controls">
     <button class="mp3-ctrl-btn" id="mp3PlayBtn">Пауза</button>
     <input type="range" id="mp3Seek" value="0" min="0" max="100" step="0.1">
