@@ -303,8 +303,8 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
       <div class="mp3-tr" data-src="https://muzend.net/uploads/music/2026/08/The_Limba_Cha_sha.mp3">
         <span class="mp3-tr-name">The Limba — Ча ща</span>
       </div>
-      <div class="mp3-tr" data-ext="https://soundcloud.com/korol-saundklauda/tantsui-pantera-speed-up-2">
-        <span class="mp3-tr-name">Kagramanov — Танцуй, пантера ↗</span>
+      <div class="mp3-tr" data-sc="https://soundcloud.com/korol-saundklauda/tantsui-pantera-speed-up-2">
+        <span class="mp3-tr-name">Kagramanov — Танцуй, пантера</span>
       </div>
     </div>
     <div class="mp3-ctrl">
@@ -482,21 +482,10 @@ function isWithdrawalLocked(item){
 function ensureInventoryUids(user){if(!user||!Array.isArray(user.inventory))return;user.inventory.forEach(x=>{if(!x.uid)x.uid=newInventoryUid();});}
 
 function defaultUser(steamUser){
-  if(!steamUser || !steamUser.steamid){
-    return {
-      steamid: null,
-      username: '',
-      avatar: '',
-      balance: 0,
-      stats: {upgradesTotal:0, casesOpened:0, totalDeposited:0},
-      bestDrop: {name:'--', value:0, img:''},
-      inventory: []
-    };
-  }
   return {
-    steamid: steamUser.steamid,
-    username: steamUser.username || 'Steam',
-    avatar: steamUser.avatar || '',
+    steamid: steamUser ? steamUser.steamid : null,
+    username: steamUser ? steamUser.username : '',
+    avatar: steamUser ? steamUser.avatar : '',
     balance: 0,
     stats: {upgradesTotal:0, casesOpened:0, totalDeposited:0},
     bestDrop: {name:'--', value:0, img:''},
@@ -517,22 +506,30 @@ function normalizeUser(user, steamUser){
 }
 function findApiSkin(name){if(!name)return null;const n=cleanName(name).toLowerCase();return CATALOG_ITEMS.find(x=>x.name.toLowerCase()===n)||CATALOG_ITEMS.find(x=>x.name.toLowerCase().replace(/\s*\([^)]*\)$/,'')===n.replace(/\s*\([^)]*\)$/,''))||null}
 
-let __saveTimer=null;
-function saveUserData(){
-  if(!currentUser||!currentUser.steamid)return;
-  try{localStorage.setItem('zeno_local_user_'+currentUser.steamid,JSON.stringify(currentUser));}catch(e){}
-  if(__saveTimer)clearTimeout(__saveTimer);
-  __saveTimer=setTimeout(flushUserData,400);
+let __saveInFlight=false;
+let __savePending=false;
+
+async function saveUserData(){
+  if(!currentUser) return;
+  const storageKey='zeno_local_user_'+(currentUser.steamid||'anon');
+  try{ localStorage.setItem(storageKey, JSON.stringify(currentUser)); }catch(e){}
+  if(!currentUser.steamid) return;
+  if(__saveInFlight){ __savePending=true; return; }
+  await __doFlush();
+  if(__savePending){ __savePending=false; await __doFlush(); }
 }
-async function flushUserData(){
-  if(!currentUser||!currentUser.steamid)return;
+
+async function __doFlush(){
+  __saveInFlight=true;
   try{
     const r=await fetch('/api/account/sync',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
+      credentials:'same-origin',
+      keepalive:true,
       body:JSON.stringify({
         balance: currentUser.balance,
-        stats: currentUser.stats,
+        stats: {upgradesTotal: currentUser.stats.upgradesTotal, casesOpened: currentUser.stats.casesOpened},
         inventory: currentUser.inventory,
         bestDrop: currentUser.bestDrop
       })
@@ -542,11 +539,13 @@ async function flushUserData(){
       if(d?.user){
         currentUser.serverAccount=d.user;
         currentUser.balance=Number(d.user.balance)||0;
-        if(Array.isArray(d.user.inventory)&&d.user.inventory.length)currentUser.inventory=d.user.inventory;
-        if(d.user.bestDrop)currentUser.bestDrop=d.user.bestDrop;
+        if(Array.isArray(d.user.inventory)) currentUser.inventory=d.user.inventory;
+        if(d.user.bestDrop) currentUser.bestDrop=d.user.bestDrop;
+        if(d.user.stats) currentUser.stats={...currentUser.stats,...d.user.stats};
       }
     }
-  }catch(e){}
+  }catch(e){ console.warn('sync error:',e.message); }
+  finally { __saveInFlight=false; }
 }
 
 function initSteamAuth(){window.location.href='/auth/steam';}
@@ -559,7 +558,7 @@ function updateAuthUI(){
 async function initializeApp(){
   try{
     let steamUser=null;
-    try{const res=await fetch('/api/current-user',{cache:'no-store'});steamUser=await res.json();}catch(e){}
+    try{const res=await fetch('/api/current-user',{cache:'no-store',credentials:'same-origin'});steamUser=await res.json();}catch(e){}
     if(steamUser&&steamUser.steamid){
       currentUser=defaultUser(steamUser);
       if(steamUser.serverAccount){
@@ -572,7 +571,13 @@ async function initializeApp(){
         if(steamUser.serverAccount.stats)currentUser.stats={...currentUser.stats,...steamUser.serverAccount.stats};
       }
       ensureInventoryUids(currentUser);
-    }else currentUser=defaultUser(null);
+    }else{
+      let anon=null;
+      try{ anon=JSON.parse(localStorage.getItem('zeno_local_user_anon')||'null'); }catch(e){}
+      currentUser = anon ? normalizeUser(anon, null) : defaultUser(null);
+      currentUser.steamid = null;
+      ensureInventoryUids(currentUser);
+    }
 
     loadUsdRubRate().catch(()=>{});
     const cached=loadSelectedCatalog();
@@ -776,26 +781,10 @@ async function startOpening(count){
   isCaseSpinning=true;
   document.getElementById('caseActionsPanel').style.display='none';
   document.getElementById('actionButtons').style.display='none';
-  track.style.transition='none';track.style.transform='translate3d(0,0,0)';
+  track.style.transition='none';
+  track.style.transform='translate3d(0,0,0)';
 
-  const fakeIdx=Math.floor(Math.random()*activeCase.items.length);
-  const itemWidth=112,gap=12,leftPad=6,step=itemWidth+gap;
-  const cycles=5;
-  const containerWidth=document.querySelector('.roulette-container')?.clientWidth||360;
-  const center=(containerWidth-itemWidth)/2;
-  const isFast=document.getElementById('fastCaseCheckbox').checked;
-  const animDuration=isFast?800:4200;
-  setTimeout(()=>{
-    track.style.transition=`transform ${animDuration/1000}s cubic-bezier(.15,.85,.35,1)`;
-    track.style.transform=`translate3d(-${cycles*activeCase.items.length*step+(leftPad+fakeIdx*step)-center}px,0,0)`;
-  },50);
-
-  let spinTicks=0;
-  const spinInterval=setInterval(()=>{
-    playCaseSpinTick();spinTicks++;
-    if(spinTicks>(isFast?8:32))clearInterval(spinInterval);
-  },isFast?50:110);
-
+  // 1. СНАЧАЛА запрос к серверу
   currentWonItemsList=[];
   const payloadSkins=activeCase.items.map(x=>({id:x.id,name:x.name,value:x.value,img:x.img}));
   let serverBalance=currentUser.balance;
@@ -811,31 +800,58 @@ async function startOpening(count){
       const d=await r.json();
       if(!r.ok){ serverError=d.error||'open_failed'; break; }
       serverBalance=Number(d.balance);
-      const won=findApiSkin(d.skin.name)||d.skin;
+      const idxInPool=activeCase.items.findIndex(x=>x.name===d.skin.name);
+      const poolItem=idxInPool>=0?activeCase.items[idxInPool]:(findApiSkin(d.skin.name)||d.skin);
       currentWonItemsList.push({
-        id: won.id||d.skin.id||('skin_'+stableHash(d.skin.name).toString(36)),
-        name: d.skin.name||won.name,
+        id: poolItem.id||d.skin.id||('skin_'+stableHash(d.skin.name).toString(36)),
+        name: poolItem.name||d.skin.name,
         category:'skins',
-        value: Number(d.skin.value ?? won.value ?? 0),
-        img: d.skin.img||won.img,
+        value: Number(d.skin.value ?? poolItem.value ?? 0),
+        img: poolItem.img||d.skin.img,
         uid: newInventoryUid()
       });
     }
   }catch(e){ serverError=e.message; }
 
+  if(serverError){
+    isCaseSpinning=false;
+    document.getElementById('caseActionsPanel').style.display='flex';
+    silentNotice(serverError==='insufficient_balance'?'Недостаточно средств!':serverError,'error');
+    renderGrid();updateUI();
+    return;
+  }
+
+  // 2. Теперь знаем точный выигрыш — крутим ровно на него
+  currentUser.balance=serverBalance;
+  currentWonItem=currentWonItemsList[0];
+
+  let winIdx=activeCase.items.findIndex(x=>x.id===currentWonItem.id);
+  if(winIdx<0) winIdx=activeCase.items.findIndex(x=>x.name===currentWonItem.name);
+  if(winIdx<0) winIdx=0;
+
+  const itemWidth=112,gap=12,leftPad=6,step=itemWidth+gap;
+  const cycles=5;
+  const containerWidth=document.querySelector('.roulette-container')?.clientWidth||360;
+  const center=(containerWidth-itemWidth)/2;
+  const isFast=document.getElementById('fastCaseCheckbox').checked;
+  const animDuration=isFast?800:4200;
+
+  setTimeout(()=>{
+    track.style.transition=`transform ${animDuration/1000}s cubic-bezier(.15,.85,.35,1)`;
+    const targetX=leftPad+winIdx*step;
+    track.style.transform=`translate3d(-${cycles*activeCase.items.length*step+targetX-center}px,0,0)`;
+  },50);
+
+  let spinTicks=0;
+  const spinInterval=setInterval(()=>{
+    playCaseSpinTick();spinTicks++;
+    if(spinTicks>(isFast?8:32))clearInterval(spinInterval);
+  },isFast?50:110);
+
   setTimeout(async()=>{
     clearInterval(spinInterval);
     isCaseSpinning=false;
-    if(serverError){
-      document.getElementById('caseActionsPanel').style.display='flex';
-      silentNotice(serverError==='insufficient_balance'?'Недостаточно средств!':serverError,'error');
-      renderGrid();updateUI();
-      return;
-    }
-    currentUser.balance=serverBalance;
     currentUser.stats.casesOpened+=count;
-    saveUserData();
-    currentWonItem=currentWonItemsList[0];
     let totalWonSum=0;
     currentWonItemsList.forEach(item=>{
       currentUser.inventory.push({...item});
@@ -1056,11 +1072,6 @@ function mp3LoadTrack(i){
   mp3CurrentIdx=i;
   mp3HasLoaded = true;
   if(mp3NowEl) mp3NowEl.textContent = t.querySelector('.mp3-tr-name')?.textContent || 'Музыка';
-  if(t.dataset.ext){
-    window.open(t.dataset.ext, '_blank', 'noopener');
-    mp3SetPlayIcon(false);
-    return;
-  }
   if(t.dataset.src){
     mp3SC.style.display='none';
     mp3Audio.style.display='block';
@@ -1099,6 +1110,34 @@ mp3Audio.addEventListener('pause',()=>mp3SetPlayIcon(false));
 mp3Seek.addEventListener('input',()=>{ if(mp3Audio.duration) mp3Audio.currentTime=(mp3Seek.value/100)*mp3Audio.duration; });
 mp3Vol.addEventListener('input',()=>{ mp3Audio.volume=mp3Vol.value; });
 mp3Audio.addEventListener('ended',()=>mp3LoadTrack((mp3CurrentIdx+1)%mp3Tracks.length));
+
+window.addEventListener('beforeunload',()=>{
+  if(!currentUser||!currentUser.steamid) return;
+  try{
+    const payload=JSON.stringify({
+      balance: currentUser.balance,
+      stats: {upgradesTotal: currentUser.stats.upgradesTotal, casesOpened: currentUser.stats.casesOpened},
+      inventory: currentUser.inventory,
+      bestDrop: currentUser.bestDrop
+    });
+    if(navigator.sendBeacon){
+      navigator.sendBeacon('/api/account/sync', new Blob([payload],{type:'application/json'}));
+    }
+  }catch(e){}
+});
+
+window.addEventListener('pagehide',()=>{
+  if(!currentUser||!currentUser.steamid) return;
+  try{
+    const payload=JSON.stringify({
+      balance: currentUser.balance,
+      stats: {upgradesTotal: currentUser.stats.upgradesTotal, casesOpened: currentUser.stats.casesOpened},
+      inventory: currentUser.inventory,
+      bestDrop: currentUser.bestDrop
+    });
+    fetch('/api/account/sync',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',keepalive:true,body:payload}).catch(()=>{});
+  }catch(e){}
+});
 
 window.onload=initializeApp;
 </script>
