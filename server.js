@@ -133,7 +133,7 @@ function weightedRandom(skins){
     return normal[normal.length - 1];
   }
 }
-}
+
 
 function openCase(caseData,skins){
   if(!caseData || !Array.isArray(skins) || !skins.length)return null;
@@ -190,7 +190,6 @@ function upgrade(chance, steamid, targetPrice) {
   if (real < 0.3) real = 0.3;
   if (real > 99)  real = 99;
   return Math.random() * 100 < real;
-}
 }
 
 const PAY_TG_WEBHOOK_URL = (process.env.TELEGRAM_PAYMENT_WEBHOOK_URL || ((process.env.RENDER_EXTERNAL_URL || '').trim() ? (process.env.RENDER_EXTERNAL_URL.trim().replace(/\/$/,'') + '/telegram/payment-webhook') : '')).trim();
