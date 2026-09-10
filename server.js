@@ -51,10 +51,18 @@ const PAY_TG_TOKEN = (process.env.TELEGRAM_PAYMENT_BOT_TOKEN || '').trim();
 const PAY_TG_BOT_URL = (process.env.TELEGRAM_PAYMENT_BOT_URL || 'https://t.me/ZenodropPayBot').trim();
 const SUPPORT_CONTACT = '@Zenodropsupport';
 
+// ============================================================
+//  КЕЙСЫ
+//  basic/premium/expensive — базовые тарифы.
+//  elite/legendary — крупные тарифы, где окупаемость реализована
+//  через RTP-подгонку (см. fitToRtp).
+// ============================================================
 const CASES = {
-  basic: { price: 100, rtp: 0.85 },
-  premium: { price: 500, rtp: 0.88 },
-  expensive: { price: 1000, rtp: 0.90 }
+  basic:     { price: 100,   rtp: 0.85 },
+  premium:   { price: 500,   rtp: 0.88 },
+  expensive: { price: 1000,  rtp: 0.90 },
+  elite:     { price: 5000,  rtp: 0.92 },
+  legendary: { price: 10000, rtp: 0.94 }
 };
 
 function normalizeWeights(skins){
@@ -65,12 +73,62 @@ function normalizeWeights(skins){
   return list.map(skin=>({...skin,weight:Number(skin?.weight||0)/total}));
 }
 
-// ============================================================
-//  КЕЙСЫ С УЧЁТОМ ЦЕНЫ КЕЙСА
-//  - 13₽ кейс: дорогие скины почти не выпадают.
-//  - 10к кейс: иногда даёт 10–11.5к (окупается).
-// ============================================================
-function weightedRandom(skins, casePrice){
+// Каталог отдаёт цену в usd. Не теряем её в weight-логике.
+function itemPrice(s){
+  const v = Number(s?.price ?? s?.value ?? s?.usd ?? 0);
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
+
+// Модификаторы шанса в зависимости от цены скина и цены кейса.
+function applyCaseTierModifiers(price, cp){
+  if (cp <= 100) {
+    if (price >= 500)      return 0.02;
+    if (price >= 100)      return 0.15;
+    if (price >= 30)       return 0.6;
+    return 1.3;
+  }
+  if (cp <= 1000) {
+    if (price >= cp * 5)   return 0.1;
+    if (price >= cp * 2)   return 0.4;
+    if (price >= cp)       return 0.9;
+    return 1.1;
+  }
+  if (cp < 5000) {
+    if (price >= cp * 3)   return 0.15;
+    if (price >= cp * 1.5) return 0.5;
+    if (price >= cp)       return 1.0;
+    return 1.2;
+  }
+  // 5000..10000 и выше
+  if (price >= cp * 2.5)                             return 0.05;
+  if (price >= cp * 1.5)                             return 0.2;
+  if (price >= cp && price < cp * 1.15)              return 1.5;
+  if (price >= cp * 0.9 && price < cp)               return 1.3;
+  if (price < cp * 0.5)                              return 0.8;
+  return 1.0;
+}
+
+// Подгонка RTP: тянем мат.ожидание выигрыша к cp * rtp.
+// Дорогие скины (>= cp) сжимаются/расширяются сильнее дешёвых,
+// чтобы шанс джекпота не раздувался.
+function fitToRtp(list, cp, rtp){
+  if (!list.length || !cp || !rtp) return list;
+  const ev = list.reduce((s,x) => s + x.weight * itemPrice(x), 0);
+  if (ev <= 0) return list;
+  const target = cp * rtp;
+  const k = target / ev;
+
+  return list.map(x => {
+    const p = itemPrice(x);
+    let factor;
+    if (p >= cp)          factor = Math.pow(k, 1.6);
+    else if (p >= cp*0.5) factor = Math.pow(k, 1.0);
+    else                  factor = Math.pow(k, 0.6);
+    return { ...x, weight: Math.max(1e-9, x.weight * factor) };
+  });
+}
+
+function weightedRandom(skins, casePrice, opts){
   if(!Array.isArray(skins) || !skins.length) return null;
 
   const cp = Number(casePrice || 0);
@@ -82,55 +140,46 @@ function weightedRandom(skins, casePrice){
   }));
 
   list = list.map(s => {
-    const price = Number(s.price || s.value || 0);
-    let w = s.weight;
-
-    if (cp <= 100) {
-      if (price >= 500)       w *= 0.02;
-      else if (price >= 100)  w *= 0.15;
-      else if (price >= 30)   w *= 0.6;
-      else                    w *= 1.3;
-    } else if (cp <= 1000) {
-      if (price >= cp * 5)    w *= 0.1;
-      else if (price >= cp*2) w *= 0.4;
-      else if (price >= cp)   w *= 0.9;
-      else                    w *= 1.1;
-    } else if (cp < 5000) {
-      if (price >= cp * 3)      w *= 0.15;
-      else if (price >= cp*1.5) w *= 0.5;
-      else if (price >= cp)     w *= 1.0;
-      else                      w *= 1.2;
-    } else {
-      if (price >= cp * 2.5)                          w *= 0.05;
-      else if (price >= cp * 1.5)                     w *= 0.2;
-      else if (price >= cp * 1.0 && price < cp * 1.15) w *= 1.5;
-      else if (price >= cp * 0.9 && price < cp * 1.0)  w *= 1.3;
-      else if (price < cp * 0.5)                      w *= 0.8;
-    }
-    return { ...s, weight: w };
+    const price = itemPrice(s);
+    const w = s.weight * applyCaseTierModifiers(price, cp);
+    return { ...s, weight: w, _price: price };
   });
 
+  const rtp = Number(opts?.rtp || 0);
+  if (rtp > 0 && cp > 0) list = fitToRtp(list, cp, rtp);
+
   const total2 = list.reduce((sum, x) => sum + x.weight, 0);
-  if (total2 <= 0) return list[list.length - 1];
+  if (total2 <= 0) {
+    const fallback = list[list.length - 1];
+    if (!fallback) return null;
+    const { _price, ...rest } = fallback;
+    return rest;
+  }
+
+  list = list.map(x => {
+    const { _price, ...rest } = x;
+    return { ...rest, weight: x.weight / total2 };
+  });
 
   const roll = Math.random();
   let cur = 0;
   for (const skin of list) {
-    cur += skin.weight / total2;
+    cur += skin.weight;
     if (roll <= cur) return skin;
   }
   return list[list.length - 1];
 }
 
-function openCase(caseData,skins){
-  if(!caseData || !Array.isArray(skins) || !skins.length)return null;
-  const casePrice = Number(caseData?.price || caseData?.cost || 0);
-  return weightedRandom(skins, casePrice);
+function openCase(caseKey, skins){
+  const cfg = CASES[String(caseKey)];
+  if (!cfg || !Array.isArray(skins) || !skins.length) return null;
+  const skin = weightedRandom(skins, cfg.price, { rtp: cfg.rtp });
+  if (!skin) return null;
+  return { skin, price: cfg.price, rtp: cfg.rtp };
 }
 
 // ============================================================
-//  АПГРЕЙД: сжатие высоких шансов + слив дорогих скинов
-//  70% → ~54%, 75% → ~55%, 100% → 60%. Скины >20к — максимум 30%.
+//  АПГРЕЙД
 // ============================================================
 const LUCK_MAP = new Map();
 
@@ -353,6 +402,7 @@ function infoText(){
   return `<b>Zenodrop — информация</b>\n\n<b>Политика конфиденциальности:</b> <a href="/privacy">открыть</a>\n<b>Пользовательское соглашение:</b> <a href="/terms">открыть</a>\n\n<b>Тарифы и оплата</b>\n100 ₽ · 500 ₽ · 1 000 ₽ · 5 000 ₽ · и другие суммы.\nСБП: 14%.\nКриптоплатежи: 5%.\n\n<b>Поддержка:</b> ${SUPPORT_CONTACT}`;
 }
 
+// Тестовые пополнения удалены полностью.
 async function processPaymentTelegramUpdate(u){
   if(u.callback_query){
     const q=u.callback_query, chatId=String(q.from?.id||q.message?.chat?.id||'');
@@ -363,20 +413,6 @@ async function processPaymentTelegramUpdate(u){
       await tgPay('answerCallbackQuery',{callback_query_id:q.id});
       if(!user) return tgPay('sendMessage',{chat_id:chatId,text:'Аккаунт не привязан.'});
       return tgPay('sendMessage',{chat_id:chatId,text:`<b>Профиль Zenodrop</b>\n\nID: <code>${ensureZenodropId(user)}</code>\nSteam ID: <code>${user.steamid}</code>\nБаланс: <b>${Number(user.balance||0).toFixed(2)} ₽</b>`,parse_mode:'HTML'});
-    }
-    if(d.startsWith('pay:test:')){
-      const amount=Number(d.split(':')[2]);
-      const steam=findSteamByTelegram(chatId), user=steam?ensureUser(steam):null;
-      if(!user || !Number.isFinite(amount) || amount<=0 || amount>10000){
-        await tgPay('answerCallbackQuery',{callback_query_id:q.id,text:'Сначала привяжите аккаунт.',show_alert:true});
-        return;
-      }
-      user.balance=Number(user.balance||0)+amount;
-      user.stats=user.stats||{totalDeposited:0};
-      user.stats.totalDeposited=Number(user.stats.totalDeposited||0)+amount;
-      saveStore();
-      await tgPay('answerCallbackQuery',{callback_query_id:q.id,text:`+${amount} ₽ начислено`});
-      return tgPay('sendMessage',{chat_id:chatId,text:`✅ Тестовое пополнение +${amount.toFixed(2)} ₽\nБаланс: <b>${Number(user.balance).toFixed(2)} ₽</b>`,parse_mode:'HTML'});
     }
     if(d==='pay:topup'){ await tgPay('answerCallbackQuery',{callback_query_id:q.id}); return sendPaymentMenu(chatId); }
     return tgPay('answerCallbackQuery',{callback_query_id:q.id});
@@ -417,7 +453,7 @@ async function processPaymentTelegramUpdate(u){
 async function sendPaymentMenu(chatId){
   const steam=findSteamByTelegram(chatId), user=steam?ensureUser(steam):null;
   const id=user?ensureZenodropId(user):null;
-  return tgPay('sendMessage',{chat_id:chatId,text:`<b>Zenodrop — Пополнение</b>\n\n${id?`Ваш ID: <code>${id}</code>\nБаланс: <b>${Number(user.balance||0).toFixed(2)} ₽</b>\n\n`:'Откройте пополнение через Telegram с сайта.\n\n'}Выберите действие:`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[ {text:'💰 Пополнить',callback_data:'pay:topup'}, {text:'👤 Профиль',callback_data:'pay:profile'} ],[ {text:'🧪 Тест +100 ₽',callback_data:'pay:test:100'}, {text:'🧪 Тест +500 ₽',callback_data:'pay:test:500'} ],[ {text:'🧪 Тест +1000 ₽',callback_data:'pay:test:1000'} ]]}});
+  return tgPay('sendMessage',{chat_id:chatId,text:`<b>Zenodrop — Пополнение</b>\n\n${id?`Ваш ID: <code>${id}</code>\nБаланс: <b>${Number(user.balance||0).toFixed(2)} ₽</b>\n\n`:'Откройте пополнение через Telegram с сайта.\n\n'}Выберите действие:`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[ {text:'💰 Пополнить',callback_data:'pay:topup'}, {text:'👤 Профиль',callback_data:'pay:profile'} ]]}});
 }
 
 async function paymentTelegramStart(){
@@ -798,6 +834,53 @@ const server = http.createServer(async (req, res) => {
             return res.end(JSON.stringify({ok:true,success:result,chance}));
         }catch(e){
             console.error('Upgrade roll error:',e.message);
+            res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
+            return res.end(JSON.stringify({error:'invalid_json'}));
+        }
+    }
+
+    // CASE OPEN
+    if(pathname==='/api/case/open' && req.method==='POST'){
+        if(!sessionUser?.steamid){
+            res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});
+            return res.end(JSON.stringify({error:'auth_required'}));
+        }
+        try{
+            const body=await readJson(req);
+            const caseKey=String(body.case||'');
+            const skins=Array.isArray(body.skins)?body.skins:[];
+            const cfg=CASES[caseKey];
+            if(!cfg){
+                res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
+                return res.end(JSON.stringify({error:'invalid_case'}));
+            }
+            if(!skins.length){
+                res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
+                return res.end(JSON.stringify({error:'empty_pool'}));
+            }
+            const user=ensureUser(sessionUser.steamid);
+            ensureZenodropId(user);
+            if(Number(user.balance||0) < cfg.price){
+                res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
+                return res.end(JSON.stringify({error:'insufficient_balance',balance:Number(user.balance||0),price:cfg.price}));
+            }
+            const result=openCase(caseKey, skins);
+            if(!result || !result.skin){
+                res.writeHead(500,{'Content-Type':'application/json','Cache-Control':'no-store'});
+                return res.end(JSON.stringify({error:'roll_failed'}));
+            }
+            user.balance = Number(user.balance||0) - cfg.price;
+            saveStore();
+            res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
+            return res.end(JSON.stringify({
+                ok:true,
+                case:caseKey,
+                price:cfg.price,
+                skin:result.skin,
+                balance:user.balance
+            }));
+        }catch(e){
+            console.error('Case open error:',e.message);
             res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
             return res.end(JSON.stringify({error:'invalid_json'}));
         }
