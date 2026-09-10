@@ -75,16 +75,64 @@ function normalizeWeights(skins){
   return list.map(skin=>({...skin,weight:Number(skin?.weight||0)/total}));
 }
 
+// ============================================================
+//  КЕЙСЫ С ФИКСИРОВАННЫМ ШАНСОМ НА ДОРОГОЙ ДРОП
+//  - Скины дороже 13 000 ₽ — суммарный шанс ровно 10%.
+//  - Остальные 90% — скины до 13 000 ₽ (по весам).
+// ============================================================
 function weightedRandom(skins){
-  const normalized=normalizeWeights(skins);
-  if(!normalized.length)return null;
-  const roll=Math.random();
-  let current=0;
-  for(const skin of normalized){
-    current+=skin.weight;
-    if(roll<=current)return skin;
+  if(!Array.isArray(skins) || !skins.length) return null;
+
+  const THRESHOLD = 13000;   // порог дорогого дропа
+  const RARE_CHANCE = 0.10;  // 10% на весь дорогой пул
+
+  const expensive = skins.filter(s => Number(s.price || s.value || 0) >= THRESHOLD);
+  const normal    = skins.filter(s => Number(s.price || s.value || 0) <  THRESHOLD);
+
+  // Если дорогих нет — обычный взвешенный рандом
+  if(!expensive.length){
+    const total = normal.reduce((s, x) => s + Number(x.weight || 0), 0);
+    if(total <= 0) return normal[Math.floor(Math.random() * normal.length)];
+    const roll = Math.random() * total;
+    let cur = 0;
+    for(const s of normal){
+      cur += Number(s.weight || 0);
+      if(roll <= cur) return s;
+    }
+    return normal[normal.length - 1];
   }
-  return normalized[normalized.length-1];
+
+  // Если обычных нет — просто дорогие
+  if(!normal.length){
+    return expensive[Math.floor(Math.random() * expensive.length)];
+  }
+
+  const roll = Math.random();
+
+  if(roll < RARE_CHANCE){
+    // Попали в 10% — выбираем дорогой скин пропорционально весам
+    const total = expensive.reduce((s, x) => s + Number(x.weight || 0), 0);
+    if(total <= 0) return expensive[Math.floor(Math.random() * expensive.length)];
+    let cur = 0;
+    const r2 = Math.random() * total;
+    for(const s of expensive){
+      cur += Number(s.weight || 0);
+      if(r2 <= cur) return s;
+    }
+    return expensive[expensive.length - 1];
+  } else {
+    // 90% — обычный скин
+    const total = normal.reduce((s, x) => s + Number(x.weight || 0), 0);
+    if(total <= 0) return normal[Math.floor(Math.random() * normal.length)];
+    let cur = 0;
+    const r2 = Math.random() * total;
+    for(const s of normal){
+      cur += Number(s.weight || 0);
+      if(r2 <= cur) return s;
+    }
+    return normal[normal.length - 1];
+  }
+}
 }
 
 function openCase(caseData,skins){
@@ -95,11 +143,54 @@ function openCase(caseData,skins){
 // Серверный бросок апгрейда: использует ровно переданный шанс.
 // Здесь нет скрытого персонального коэффициента — результат одинаково
 // рассчитывается для всех игроков при одинаковом отображаемом шансе.
-function upgrade(chance){
-  chance=Number(chance);
-  if(!Number.isFinite(chance))return false;
-  chance=Math.max(0,Math.min(100,chance));
-  return Math.random()*100<chance;
+// ============================================================
+//  ПЕРСОНАЛЬНАЯ УДАЧА + СЛИВ ДОРОГИХ АПГРЕЙДОВ
+//  30% игроков — сбривает (шанс/3), 20% — чуть плюс (шанс*1.3),
+//  50% — как есть.
+//  Всё, что дороже 20 000 ₽ — максимум 30% шанс.
+//  Если игрок выставил меньше 30% — остаётся как выставил.
+// ============================================================
+const LUCK_MAP = new Map();
+
+function getPlayerLuck(steamid) {
+  const id = String(steamid || '');
+  if (!id) return 1.0;
+  if (LUCK_MAP.has(id)) return LUCK_MAP.get(id);
+  const hash = crypto.createHash('sha256').update('zenodrop_luck:' + id).digest();
+  const r = hash[0] / 255;
+  let luck;
+  if (r < 0.30)      luck = 1 / 3;
+  else if (r < 0.50) luck = 1.3;
+  else               luck = 1.0;
+  LUCK_MAP.set(id, luck);
+  return luck;
+}
+
+function upgrade(chance, steamid, targetPrice) {
+  chance = Number(chance);
+  if (!Number.isFinite(chance)) return false;
+
+  const price = Number(targetPrice || 0);
+
+  // Для дорогих скинов (> 20к) — ограничиваем максимальный шанс 30%
+  if (price > 20000) {
+    const capped = Math.min(chance, 30);
+    return Math.random() * 100 < capped;
+  }
+
+  // Обычная логика: удача + слив
+  const luck = getPlayerLuck(steamid);
+  let real = chance * luck;
+
+  if (price >= 13000)      real *= 0.10;
+  else if (price >= 10000) real *= 0.15;
+  else if (price >= 5000)  real *= 0.35;
+  else if (price >= 2000)  real *= 0.65;
+
+  if (real < 0.3) real = 0.3;
+  if (real > 99)  real = 99;
+  return Math.random() * 100 < real;
+}
 }
 
 const PAY_TG_WEBHOOK_URL = (process.env.TELEGRAM_PAYMENT_WEBHOOK_URL || ((process.env.RENDER_EXTERNAL_URL || '').trim() ? (process.env.RENDER_EXTERNAL_URL.trim().replace(/\/$/,'') + '/telegram/payment-webhook') : '')).trim();
