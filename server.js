@@ -53,16 +53,24 @@ const SUPPORT_CONTACT = '@Zenodropsupport';
 
 // ============================================================
 //  КЕЙСЫ
-//   micro 13₽: масса дешёвых (до 20₽), иногда неокуп.
-//   legendary 10к: ядро 8–14к, слив 5–8к реже, джекпоты редки.
+//  micro 13₽    — масса дешёвых (до 20₽), часто неокуп
+//  basic 100₽   — ядро 80–120₽, потолок слива ~20₽
+//  small 250₽   — ядро 200–300₽, слив максимум ~40₽
+//  premium 500₽ — ядро 450–600₽, слив максимум ~70₽, +100₽ не редко
+//  expensive 1000₽ — ядро 900–1200₽
+//  elite 2500₽  — ядро 2300–2900₽
+//  legendary 5000₽ — ядро 4600–5800₽
+//  titan 10000₽ — ядро 8000–14000₽ (для крупных)
 // ============================================================
 const CASES = {
   micro:     { price: 13,    rtp: 0.72 },
-  basic:     { price: 100,   rtp: 0.85 },
-  premium:   { price: 500,   rtp: 0.88 },
-  expensive: { price: 1000,  rtp: 0.90 },
-  elite:     { price: 5000,  rtp: 0.92 },
-  legendary: { price: 10000, rtp: 0.94 }
+  basic:     { price: 100,   rtp: 0.90 },
+  small:     { price: 250,   rtp: 0.92 },
+  premium:   { price: 500,   rtp: 0.94 },
+  expensive: { price: 1000,  rtp: 0.95 },
+  elite:     { price: 2500,  rtp: 0.95 },
+  legendary: { price: 5000,  rtp: 0.96 },
+  titan:     { price: 10000, rtp: 0.94 }
 };
 
 function itemPrice(s){
@@ -70,20 +78,59 @@ function itemPrice(s){
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
+// Мягкая подгонка RTP. Работает только в одну сторону: если естественный EV
+// выше целевого, дорогие скины приглушаются. Если EV уже ниже — не трогаем
+// (house edge в пользу казино, но не через искусственное раздувание джекпотов).
 function fitToRtp(list, cp, rtp){
   if (!list.length || !cp || !rtp) return list;
   const ev = list.reduce((s,x) => s + x.weight * itemPrice(x), 0);
   if (ev <= 0) return list;
-  const k = (cp * rtp) / ev;
+  const target = cp * rtp;
+  if (ev <= target) return list;
+  const k = target / ev; // k < 1
   return list.map(x => {
     const p = itemPrice(x);
-    let factor;
-    if (p >= cp * 2)      factor = Math.pow(k, 1.8);
-    else if (p >= cp)     factor = Math.pow(k, 1.4);
-    else if (p >= cp*0.5) factor = Math.pow(k, 1.0);
-    else                  factor = Math.pow(k, 0.5);
-    return { ...x, weight: Math.max(1e-9, x.weight * factor) };
+    const exp = p >= cp * 1.5 ? 1.6 : p >= cp ? 1.0 : 0.4;
+    return { ...x, weight: Math.max(1e-9, x.weight * Math.pow(k, exp)) };
   });
+}
+
+// Вес по относительной цене r = price / cp.
+// Настроено так, чтобы «слив» был ограничен сверху, а ядро — около номинала.
+function rangeWeight(price, cp){
+  const r = cp > 0 ? price / cp : 0;
+
+  // Сильный слив — очень редко
+  if (r < 0.80) return 0.02;
+  if (r < 0.86) return 0.20;
+
+  // Умеренный слив — частый, но с потолком (примерно cp*0.86 = максимум слива)
+  if (r < 0.90) return 0.60;
+  if (r < 0.96) return 1.40;
+  if (r < 1.00) return 1.80;
+
+  // Ядро — небольшой плюс (примерно +0…+20% от cp)
+  if (r < 1.08) return 2.60;
+  if (r < 1.20) return 1.80;
+
+  // Заметный плюс — реже
+  if (r < 1.50) return 0.60;
+  if (r < 1.80) return 0.15;
+
+  // Большой плюс — очень редко
+  if (r < 3.00) return 0.04;
+  if (r < 5.00) return 0.008;
+  return 0.001;
+}
+
+// Отдельная ветка для микро (13₽) — там своя логика: масса дешёвых до 20₽.
+function microWeight(price){
+  if (price <= 8)   return 6.0;
+  if (price <= 20)  return 3.2;
+  if (price <= 40)  return 0.55;
+  if (price <= 80)  return 0.15;
+  if (price <= 150) return 0.03;
+  return 0.005;
 }
 
 function weightedRandom(skins, casePrice){
@@ -99,58 +146,8 @@ function weightedRandom(skins, casePrice){
 
   list = list.map(s => {
     const price = itemPrice(s);
-    let w = s.weight;
-    const r = cp > 0 ? price / cp : 0;
-
-    if (cp <= 20) {
-      // 13₽: масса дешёвых до 20₽, иногда полный неокуп
-      if      (price <= 8)   w *= 6.0;
-      else if (price <= 20)  w *= 3.2;
-      else if (price <= 40)  w *= 0.55;
-      else if (price <= 80)  w *= 0.15;
-      else if (price <= 150) w *= 0.03;
-      else                   w *= 0.005;
-
-    } else if (cp <= 150) {
-      // 100₽
-      if      (price <= cp * 0.4) w *= 3.0;
-      else if (price <= cp * 0.9) w *= 1.4;
-      else if (price <= cp * 1.2) w *= 0.9;
-      else if (price <= cp * 3)   w *= 0.25;
-      else if (price <= cp * 8)   w *= 0.05;
-      else                        w *= 0.01;
-
-    } else if (cp <= 1200) {
-      // 500 / 1000₽
-      if      (price <= cp * 0.5)  w *= 2.0;
-      else if (price <= cp * 0.9)  w *= 1.3;
-      else if (price <= cp * 1.15) w *= 1.0;
-      else if (price <= cp * 2.5)  w *= 0.35;
-      else if (price <= cp * 6)    w *= 0.08;
-      else                         w *= 0.02;
-
-    } else if (cp < 7000) {
-      // 5000₽
-      if      (price <= cp * 0.6)  w *= 1.4;
-      else if (price <= cp * 0.95) w *= 1.2;
-      else if (price <= cp * 1.15) w *= 1.3;
-      else if (price <= cp * 1.6)  w *= 0.5;
-      else if (price <= cp * 2.5)  w *= 0.1;
-      else                         w *= 0.02;
-
-    } else {
-      // 10000₽: ядро 0.8–1.4×, слив 0.5–0.8× реже, джекпоты редки
-      if (r < 0.5)         w *= 0.15;  // < 5k — сильный слив (редко)
-      else if (r < 0.8)    w *= 0.9;   // 5–8k — слив
-      else if (r < 1.0)    w *= 2.2;   // 8–10k — неокуп, близко к номиналу
-      else if (r < 1.15)   w *= 2.6;   // 10–11.5k — лёгкий плюс, основной поток
-      else if (r < 1.4)    w *= 1.6;   // 11.5–14k — заметный плюс
-      else if (r < 2.0)    w *= 0.25;  // 14–20k — редко
-      else if (r < 3.0)    w *= 0.04;  // 20–30k — очень редко
-      else                 w *= 0.005; // > 30k — джекпот
-    }
-
-    return { ...s, weight: Math.max(1e-9, w), _price: price };
+    const m = cp <= 20 ? microWeight(price) : rangeWeight(price, cp);
+    return { ...s, weight: Math.max(1e-9, s.weight * m), _price: price };
   });
 
   const rtp = Number(CASES[Object.keys(CASES).find(k => CASES[k].price === cp)]?.rtp || 0);
@@ -841,7 +838,7 @@ const server = http.createServer(async (req, res) => {
 
     if(pathname==='/api/config' && req.method==='GET'){
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-        return res.end(JSON.stringify({telegramBotUrl:TG_BOT_URL||null,paymentTelegramBotUrl:PAY_TG_BOT_URL||'https://t.me/ZenodropPayBot'}));
+        return res.end(JSON.stringify({telegramBotUrl:TG_BOT_URL||null,paymentTelegramBotUrl:PAY_TG_BOT_URL||'https://t.me/ZenodropPayBot',cases:CASES}));
     }
 
     if(pathname==='/api/promos' && req.method==='GET'){
