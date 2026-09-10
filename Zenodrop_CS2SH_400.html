@@ -303,8 +303,8 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
       <div class="mp3-tr" data-src="https://muzend.net/uploads/music/2026/08/The_Limba_Cha_sha.mp3">
         <span class="mp3-tr-name">The Limba — Ча ща</span>
       </div>
-      <div class="mp3-tr" data-sc="https://soundcloud.com/korol-saundklauda/tantsui-pantera-speed-up-2">
-        <span class="mp3-tr-name">Kagramanov — Танцуй, пантера</span>
+      <div class="mp3-tr" data-ext="https://soundcloud.com/korol-saundklauda/tantsui-pantera-speed-up-2">
+        <span class="mp3-tr-name">Kagramanov — Танцуй, пантера ↗</span>
       </div>
     </div>
     <div class="mp3-ctrl">
@@ -482,10 +482,21 @@ function isWithdrawalLocked(item){
 function ensureInventoryUids(user){if(!user||!Array.isArray(user.inventory))return;user.inventory.forEach(x=>{if(!x.uid)x.uid=newInventoryUid();});}
 
 function defaultUser(steamUser){
+  if(!steamUser || !steamUser.steamid){
+    return {
+      steamid: null,
+      username: '',
+      avatar: '',
+      balance: 0,
+      stats: {upgradesTotal:0, casesOpened:0, totalDeposited:0},
+      bestDrop: {name:'--', value:0, img:''},
+      inventory: []
+    };
+  }
   return {
-    steamid: steamUser ? steamUser.steamid : null,
-    username: steamUser ? steamUser.username : 'Игрок Zenodrop',
-    avatar: steamUser ? steamUser.avatar : 'https://avatars.steamstatic.com/c85433a0be124faee4587db1ad2649b380a9fc77_full.jpg',
+    steamid: steamUser.steamid,
+    username: steamUser.username || 'Steam',
+    avatar: steamUser.avatar || '',
     balance: 0,
     stats: {upgradesTotal:0, casesOpened:0, totalDeposited:0},
     bestDrop: {name:'--', value:0, img:''},
@@ -1045,6 +1056,11 @@ function mp3LoadTrack(i){
   mp3CurrentIdx=i;
   mp3HasLoaded = true;
   if(mp3NowEl) mp3NowEl.textContent = t.querySelector('.mp3-tr-name')?.textContent || 'Музыка';
+  if(t.dataset.ext){
+    window.open(t.dataset.ext, '_blank', 'noopener');
+    mp3SetPlayIcon(false);
+    return;
+  }
   if(t.dataset.src){
     mp3SC.style.display='none';
     mp3Audio.style.display='block';
