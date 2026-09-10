@@ -21,6 +21,9 @@ if (!KEY) {
 
 const html = fs.readFileSync(path.join(__dirname, 'Zenodrop_CS2SH_400.html'));
 
+// ===============================
+// SESSIONS
+// ===============================
 const sessions = new Map();
 const SESSION_SECRET = (process.env.SESSION_SECRET || process.env.STEAM_SESSION_SECRET || KEY).trim();
 
@@ -37,6 +40,9 @@ function steamFromSessionCookie(value){
   return m[1];
 }
 
+// ===============================
+// STORE / TELEGRAM
+// ===============================
 const DATA_FILE = path.join(__dirname, 'zenodrop_data.json');
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_BOT_URL = (process.env.TELEGRAM_BOT_URL || '').trim();
@@ -45,15 +51,18 @@ const PAY_TG_TOKEN = (process.env.TELEGRAM_PAYMENT_BOT_TOKEN || '').trim();
 const PAY_TG_BOT_URL = (process.env.TELEGRAM_PAYMENT_BOT_URL || 'https://t.me/ZenodropPayBot').trim();
 const SUPPORT_CONTACT = '@Zenodropsupport';
 
+// ============================================================
+//  КЕЙСЫ
+// ============================================================
 const CASES = {
-  micro:     { price: 13,    rtp: 0.72 },
-  basic:     { price: 100,   rtp: 0.90 },
-  small:     { price: 250,   rtp: 0.92 },
-  premium:   { price: 500,   rtp: 0.94 },
-  expensive: { price: 1000,  rtp: 0.95 },
-  elite:     { price: 2500,  rtp: 0.95 },
-  legendary: { price: 5000,  rtp: 0.96 },
-  titan:     { price: 10000, rtp: 0.94 }
+  micro:     { price: 13,    rtp: 0.82 },
+  basic:     { price: 100,   rtp: 0.96 },
+  small:     { price: 250,   rtp: 0.97 },
+  premium:   { price: 500,   rtp: 0.98 },
+  expensive: { price: 1000,  rtp: 0.98 },
+  elite:     { price: 2500,  rtp: 0.98 },
+  legendary: { price: 5000,  rtp: 0.97 },
+  titan:     { price: 10000, rtp: 0.96 }
 };
 
 function itemPrice(s){
@@ -75,46 +84,53 @@ function fitToRtp(list, cp, rtp){
   });
 }
 
+// Окупаемый диапазон
 function rangeWeight(price, cp){
   const r = cp > 0 ? price / cp : 0;
-  if (r < 0.80) return 0.02;
-  if (r < 0.86) return 0.20;
-  if (r < 0.90) return 0.60;
-  if (r < 0.96) return 1.40;
-  if (r < 1.00) return 2.20;
-  if (r < 1.08) return 3.20;
-  if (r < 1.20) return 2.20;
-  if (r < 1.50) return 0.70;
-  if (r < 1.80) return 0.18;
-  if (r < 3.00) return 0.05;
-  if (r < 5.00) return 0.010;
-  return 0.001;
+
+  if (r < 0.78) return 0.010;
+  if (r < 0.86) return 0.18;
+  if (r < 0.94) return 0.75;
+  if (r < 0.98) return 2.20;
+  if (r < 1.00) return 3.80;
+  if (r < 1.06) return 5.50;
+  if (r < 1.15) return 3.80;
+  if (r < 1.35) return 1.30;
+  if (r < 1.70) return 0.35;
+  if (r < 2.50) return 0.09;
+  if (r < 4.00) return 0.018;
+  return 0.002;
 }
 
 function microWeight(price){
-  if (price <= 8)   return 6.0;
-  if (price <= 20)  return 3.2;
-  if (price <= 40)  return 0.55;
-  if (price <= 80)  return 0.15;
-  if (price <= 150) return 0.03;
-  return 0.005;
+  if (price <= 8)   return 5.0;
+  if (price <= 15)  return 4.5;
+  if (price <= 25)  return 2.5;
+  if (price <= 50)  return 0.6;
+  if (price <= 120) return 0.15;
+  return 0.01;
 }
 
 function weightedRandom(skins, casePrice){
   if(!Array.isArray(skins) || !skins.length) return null;
+
   const cp = Number(casePrice || 0);
   const total = skins.reduce((s, x) => s + Number(x.weight || 0), 0);
+
   let list = skins.map(s => ({
     ...s,
     weight: total > 0 ? Number(s.weight || 0) / total : 1 / skins.length
   }));
+
   list = list.map(s => {
     const price = itemPrice(s);
     const m = cp <= 20 ? microWeight(price) : rangeWeight(price, cp);
     return { ...s, weight: Math.max(1e-9, s.weight * m), _price: price };
   });
+
   const rtp = Number(CASES[Object.keys(CASES).find(k => CASES[k].price === cp)]?.rtp || 0);
   if (rtp > 0 && cp > 0) list = fitToRtp(list, cp, rtp);
+
   const total2 = list.reduce((sum, x) => sum + x.weight, 0);
   if (total2 <= 0) {
     const fb = list[list.length - 1];
@@ -122,6 +138,7 @@ function weightedRandom(skins, casePrice){
     const { _price, ...rest } = fb;
     return rest;
   }
+
   const roll = Math.random();
   let cur = 0;
   for (const x of list) {
@@ -144,6 +161,9 @@ function openCase(caseKey, skins){
   return { skin, price: cfg.price };
 }
 
+// ============================================================
+//  АПГРЕЙД
+// ============================================================
 const LUCK_MAP = new Map();
 
 function getPlayerLuck(steamid){
@@ -165,20 +185,26 @@ function upgrade(chance, steamid, targetPrice){
   if (!Number.isFinite(chance)) return false;
   if (chance < 0)   chance = 0;
   if (chance > 100) chance = 100;
+
   const price = Number(targetPrice || 0);
+
   if (price > 20000) {
     const capped = Math.min(chance, 30);
     return Math.random() * 100 < capped;
   }
+
   const curved = chance <= 50 ? chance : 50 + (chance - 50) * 0.2;
   let real = curved * getPlayerLuck(steamid);
+
   if (price >= 15000)      real *= 0.08;
   else if (price >= 13000) real *= 0.10;
   else if (price >= 10000) real *= 0.15;
   else if (price >= 5000)  real *= 0.35;
   else if (price >= 2000)  real *= 0.65;
+
   if (real < 0.3) real = 0.3;
   if (real > 60)  real = 60;
+
   return Math.random() * 100 < real;
 }
 
@@ -210,8 +236,14 @@ function saveStore(){
 function ensureUser(steamid){
   const id=String(steamid||''); if(!id)return null;
   if(!data.users[id]) data.users[id]={
-    steamid:id,balance:0,stats:{totalDeposited:0},withdrawDisabled:false,
-    tgId:null,createdAt:Date.now(),inventory:[],bestDrop:{name:'--',value:0,img:''}
+    steamid:id,
+    balance:0,
+    stats:{totalDeposited:0},
+    withdrawDisabled:false,
+    tgId:null,
+    createdAt:Date.now(),
+    inventory:[],
+    bestDrop:{name:'--',value:0,img:''}
   };
   if(!data.users[id].stats) data.users[id].stats={totalDeposited:0};
   if(!Array.isArray(data.users[id].inventory)) data.users[id].inventory=[];
@@ -245,8 +277,13 @@ function pendingWithdrawalsForUser(steamid){
   return data.withdrawals
     .filter(w=>w.steamid===steamid && (w.status==='pending' || w.status==='approved'))
     .map(w=>({
-      id:w.id,itemUid:w.item?.uid||null,itemName:w.item?.name||'',
-      itemValue:Number(w.item?.value)||0,status:w.status,index:w.index,createdAt:w.createdAt||0
+      id:w.id,
+      itemUid:w.item?.uid||null,
+      itemName:w.item?.name||'',
+      itemValue:Number(w.item?.value)||0,
+      status:w.status,
+      index:w.index,
+      createdAt:w.createdAt||0
     }));
 }
 function isTgAdmin(id){return TG_ADMIN_IDS.has(String(id)) || !!data.admins[String(id)];}
@@ -257,7 +294,9 @@ async function tgWithToken(token,label,method,body={}){
   if(!token){ console.error(`Telegram ${label}: token is not set`); return null; }
   try{
     const r=await fetch(`https://api.telegram.org/bot${token}/${method}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
     });
     const json=await r.json();
     if(!json?.ok) console.error(`Telegram ${label} API`,method,json?.description||'unknown error');
@@ -322,7 +361,8 @@ async function processTelegramUpdate(u){
         await tg('sendMessage',{chat_id:q.message.chat.id,text:`Заявка <b>${wid}</b> подтверждена.`,parse_mode:'HTML'});
         if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Вывод <b>${wid}</b> подтверждён.`,parse_mode:'HTML'});
       } else if(action==='reject'){
-        const user=ensureUser(w.steamid); if(user){user.balance+=Number(w.refund||0);}
+        const user=ensureUser(w.steamid);
+        if(user){user.balance+=Number(w.refund||0);}
         w.status='rejected';w.updatedAt=Date.now();saveStore();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка отклонена'});
         if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`❌ Вывод <b>${wid}</b> отклонён. Средства возвращены.`,parse_mode:'HTML'});
@@ -488,8 +528,40 @@ async function startTelegramPollingFallback(){
   }
 }
 
+// ===============================
+// CS2.SH + КЭШ КАТАЛОГА НА ДИСК
+// ===============================
+const CATALOG_FILE = path.join(__dirname, 'cs2_catalog_cache.json');
 let cs2CatalogCache = { data: null, expires: 0 };
 const CS2_CACHE_MS = 10 * 60 * 1000;
+
+function loadCatalogFromDisk(){
+  try{
+    const x=JSON.parse(fs.readFileSync(CATALOG_FILE,'utf8'));
+    if(Array.isArray(x?.items) && x.items.length){
+      cs2CatalogCache.data=x.items;
+      cs2CatalogCache.expires=Date.now()+CS2_CACHE_MS;
+      console.log('CS2 catalog loaded from disk:',x.items.length);
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+function saveCatalogToDisk(items){
+  try{
+    fs.writeFileSync(CATALOG_FILE, JSON.stringify({items, savedAt:Date.now()}));
+  }catch(e){ console.error('catalog cache save:',e.message); }
+}
+async function refreshCatalogInBackground(){
+  try{
+    const items=await buildCs2Catalog();
+    if(items?.length){
+      cs2CatalogCache={data:items, expires:Date.now()+CS2_CACHE_MS};
+      saveCatalogToDisk(items);
+      console.log('CS2 catalog refreshed:',items.length);
+    }
+  }catch(e){ console.error('catalog bg refresh:',e.message); }
+}
 
 async function cs2Fetch(url, options = {}) {
     const controller = new AbortController();
@@ -632,6 +704,13 @@ async function buildCs2Catalog() {
     return result.slice(0, 7000);
 }
 
+loadCatalogFromDisk();
+if(!cs2CatalogCache.data) refreshCatalogInBackground();
+setInterval(refreshCatalogInBackground, CS2_CACHE_MS);
+
+// ===============================
+// COOKIES / READ JSON
+// ===============================
 function parseCookies(req) {
     const list = {};
     const rc = req.headers.cookie;
@@ -652,6 +731,9 @@ async function readJson(req){
   });
 }
 
+// ===============================
+// SERVER
+// ===============================
 const server = http.createServer(async (req, res) => {
 
     const urlObj = new URL(req.url, `http://${req.headers.host}`);
@@ -832,7 +914,9 @@ const server = http.createServer(async (req, res) => {
             const u=ensureUser(sessionUser.steamid);
             ensureZenodropId(u);
             if(Number.isFinite(Number(body.balance))) u.balance=Math.max(0,Number(body.balance));
-            if(body.stats && typeof body.stats==='object'){ u.stats={...u.stats,...body.stats}; }
+            if(body.stats && typeof body.stats==='object'){
+                u.stats={...u.stats,...body.stats};
+            }
             if(Array.isArray(body.inventory)){
                 u.inventory=body.inventory.slice(0,5000).map(x=>({
                     id:String(x?.id||''),
@@ -874,16 +958,22 @@ const server = http.createServer(async (req, res) => {
 
     if(pathname==='/api/promos' && req.method==='GET'){
         const list=promoList().slice(0,8).map(x=>({
-            code:x.code,percent:x.percent,maxBonus:x.maxBonus,
-            expiresAt:x.expiresAt||0,auto:!!x.auto,
-            uses:Number(x.uses||0),maxUses:Number(x.maxUses||0)
+            code:x.code,
+            percent:x.percent,
+            maxBonus:x.maxBonus,
+            expiresAt:x.expiresAt||0,
+            auto:!!x.auto,
+            uses:Number(x.uses||0),
+            maxUses:Number(x.maxUses||0)
         }));
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
         return res.end(JSON.stringify({items:list}));
     }
 
     if(pathname==='/api/deposit' && req.method==='POST'){
-        if(!sessionUser?.steamid){ res.writeHead(401); return res.end(JSON.stringify({error:'auth_required'})); }
+        if(!sessionUser?.steamid){
+            res.writeHead(401);return res.end(JSON.stringify({error:'auth_required'}));
+        }
         const body=await readJson(req);
         const amount=Number(body.amount)||0;
         const method=String(body.method||'');
@@ -907,17 +997,27 @@ const server = http.createServer(async (req, res) => {
     }
 
     if(pathname==='/api/withdrawals' && req.method==='POST'){
-        if(!sessionUser?.steamid){ res.writeHead(401); return res.end(JSON.stringify({error:'auth_required'})); }
+        if(!sessionUser?.steamid){
+            res.writeHead(401);return res.end(JSON.stringify({error:'auth_required'}));
+        }
         const body=await readJson(req);
         const index=Number(body.index);
         const stored=ensureUser(sessionUser.steamid);
-        if(stored.withdrawDisabled){ res.writeHead(403); return res.end(JSON.stringify({error:'withdraw_disabled'})); }
+        if(stored.withdrawDisabled){
+            res.writeHead(403);return res.end(JSON.stringify({error:'withdraw_disabled'}));
+        }
         const item=body.item;
-        if(!item || !item.name || !Number(item.value)){ res.writeHead(400); return res.end(JSON.stringify({error:'item_required'})); }
+        if(!item || !item.name || !Number(item.value)){
+            res.writeHead(400);return res.end(JSON.stringify({error:'item_required'}));
+        }
         const itemUid=String(item.uid||'');
-        if(!itemUid){ res.writeHead(400); return res.end(JSON.stringify({error:'item_uid_required'})); }
+        if(!itemUid){
+            res.writeHead(400);return res.end(JSON.stringify({error:'item_uid_required'}));
+        }
         const alreadyPending=data.withdrawals.some(x=>x.steamid===sessionUser.steamid && x.item?.uid===itemUid && (x.status==='pending'||x.status==='approved'));
-        if(alreadyPending){ res.writeHead(409); return res.end(JSON.stringify({error:'item_withdraw_pending'})); }
+        if(alreadyPending){
+            res.writeHead(409);return res.end(JSON.stringify({error:'item_withdraw_pending'}));
+        }
         const id='wd_'+Date.now().toString(36)+'_'+crypto.randomBytes(3).toString('hex');
         const w={
             id,steamid:sessionUser.steamid,tgId:stored.tgId||null,index,
@@ -1018,21 +1118,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/cs2/catalog' && req.method === 'GET') {
-        try {
-            if (cs2CatalogCache.data && Date.now() < cs2CatalogCache.expires) {
-                res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
-                return res.end(JSON.stringify({currency:'USD', items:cs2CatalogCache.data, cached:true}));
-            }
-            const items = await buildCs2Catalog();
-            if (!items.length) throw new Error('cs2.sh returned no priced items');
-            cs2CatalogCache = { data: items, expires: Date.now() + CS2_CACHE_MS };
-            res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({currency:'USD', items, cached:false}));
-        } catch (e) {
-            const status = Number(e.status) || 502;
-            res.writeHead(status, {'Content-Type':'application/json; charset=utf-8'});
-            return res.end(JSON.stringify({error:'cs2_catalog_proxy_error', message:String(e.message||e), upstreamStatus:e.status||null, details:e.body||null}));
+        if (cs2CatalogCache.data && cs2CatalogCache.data.length) {
+            res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'public, max-age=300'});
+            return res.end(JSON.stringify({currency:'USD', items:cs2CatalogCache.data, cached:true}));
         }
+        refreshCatalogInBackground();
+        res.writeHead(202, {'Content-Type':'application/json','Cache-Control':'no-store'});
+        return res.end(JSON.stringify({currency:'USD', items:[], warming:true}));
     }
 
     if (pathname === '/api/cs2/schema' && req.method === 'GET') {
