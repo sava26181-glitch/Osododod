@@ -51,6 +51,9 @@ const PAY_TG_TOKEN = (process.env.TELEGRAM_PAYMENT_BOT_TOKEN || '').trim();
 const PAY_TG_BOT_URL = (process.env.TELEGRAM_PAYMENT_BOT_URL || 'https://t.me/ZenodropPayBot').trim();
 const SUPPORT_CONTACT = '@Zenodropsupport';
 
+// ============================================================
+//  КЕЙСЫ
+// ============================================================
 const CASES = {
   micro:     { price: 13,    rtp: 0.95 },
   basic:     { price: 100,   rtp: 0.82 },
@@ -150,12 +153,10 @@ function openCase(caseKey, skins){
   return { skin, price: cfg.price };
 }
 
-const LUCK_MAP = new Map();
-
-function getPlayerLuck(steamid){
-  return 1.0;
-}
-
+// ============================================================
+//  АПГРЕЙД
+//  Честный для цели < 5000 ₽. Штраф только от 5000 ₽ и выше.
+// ============================================================
 function upgrade(chance, steamid, targetPrice){
   chance = Number(chance);
   if (!Number.isFinite(chance)) return false;
@@ -829,10 +830,8 @@ const server = http.createServer(async (req, res) => {
             }
             const success=upgrade(chance, sessionUser.steamid, Number(body.targetPrice)||0);
             const user=ensureUser(sessionUser.steamid);
-            if(success){
-                user.stats.upgradesTotal=(user.stats.upgradesTotal||0)+1;
-                saveStore();
-            }
+            user.stats.upgradesTotal=(user.stats.upgradesTotal||0)+1;
+            saveStore();
             res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
             return res.end(JSON.stringify({ok:true,success,chance}));
         }catch(e){
@@ -891,11 +890,12 @@ const server = http.createServer(async (req, res) => {
             const u=ensureUser(sessionUser.steamid);
             ensureZenodropId(u);
             if(Number.isFinite(Number(body.balance))) u.balance=Math.max(0,Number(body.balance));
-            // Мерджим stats, но НЕ трогаем totalDeposited (он только серверный)
+            // stats: НЕ трогаем totalDeposited, и берём максимум для счётчиков
             if(body.stats && typeof body.stats==='object'){
-                const {totalDeposited, ...clientStats}=body.stats;
-                if(typeof clientStats.upgradesTotal==='number') u.stats.upgradesTotal=Math.max(u.stats.upgradesTotal||0, clientStats.upgradesTotal);
-                if(typeof clientStats.casesOpened==='number') u.stats.casesOpened=Math.max(u.stats.casesOpened||0, clientStats.casesOpened);
+                if(typeof body.stats.upgradesTotal==='number')
+                    u.stats.upgradesTotal=Math.max(u.stats.upgradesTotal||0, body.stats.upgradesTotal);
+                if(typeof body.stats.casesOpened==='number')
+                    u.stats.casesOpened=Math.max(u.stats.casesOpened||0, body.stats.casesOpened);
             }
             if(Array.isArray(body.inventory)){
                 u.inventory=body.inventory.slice(0,5000).map(x=>({
