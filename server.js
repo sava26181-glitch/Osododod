@@ -53,16 +53,17 @@ const SUPPORT_CONTACT = '@Zenodropsupport';
 
 // ============================================================
 //  КЕЙСЫ
+//  micro самый окупаемый (RTP 0.92), крупные сдержаннее.
 // ============================================================
 const CASES = {
-  micro:     { price: 13,    rtp: 0.82 },
-  basic:     { price: 100,   rtp: 0.96 },
-  small:     { price: 250,   rtp: 0.97 },
-  premium:   { price: 500,   rtp: 0.98 },
-  expensive: { price: 1000,  rtp: 0.98 },
-  elite:     { price: 2500,  rtp: 0.98 },
-  legendary: { price: 5000,  rtp: 0.97 },
-  titan:     { price: 10000, rtp: 0.96 }
+  micro:     { price: 13,    rtp: 0.92 },
+  basic:     { price: 100,   rtp: 0.86 },
+  small:     { price: 250,   rtp: 0.87 },
+  premium:   { price: 500,   rtp: 0.88 },
+  expensive: { price: 1000,  rtp: 0.89 },
+  elite:     { price: 2500,  rtp: 0.89 },
+  legendary: { price: 5000,  rtp: 0.90 },
+  titan:     { price: 10000, rtp: 0.90 }
 };
 
 function itemPrice(s){
@@ -84,31 +85,30 @@ function fitToRtp(list, cp, rtp){
   });
 }
 
-// Окупаемый диапазон
 function rangeWeight(price, cp){
   const r = cp > 0 ? price / cp : 0;
 
-  if (r < 0.78) return 0.010;
-  if (r < 0.86) return 0.18;
-  if (r < 0.94) return 0.75;
-  if (r < 0.98) return 2.20;
-  if (r < 1.00) return 3.80;
-  if (r < 1.06) return 5.50;
-  if (r < 1.15) return 3.80;
-  if (r < 1.35) return 1.30;
-  if (r < 1.70) return 0.35;
-  if (r < 2.50) return 0.09;
-  if (r < 4.00) return 0.018;
-  return 0.002;
+  if (r < 0.78) return 0.015;
+  if (r < 0.86) return 0.30;
+  if (r < 0.94) return 1.10;
+  if (r < 0.98) return 2.00;
+  if (r < 1.00) return 2.60;
+  if (r < 1.06) return 3.00;
+  if (r < 1.15) return 1.80;
+  if (r < 1.35) return 0.65;
+  if (r < 1.70) return 0.20;
+  if (r < 2.50) return 0.06;
+  if (r < 4.00) return 0.012;
+  return 0.001;
 }
 
 function microWeight(price){
-  if (price <= 8)   return 5.0;
-  if (price <= 15)  return 4.5;
-  if (price <= 25)  return 2.5;
-  if (price <= 50)  return 0.6;
-  if (price <= 120) return 0.15;
-  return 0.01;
+  if (price <= 8)   return 4.0;
+  if (price <= 15)  return 6.0;
+  if (price <= 25)  return 4.0;
+  if (price <= 50)  return 1.2;
+  if (price <= 120) return 0.25;
+  return 0.02;
 }
 
 function weightedRandom(skins, casePrice){
