@@ -12,28 +12,21 @@ const KEY = (
     ''
 ).trim();
 
-// Steam Web API key
 const STEAM_API_KEY = (process.env.STEAM_API_KEY || '').trim();
 
 if (!KEY) {
-    console.error(
-        'ERROR: Set CS2SH_API_KEY in Render Environment Variables'
-    );
+    console.error('ERROR: Set CS2SH_API_KEY in Render Environment Variables');
     process.exit(1);
 }
 
-const html = fs.readFileSync(
-    path.join(__dirname, 'Zenodrop_CS2SH_400.html')
-);
+const html = fs.readFileSync(path.join(__dirname, 'Zenodrop_CS2SH_400.html'));
 
 // ===============================
 // SESSIONS
 // ===============================
-
 const sessions = new Map();
-
-// Signed Steam session: сохраняет авторизацию между перезапусками сервера.
 const SESSION_SECRET = (process.env.SESSION_SECRET || process.env.STEAM_SESSION_SECRET || KEY).trim();
+
 function makeSessionCookie(steamid){
   const id=String(steamid||'');
   const sig=crypto.createHmac('sha256',SESSION_SECRET).update(id).digest('hex');
@@ -48,19 +41,16 @@ function steamFromSessionCookie(value){
 }
 
 // ===============================
-// ZENODROP ACCOUNT / TELEGRAM STORE
+// ZENODROP STORE
 // ===============================
 const DATA_FILE = path.join(__dirname, 'zenodrop_data.json');
-const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim(); // бот заявок + админ
+const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_BOT_URL = (process.env.TELEGRAM_BOT_URL || '').trim();
 const TG_WEBHOOK_URL = (process.env.TELEGRAM_WEBHOOK_URL || ((process.env.RENDER_EXTERNAL_URL || '').trim() ? (process.env.RENDER_EXTERNAL_URL.trim().replace(/\/$/,'') + '/telegram/admin-webhook') : '')).trim();
-const PAY_TG_TOKEN = (process.env.TELEGRAM_PAYMENT_BOT_TOKEN || '').trim(); // отдельный бот пополнений
+const PAY_TG_TOKEN = (process.env.TELEGRAM_PAYMENT_BOT_TOKEN || '').trim();
 const PAY_TG_BOT_URL = (process.env.TELEGRAM_PAYMENT_BOT_URL || 'https://t.me/ZenodropPayBot').trim();
 const SUPPORT_CONTACT = '@Zenodropsupport';
 
-/* ==========================================
-   ZENODROP — ПРОЗРАЧНАЯ СИСТЕМА РЕЗУЛЬТАТОВ
-   ========================================== */
 const CASES = {
   basic: { price: 100, rtp: 0.85 },
   premium: { price: 500, rtp: 0.88 },
@@ -74,7 +64,6 @@ function normalizeWeights(skins){
   if(total<=0)return list.map(skin=>({...skin,weight:1/list.length}));
   return list.map(skin=>({...skin,weight:Number(skin?.weight||0)/total}));
 }
-
 function weightedRandom(skins){
   const normalized=normalizeWeights(skins);
   if(!normalized.length)return null;
@@ -86,55 +75,40 @@ function weightedRandom(skins){
   }
   return normalized[normalized.length-1];
 }
-
 function openCase(caseData,skins){
   if(!caseData || !Array.isArray(skins) || !skins.length)return null;
   return weightedRandom(skins);
 }
 
 // ============================================================
-//  ПЕРСОНАЛЬНАЯ УДАЧА + ЖЁСТКИЙ СЛИВ ДОРОГИХ АПГРЕЙДОВ
-//  - 30% игроков — жёстко сбривает (шанс / 3)
-//  - 20% игроков — чуть-чуть в плюс (шанс * 1.3, максимум 99%)
-//  - 50% игроков — обычный шанс (как есть)
-//  + Скины от 5000 ₽ — жёсткий слив
-//  + Скины от 15000 ₽ — почти нереально выиграть
+//  ПЕРСОНАЛЬНАЯ УДАЧА + СЛИВ ДОРОГИХ АПГРЕЙДОВ
 // ============================================================
 const LUCK_MAP = new Map();
-
 function getPlayerLuck(steamid) {
   const id = String(steamid || '');
   if (!id) return 1.0;
   if (LUCK_MAP.has(id)) return LUCK_MAP.get(id);
-
   const hash = crypto.createHash('sha256').update('zenodrop_luck:' + id).digest();
   const r = hash[0] / 255;
-
   let luck;
-  if (r < 0.30)      luck = 1 / 3; // 30% — неудачники
-  else if (r < 0.50) luck = 1.3;   // 20% — счастливчики
-  else               luck = 1.0;   // 50% — обычные
-
+  if (r < 0.30)      luck = 1 / 3;
+  else if (r < 0.50) luck = 1.3;
+  else               luck = 1.0;
   LUCK_MAP.set(id, luck);
   return luck;
 }
-
 function upgrade(chance, steamid, targetPrice) {
   chance = Number(chance);
   if (!Number.isFinite(chance)) return false;
-
   const luck = getPlayerLuck(steamid);
   let real = chance * luck;
-
   const price = Number(targetPrice || 0);
   if (price >= 15000)      real *= 0.10;
   else if (price >= 10000) real *= 0.20;
   else if (price >= 5000)  real *= 0.35;
   else if (price >= 2000)  real *= 0.65;
-
   if (real < 0.5) real = 0.5;
   if (real > 99)  real = 99;
-
   return Math.random() * 100 < real;
 }
 
@@ -143,8 +117,6 @@ const TG_ADMIN_IDS = new Set(String(process.env.TG_ADMIN_IDS || '').split(',').m
 const data = loadStore();
 for(const u of Object.values(data.users)){ ensureZenodropId(u); }
 saveStore();
-let tgOffset = 0;
-let tgLoopRunning = false;
 let tgUsername = '';
 
 function loadStore(){
@@ -214,7 +186,6 @@ function makePromo(code,percent,maxBonus=0,extra={}){
   const c=String(code||'').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,32);
   const pct=Math.max(1,Math.min(100,Number(percent)||0));
   if(!c) return null;
-  // В Zenodrop одновременно действует только один промокод.
   for(const p of Object.values(data.promos)){ p.active=false; }
   data.promos[c]={code:c,percent:pct,maxBonus:Math.max(0,Number(maxBonus)||0),active:true,createdAt:Date.now(),uses:0,...extra};
   saveStore();
@@ -242,45 +213,45 @@ function ensureOneActivePromo(){
   }
   return createAutoPromo();
 }
-// Старые версии могли оставить несколько промокодов в JSON. Делаем активным только один.
 ensureOneActivePromo();
 setInterval(()=>{
   const active=promoList()[0];
   if(!active || (active.expiresAt && active.expiresAt<=Date.now()) || active.auto) createAutoPromo();
 },15*60*1000);
+
 async function processTelegramUpdate(u){
   if(u.callback_query){
     const q=u.callback_query, id=String(q.from.id), d=String(q.data||'');
     if(!isTgAdmin(id)){await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Нет доступа',show_alert:true});return;}
     if(d.startsWith('wd:')){
-      const [_,wid,action]=d.split(':'); const w=data.withdrawals.find(x=>x.id===wid);
+      const parts=d.split(':'); const wid=parts[1], action=parts[2];
+      const w=data.withdrawals.find(x=>x.id===wid);
       if(!w){await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка не найдена',show_alert:true});return;}
       if(action==='send'){
         w.status='approved';w.updatedAt=Date.now();saveStore();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка подтверждена'});
-        await tg('sendMessage',{chat_id:q.message.chat.id,text:`Заявка <b>${wid}</b> подтверждена.\nОтправка скинов: <b>в обработке</b>.` ,parse_mode:'HTML'});
-        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Вывод <b>${wid}</b> подтверждён. Скины отправляются.` ,parse_mode:'HTML'});
+        await tg('sendMessage',{chat_id:q.message.chat.id,text:`Заявка <b>${wid}</b> подтверждена.\nОтправка скинов: <b>в обработке</b>.`,parse_mode:'HTML'});
+        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Вывод <b>${wid}</b> подтверждён. Скины отправляются.`,parse_mode:'HTML'});
       } else if(action==='reject'){
         const user=ensureUser(w.steamid); if(user){user.balance+=Number(w.refund||0);}
         w.status='rejected';w.updatedAt=Date.now();saveStore();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка отклонена'});
-        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`❌ Вывод <b>${wid}</b> отклонён. Средства возвращены.` ,parse_mode:'HTML'});
+        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`❌ Вывод <b>${wid}</b> отклонён. Средства возвращены.`,parse_mode:'HTML'});
       }
     }
     return;
   }
-  const m=u.message; if(!m || !m.chat)return; const chatId=String(m.chat.id), rawText=String(m.text||'').trim();
+  const m=u.message; if(!m || !m.chat)return;
+  const chatId=String(m.chat.id), rawText=String(m.text||'').trim();
   const text=rawText.replace(/^\/(\w+)(?:@[^\s]+)?/, '/$1');
   const admin=isTgAdmin(chatId);
   if(/^\/start(?:\s|$)/i.test(text)){
     const payload=rawText.split(/\s+/).slice(1).join(' ').trim().toLowerCase();
-    const depositText=payload.startsWith('deposit')
-      ? '\n\n<b>Пополнение</b>\nОткройте сайт Zenodrop, выберите сумму и способ оплаты. Если пополняете через Telegram, заявка будет привязана к вашему Telegram ID.'
-      : '';
+    const depositText=payload.startsWith('deposit') ? '\n\n<b>Пополнение</b>\nОткройте сайт Zenodrop, выберите сумму и способ оплаты. Если пополняете через Telegram, заявка будет привязана к вашему Telegram ID.' : '';
     return tg('sendMessage',{chat_id:chatId,text:'<b>Zenodrop</b>\n\nВаш Telegram ID: <code>'+chatId+'</code>'+depositText+'\n\n/link STEAMID — привязать Steam\n/status — баланс и привязка\n/help — список команд',parse_mode:'HTML'});
   }
   if(text==='/deposit' || text==='/pay') return tg('sendMessage',{chat_id:chatId,text:'<b>Пополнение Zenodrop</b>\n\nПерейдите на сайт и выберите способ «Telegram». После создания заявки следуйте инструкции администратора.\n\nВаш Telegram ID: <code>'+chatId+'</code>',parse_mode:'HTML'});
-  if(text==='/help') return tg('sendMessage',{chat_id:chatId,text:'<b>Zenodrop</b>\n\n/link STEAMID\n/status\n/help'+(admin?'\n\nАдминистратор:\n/give STEAMID SUM\n/withdrawlock STEAMID on|off\n/adminsteam STEAMID\n/admin TELEGRAM_ID\n/promo CODE PERCENT [MAX_BONUS]\n/withdrawals\n/adminpanel':'') ,parse_mode:'HTML'});
+  if(text==='/help') return tg('sendMessage',{chat_id:chatId,text:'<b>Zenodrop</b>\n\n/link STEAMID\n/status\n/help'+(admin?'\n\nАдминистратор:\n/give STEAMID SUM\n/withdrawlock STEAMID on|off\n/adminsteam STEAMID\n/admin TELEGRAM_ID\n/promo CODE PERCENT [MAX_BONUS]\n/withdrawals\n/adminpanel':''),parse_mode:'HTML'});
   if(text==='/status'){
     const steam=data.links[chatId]; const u2=steam?ensureUser(steam):null;
     return tg('sendMessage',{chat_id:chatId,text:steam?`Steam ID: <code>${steam}</code>\nБаланс: <b>${Number(u2?.balance||0).toFixed(2)} ₽</b>`:'Steam ID ещё не привязан.',parse_mode:'HTML'});
@@ -304,6 +275,7 @@ async function processTelegramUpdate(u){
   a=text.match(/^\/promo\s+([A-Za-z0-9_-]+)\s+(\d+(?:\.\d+)?)\s*(?:([\d.]+))?/i); if(a){const p=makePromo(a[1],a[2],a[3]||0);return tg('sendMessage',{chat_id:chatId,text:`✅ Промокод <code>${p.code}</code>: +${p.percent}%`,parse_mode:'HTML'});}
   if(text==='/adminpanel')return tg('sendMessage',{chat_id:chatId,text:`Админ-панель: <code>/adminsteam STEAMID</code>\nБаланс: <code>/give STEAMID 1000</code>\nВывод: <code>/withdrawlock STEAMID on</code>\nПромо: <code>/promo CODE 12</code>\nЗаявки: <code>/withdrawals</code>`,parse_mode:'HTML'});
 }
+
 function infoText(){
   return `<b>Zenodrop — информация</b>\n\n<b>Политика конфиденциальности:</b> <a href="/privacy">открыть</a>\n<b>Пользовательское соглашение:</b> <a href="/terms">открыть</a>\n\n<b>Тарифы и оплата</b>\n100 ₽ · 500 ₽ · 1 000 ₽ · 5 000 ₽ · и другие суммы.\nСБП: комиссия сервиса 14% по предложенному формату.\nКриптоплатежи: комиссия сервиса 5% по предложенному формату.\nЕсли платёжный шлюз временно недоступен, кнопка оплаты остаётся активной и показывает уведомление о временной недоступности.\n\n<b>Поддержка:</b> ${SUPPORT_CONTACT}`;
 }
@@ -375,6 +347,7 @@ async function processPaymentTelegramUpdate(u){
   }
   return sendPaymentMenu(chatId);
 }
+
 async function sendPaymentMenu(chatId){
   const steam=findSteamByTelegram(chatId), user=steam?ensureUser(steam):null;
   const id=user?ensureZenodropId(user):null;
@@ -404,17 +377,14 @@ async function telegramStart(){
     console.error('Telegram bot disabled: TELEGRAM_BOT_TOKEN is missing');
     return;
   }
-
   try{
     const me=await tg('getMe',{});
     if(!me?.ok){
       console.error('Telegram: invalid TELEGRAM_BOT_TOKEN');
       return;
     }
-
     tgUsername=me.result.username||'';
     console.log('Telegram bot:',tgUsername?'@'+tgUsername:me.result.first_name||'unknown');
-
     await tg('setMyCommands',{commands:[
       {command:'start',description:'Открыть Zenodrop'},
       {command:'status',description:'Показать баланс'},
@@ -422,7 +392,6 @@ async function telegramStart(){
       {command:'deposit',description:'Пополнение'},
       {command:'help',description:'Список команд'}
     ]});
-
     if(TG_WEBHOOK_URL){
       const secret=crypto.createHash('sha256').update(TG_TOKEN).digest('hex').slice(0,32);
       const r=await tg('setWebhook',{
@@ -437,7 +406,6 @@ async function telegramStart(){
         console.error('Telegram setWebhook failed:',r?.description||'unknown error');
       }
     }else{
-      // Если проект запущен не на Render и webhook URL не задан — используем polling.
       const del=await tg('deleteWebhook',{drop_pending_updates:false});
       if(!del?.ok) console.error('Telegram deleteWebhook:',del?.description||'unknown error');
       startTelegramPollingFallback();
@@ -455,4 +423,42 @@ async function startTelegramPollingFallback(){
   console.log('Telegram polling fallback started');
   while(tgPollingFallback){
     try{
-      const r=await
+      const r=await tg('getUpdates',{offset,timeout:30,allowed_updates:['message','callback_query']});
+      if(!r?.ok){
+        console.error('Telegram getUpdates failed:',r?.description||'unknown error');
+        await new Promise(resolve=>setTimeout(resolve,3000));
+        continue;
+      }
+      for(const u of (r.result||[])){
+        offset=Math.max(offset,u.update_id+1);
+        try{ await processTelegramUpdate(u); }
+        catch(e){ console.error('Telegram update:',e.message); }
+      }
+    }catch(e){
+      console.error('Telegram polling:',e.message);
+      await new Promise(resolve=>setTimeout(resolve,3000));
+    }
+  }
+}
+
+// ===============================
+// CS2.SH CACHE
+// ===============================
+let cs2CatalogCache = { data: null, expires: 0 };
+const CS2_CACHE_MS = 10 * 60 * 1000;
+
+async function cs2Fetch(url, options = {}) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => { controller.abort(); }, 30000);
+    try {
+        const r = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            headers: {
+                'Authorization': 'Bearer ' + KEY,
+                'Accept': 'application/json',
+                'Accept-Encoding': 'gzip',
+                ...(options.headers || {})
+            }
+        });
+        const text = await r.text();
