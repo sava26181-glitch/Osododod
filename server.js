@@ -53,14 +53,6 @@ const SUPPORT_CONTACT = '@Zenodropsupport';
 
 // ============================================================
 //  КЕЙСЫ
-//  micro 13₽    — масса дешёвых (до 20₽), часто неокуп
-//  basic 100₽   — ядро 80–120₽, потолок слива ~20₽
-//  small 250₽   — ядро 200–300₽, слив максимум ~40₽
-//  premium 500₽ — ядро 450–600₽, слив максимум ~70₽, +100₽ не редко
-//  expensive 1000₽ — ядро 900–1200₽
-//  elite 2500₽  — ядро 2300–2900₽
-//  legendary 5000₽ — ядро 4600–5800₽
-//  titan 10000₽ — ядро 8000–14000₽ (для крупных)
 // ============================================================
 const CASES = {
   micro:     { price: 13,    rtp: 0.72 },
@@ -78,16 +70,14 @@ function itemPrice(s){
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-// Мягкая подгонка RTP. Работает только в одну сторону: если естественный EV
-// выше целевого, дорогие скины приглушаются. Если EV уже ниже — не трогаем
-// (house edge в пользу казино, но не через искусственное раздувание джекпотов).
+// Мягкая подгонка RTP: работает только в сторону уменьшения EV.
 function fitToRtp(list, cp, rtp){
   if (!list.length || !cp || !rtp) return list;
   const ev = list.reduce((s,x) => s + x.weight * itemPrice(x), 0);
   if (ev <= 0) return list;
   const target = cp * rtp;
   if (ev <= target) return list;
-  const k = target / ev; // k < 1
+  const k = target / ev;
   return list.map(x => {
     const p = itemPrice(x);
     const exp = p >= cp * 1.5 ? 1.6 : p >= cp ? 1.0 : 0.4;
@@ -95,35 +85,25 @@ function fitToRtp(list, cp, rtp){
   });
 }
 
-// Вес по относительной цене r = price / cp.
-// Настроено так, чтобы «слив» был ограничен сверху, а ядро — около номинала.
+// Веса по относительной цене r = price / cp.
+// Усилен окуп: ядро cp..cp*1.20 получает больше массы, слив ограничен.
 function rangeWeight(price, cp){
   const r = cp > 0 ? price / cp : 0;
 
-  // Сильный слив — очень редко
   if (r < 0.80) return 0.02;
   if (r < 0.86) return 0.20;
-
-  // Умеренный слив — частый, но с потолком (примерно cp*0.86 = максимум слива)
   if (r < 0.90) return 0.60;
   if (r < 0.96) return 1.40;
-  if (r < 1.00) return 1.80;
-
-  // Ядро — небольшой плюс (примерно +0…+20% от cp)
-  if (r < 1.08) return 2.60;
-  if (r < 1.20) return 1.80;
-
-  // Заметный плюс — реже
-  if (r < 1.50) return 0.60;
-  if (r < 1.80) return 0.15;
-
-  // Большой плюс — очень редко
-  if (r < 3.00) return 0.04;
-  if (r < 5.00) return 0.008;
+  if (r < 1.00) return 2.20;
+  if (r < 1.08) return 3.20;
+  if (r < 1.20) return 2.20;
+  if (r < 1.50) return 0.70;
+  if (r < 1.80) return 0.18;
+  if (r < 3.00) return 0.05;
+  if (r < 5.00) return 0.010;
   return 0.001;
 }
 
-// Отдельная ветка для микро (13₽) — там своя логика: масса дешёвых до 20₽.
 function microWeight(price){
   if (price <= 8)   return 6.0;
   if (price <= 20)  return 3.2;
@@ -240,7 +220,14 @@ saveStore();
 function loadStore(){
   try {
     const x=JSON.parse(fs.readFileSync(DATA_FILE,'utf8'));
-    return {users:x.users||{},withdrawals:x.withdrawals||[],deposits:x.deposits||[],promos:x.promos||{},admins:x.admins||{},links:x.links||{}};
+    return {
+      users: x.users || {},
+      withdrawals: x.withdrawals || [],
+      deposits: x.deposits || [],
+      promos: x.promos || {},
+      admins: x.admins || {},
+      links: x.links || {}
+    };
   } catch(e) {
     return {users:{},withdrawals:[],deposits:[],promos:{},admins:{},links:{}};
   }
@@ -250,8 +237,19 @@ function saveStore(){
 }
 function ensureUser(steamid){
   const id=String(steamid||''); if(!id)return null;
-  if(!data.users[id]) data.users[id]={steamid:id,balance:0,stats:{totalDeposited:0},withdrawDisabled:false,tgId:null,createdAt:Date.now()};
-  if(!data.users[id].stats)data.users[id].stats={totalDeposited:0};
+  if(!data.users[id]) data.users[id]={
+    steamid:id,
+    balance:0,
+    stats:{totalDeposited:0},
+    withdrawDisabled:false,
+    tgId:null,
+    createdAt:Date.now(),
+    inventory:[],
+    bestDrop:{name:'--',value:0,img:''}
+  };
+  if(!data.users[id].stats) data.users[id].stats={totalDeposited:0};
+  if(!Array.isArray(data.users[id].inventory)) data.users[id].inventory=[];
+  if(!data.users[id].bestDrop) data.users[id].bestDrop={name:'--',value:0,img:''};
   return data.users[id];
 }
 function makeZenodropId(userOrSteam){
@@ -280,7 +278,15 @@ function findSteamByTelegram(chatId){
 function pendingWithdrawalsForUser(steamid){
   return data.withdrawals
     .filter(w=>w.steamid===steamid && (w.status==='pending' || w.status==='approved'))
-    .map(w=>({id:w.id,itemUid:w.item?.uid||null,itemName:w.item?.name||'',itemValue:Number(w.item?.value)||0,status:w.status,index:w.index,createdAt:w.createdAt||0}));
+    .map(w=>({
+      id:w.id,
+      itemUid:w.item?.uid||null,
+      itemName:w.item?.name||'',
+      itemValue:Number(w.item?.value)||0,
+      status:w.status,
+      index:w.index,
+      createdAt:w.createdAt||0
+    }));
 }
 function isTgAdmin(id){return TG_ADMIN_IDS.has(String(id)) || !!data.admins[String(id)];}
 function isWebAdmin(steamid){return !!data.admins['steam:'+String(steamid)];}
@@ -289,17 +295,31 @@ async function tgPay(method, body={}){ return tgWithToken(PAY_TG_TOKEN,'payment'
 async function tgWithToken(token,label,method,body={}){
   if(!token){ console.error(`Telegram ${label}: token is not set`); return null; }
   try{
-    const r=await fetch(`https://api.telegram.org/bot${token}/${method}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const r=await fetch(`https://api.telegram.org/bot${token}/${method}`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
     const json=await r.json();
     if(!json?.ok) console.error(`Telegram ${label} API`,method,json?.description||'unknown error');
     return json;
   }catch(e){ console.error(`Telegram ${label}`,method,e.message); return null; }
 }
 async function notifyAdmins(text, keyboard){
-  for(const id of TG_ADMIN_IDS){ await tg('sendMessage',{chat_id:id,text,parse_mode:'HTML',reply_markup:keyboard?{inline_keyboard:keyboard}:undefined}); }
-  for(const [id,v] of Object.entries(data.admins)){ if(v && !TG_ADMIN_IDS.has(id)) await tg('sendMessage',{chat_id:id,text,parse_mode:'HTML',reply_markup:keyboard?{inline_keyboard:keyboard}:undefined}); }
+  for(const id of TG_ADMIN_IDS){
+    await tg('sendMessage',{chat_id:id,text,parse_mode:'HTML',reply_markup:keyboard?{inline_keyboard:keyboard}:undefined});
+  }
+  for(const [id,v] of Object.entries(data.admins)){
+    if(v && !TG_ADMIN_IDS.has(id)){
+      await tg('sendMessage',{chat_id:id,text,parse_mode:'HTML',reply_markup:keyboard?{inline_keyboard:keyboard}:undefined});
+    }
+  }
 }
-function promoList(){return Object.values(data.promos).filter(x=>x.active!==false && (!x.expiresAt || x.expiresAt>Date.now()) && (!x.maxUses || Number(x.uses||0)<Number(x.maxUses))).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0));}
+function promoList(){
+  return Object.values(data.promos)
+    .filter(x=>x.active!==false && (!x.expiresAt || x.expiresAt>Date.now()) && (!x.maxUses || Number(x.uses||0)<Number(x.maxUses)))
+    .sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0));
+}
 function makePromo(code,percent,maxBonus=0,extra={}){
   const c=String(code||'').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,32);
   const pct=Math.max(1,Math.min(100,Number(percent)||0));
@@ -343,7 +363,8 @@ async function processTelegramUpdate(u){
         await tg('sendMessage',{chat_id:q.message.chat.id,text:`Заявка <b>${wid}</b> подтверждена.`,parse_mode:'HTML'});
         if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Вывод <b>${wid}</b> подтверждён.`,parse_mode:'HTML'});
       } else if(action==='reject'){
-        const user=ensureUser(w.steamid); if(user){user.balance+=Number(w.refund||0);}
+        const user=ensureUser(w.steamid);
+        if(user){user.balance+=Number(w.refund||0);}
         w.status='rejected';w.updatedAt=Date.now();saveStore();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка отклонена'});
         if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`❌ Вывод <b>${wid}</b> отклонён. Средства возвращены.`,parse_mode:'HTML'});
@@ -364,21 +385,31 @@ async function processTelegramUpdate(u){
     return tg('sendMessage',{chat_id:chatId,text:steam?`Steam ID: <code>${steam}</code>\nБаланс: <b>${Number(u2?.balance||0).toFixed(2)} ₽</b>`:'Steam ID ещё не привязан.',parse_mode:'HTML'});
   }
   if(text.startsWith('/link ')){
-    const steam=text.split(/\s+/)[1]; if(!/^\d{17}$/.test(steam)) return tg('sendMessage',{chat_id:chatId,text:'Используй: /link 7656119XXXXXXXXXX'});
-    data.links[chatId]=steam; const u2=ensureUser(steam);u2.tgId=chatId;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Привязан Steam ID <code>${steam}</code>`,parse_mode:'HTML'});
+    const steam=text.split(/\s+/)[1];
+    if(!/^\d{17}$/.test(steam)) return tg('sendMessage',{chat_id:chatId,text:'Используй: /link 7656119XXXXXXXXXX'});
+    data.links[chatId]=steam;
+    const u2=ensureUser(steam);u2.tgId=chatId;saveStore();
+    return tg('sendMessage',{chat_id:chatId,text:`✅ Привязан Steam ID <code>${steam}</code>`,parse_mode:'HTML'});
   }
   if(!admin)return;
   if(text==='/withdrawals'){
     const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
     if(!list.length)return tg('sendMessage',{chat_id:chatId,text:'Заявок на вывод нет.'});
-    for(const w of list){await tg('sendMessage',{chat_id:chatId,text:`🟠 <b>${w.id}</b>\nSteam: <code>${w.steamid}</code>\nСумма: ${Number(w.value).toFixed(2)} ₽\nПредмет: ${w.item.name}`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'🎁 Выдать',callback_data:`wd:${w.id}:send`},{text:'❌ Отклонить',callback_data:`wd:${w.id}:reject`}]]}});}
+    for(const w of list){
+      await tg('sendMessage',{chat_id:chatId,text:`🟠 <b>${w.id}</b>\nSteam: <code>${w.steamid}</code>\nСумма: ${Number(w.value).toFixed(2)} ₽\nПредмет: ${w.item.name}`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'🎁 Выдать',callback_data:`wd:${w.id}:send`},{text:'❌ Отклонить',callback_data:`wd:${w.id}:reject`}]]}});
+    }
     return;
   }
-  let a=text.match(/^\/give\s+(\d{17})\s+([\d.]+)/i); if(a){const u2=ensureUser(a[1]);u2.balance+=Number(a[2]);saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Начислено ${Number(a[2]).toFixed(2)} ₽`,parse_mode:'HTML'});}
-  a=text.match(/^\/withdrawlock\s+(\d{17})\s+(on|off)/i); if(a){const u2=ensureUser(a[1]);u2.withdrawDisabled=a[2].toLowerCase()==='on';saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Вывод: ${u2.withdrawDisabled?'запрещён':'разрешён'}`});}
-  a=text.match(/^\/adminsteam\s+(\d{17})/i); if(a){data.admins['steam:'+a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Steam ID ${a[1]} → web-admin.`});}
-  a=text.match(/^\/admin\s+(\d+)/i); if(a){data.admins[a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Telegram ID ${a[1]} → admin.`});}
-  a=text.match(/^\/promo\s+([A-Za-z0-9_-]+)\s+(\d+(?:\.\d+)?)\s*(?:([\d.]+))?/i); if(a){const p=makePromo(a[1],a[2],a[3]||0);return tg('sendMessage',{chat_id:chatId,text:`✅ Промокод <code>${p.code}</code>: +${p.percent}%`,parse_mode:'HTML'});}
+  let a=text.match(/^\/give\s+(\d{17})\s+([\d.]+)/i);
+  if(a){const u2=ensureUser(a[1]);u2.balance+=Number(a[2]);saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Начислено ${Number(a[2]).toFixed(2)} ₽`,parse_mode:'HTML'});}
+  a=text.match(/^\/withdrawlock\s+(\d{17})\s+(on|off)/i);
+  if(a){const u2=ensureUser(a[1]);u2.withdrawDisabled=a[2].toLowerCase()==='on';saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Вывод: ${u2.withdrawDisabled?'запрещён':'разрешён'}`});}
+  a=text.match(/^\/adminsteam\s+(\d{17})/i);
+  if(a){data.admins['steam:'+a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Steam ID ${a[1]} → web-admin.`});}
+  a=text.match(/^\/admin\s+(\d+)/i);
+  if(a){data.admins[a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Telegram ID ${a[1]} → admin.`});}
+  a=text.match(/^\/promo\s+([A-Za-z0-9_-]+)\s+(\d+(?:\.\d+)?)\s*(?:([\d.]+))?/i);
+  if(a){const p=makePromo(a[1],a[2],a[3]||0);return tg('sendMessage',{chat_id:chatId,text:`✅ Промокод <code>${p.code}</code>: +${p.percent}%`,parse_mode:'HTML'});}
 }
 
 function infoText(){
@@ -435,7 +466,12 @@ async function processPaymentTelegramUpdate(u){
 async function sendPaymentMenu(chatId){
   const steam=findSteamByTelegram(chatId), user=steam?ensureUser(steam):null;
   const id=user?ensureZenodropId(user):null;
-  return tgPay('sendMessage',{chat_id:chatId,text:`<b>Zenodrop — Пополнение</b>\n\n${id?`Ваш ID: <code>${id}</code>\nБаланс: <b>${Number(user.balance||0).toFixed(2)} ₽</b>\n\n`:'Откройте пополнение через Telegram с сайта.\n\n'}Выберите действие:`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[ {text:'💰 Пополнить',callback_data:'pay:topup'}, {text:'👤 Профиль',callback_data:'pay:profile'} ]]}});
+  return tgPay('sendMessage',{
+    chat_id:chatId,
+    text:`<b>Zenodrop — Пополнение</b>\n\n${id?`Ваш ID: <code>${id}</code>\nБаланс: <b>${Number(user.balance||0).toFixed(2)} ₽</b>\n\n`:'Откройте пополнение через Telegram с сайта.\n\n'}Выберите действие:`,
+    parse_mode:'HTML',
+    reply_markup:{inline_keyboard:[[{text:'💰 Пополнить',callback_data:'pay:topup'},{text:'👤 Профиль',callback_data:'pay:profile'}]]}
+  });
 }
 
 async function paymentTelegramStart(){
@@ -443,7 +479,12 @@ async function paymentTelegramStart(){
   try{
     const me=await tgPay('getMe',{});
     if(!me?.ok){ console.error('Payment Telegram: invalid token'); return; }
-    await tgPay('setMyCommands',{commands:[{command:'start',description:'Открыть меню'},{command:'deposit',description:'Пополнить'},{command:'id',description:'Zenodrop ID'},{command:'balance',description:'Баланс'}]});
+    await tgPay('setMyCommands',{commands:[
+      {command:'start',description:'Открыть меню'},
+      {command:'deposit',description:'Пополнить'},
+      {command:'id',description:'Zenodrop ID'},
+      {command:'balance',description:'Баланс'}
+    ]});
     if(PAY_TG_WEBHOOK_URL){
       const secret=crypto.createHash('sha256').update(PAY_TG_TOKEN).digest('hex').slice(0,32);
       await tgPay('setWebhook',{url:PAY_TG_WEBHOOK_URL,secret_token:secret,allowed_updates:['message','callback_query'],drop_pending_updates:false});
@@ -653,7 +694,7 @@ function parseCookies(req) {
 async function readJson(req){
   return new Promise((resolve,reject)=>{
     let b='';
-    req.on('data',c=>{b+=c;if(b.length>1e6)req.destroy();});
+    req.on('data',c=>{b+=c;if(b.length>2e6)req.destroy();});
     req.on('end',()=>{try{resolve(JSON.parse(b||'{}'));}catch(e){reject(e);}});
     req.on('error',reject);
   });
@@ -682,6 +723,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
+    // STEAM LOGIN
     if (pathname === '/auth/steam') {
         const proto = req.headers['x-forwarded-proto'] || 'http';
         const realm = `${proto}://${req.headers.host}`;
@@ -698,6 +740,7 @@ const server = http.createServer(async (req, res) => {
         return res.end();
     }
 
+    // STEAM RETURN
     if (pathname === '/auth/steam/return') {
         try {
             const params = new URLSearchParams();
@@ -744,17 +787,22 @@ const server = http.createServer(async (req, res) => {
         return res.end();
     }
 
+    // CURRENT USER
     if (pathname === '/api/current-user' && req.method === 'GET') {
         res.writeHead(200, {'Content-Type':'application/json','Cache-Control':'no-store'});
         if(sessionUser){
             const stored=ensureUser(sessionUser.steamid);
             ensureZenodropId(stored);
-            const serverAccount={...stored,pendingWithdrawals:pendingWithdrawalsForUser(sessionUser.steamid)};
+            const serverAccount={
+                ...stored,
+                pendingWithdrawals:pendingWithdrawalsForUser(sessionUser.steamid)
+            };
             return res.end(JSON.stringify({...sessionUser,serverAccount,webAdmin:isWebAdmin(sessionUser.steamid)}));
         }
         return res.end(JSON.stringify(null));
     }
 
+    // LOGOUT
     if (pathname === '/auth/logout') {
         if (cookies.session_id) sessions.delete(cookies.session_id);
         res.writeHead(302, {
@@ -764,6 +812,7 @@ const server = http.createServer(async (req, res) => {
         return res.end();
     }
 
+    // MAIN HTML
     if (req.url === '/') {
         res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
         return res.end(html);
@@ -802,8 +851,14 @@ const server = http.createServer(async (req, res) => {
             const caseKey=String(body.case||'');
             const skins=Array.isArray(body.skins)?body.skins:[];
             const cfg=CASES[caseKey];
-            if(!cfg){res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});return res.end(JSON.stringify({error:'invalid_case'}));}
-            if(!skins.length){res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});return res.end(JSON.stringify({error:'empty_pool'}));}
+            if(!cfg){
+                res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
+                return res.end(JSON.stringify({error:'invalid_case'}));
+            }
+            if(!skins.length){
+                res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
+                return res.end(JSON.stringify({error:'empty_pool'}));
+            }
             const user=ensureUser(sessionUser.steamid);
             ensureZenodropId(user);
             if(Number(user.balance||0) < cfg.price){
@@ -825,83 +880,196 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
+    // ACCOUNT SYNC — сохраняет баланс, инвентарь, bestDrop и stats к Steam-профилю.
     if(pathname==='/api/account/sync' && req.method==='POST'){
-        if(!sessionUser?.steamid){res.writeHead(401);return res.end(JSON.stringify({error:'auth_required'}));}
-        const body=await readJson(req),u=ensureUser(sessionUser.steamid);
-        ensureZenodropId(u);
-        if(Number.isFinite(Number(body.balance)))u.balance=Math.max(0,Number(body.balance));
-        if(body.stats&&typeof body.stats==='object')u.stats={...u.stats,...body.stats};
-        saveStore();
-        const responseUser={...u,pendingWithdrawals:pendingWithdrawalsForUser(sessionUser.steamid)};
-        res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,user:responseUser}));
+        if(!sessionUser?.steamid){
+            res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});
+            return res.end(JSON.stringify({error:'auth_required'}));
+        }
+        try{
+            const body=await readJson(req);
+            const u=ensureUser(sessionUser.steamid);
+            ensureZenodropId(u);
+            if(Number.isFinite(Number(body.balance))) u.balance=Math.max(0,Number(body.balance));
+            if(body.stats && typeof body.stats==='object'){
+                u.stats={...u.stats,...body.stats};
+            }
+            if(Array.isArray(body.inventory)){
+                u.inventory=body.inventory.slice(0,5000).map(x=>({
+                    id:String(x?.id||''),
+                    name:String(x?.name||''),
+                    category:'skins',
+                    value:Number(x?.value)||0,
+                    img:String(x?.img||''),
+                    uid:String(x?.uid||'')
+                })).filter(x=>x.name && x.uid);
+            }
+            if(body.bestDrop && typeof body.bestDrop==='object'){
+                u.bestDrop={
+                    name:String(body.bestDrop.name||'--'),
+                    value:Number(body.bestDrop.value)||0,
+                    img:String(body.bestDrop.img||'')
+                };
+            }
+            saveStore();
+            const responseUser={
+                ...u,
+                pendingWithdrawals:pendingWithdrawalsForUser(sessionUser.steamid)
+            };
+            res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
+            return res.end(JSON.stringify({ok:true,user:responseUser}));
+        }catch(e){
+            res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
+            return res.end(JSON.stringify({error:'invalid_json'}));
+        }
     }
 
+    // CONFIG
     if(pathname==='/api/config' && req.method==='GET'){
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-        return res.end(JSON.stringify({telegramBotUrl:TG_BOT_URL||null,paymentTelegramBotUrl:PAY_TG_BOT_URL||'https://t.me/ZenodropPayBot',cases:CASES}));
+        return res.end(JSON.stringify({
+            telegramBotUrl:TG_BOT_URL||null,
+            paymentTelegramBotUrl:PAY_TG_BOT_URL||'https://t.me/ZenodropPayBot',
+            cases:CASES
+        }));
     }
 
+    // PROMOS
     if(pathname==='/api/promos' && req.method==='GET'){
-        const list=promoList().slice(0,8).map(x=>({code:x.code,percent:x.percent,maxBonus:x.maxBonus,expiresAt:x.expiresAt||0,auto:!!x.auto,uses:Number(x.uses||0),maxUses:Number(x.maxUses||0)}));
-        res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'}); return res.end(JSON.stringify({items:list}));
+        const list=promoList().slice(0,8).map(x=>({
+            code:x.code,
+            percent:x.percent,
+            maxBonus:x.maxBonus,
+            expiresAt:x.expiresAt||0,
+            auto:!!x.auto,
+            uses:Number(x.uses||0),
+            maxUses:Number(x.maxUses||0)
+        }));
+        res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
+        return res.end(JSON.stringify({items:list}));
     }
 
+    // DEPOSIT
     if(pathname==='/api/deposit' && req.method==='POST'){
-        if(!sessionUser?.steamid){res.writeHead(401);return res.end(JSON.stringify({error:'auth_required'}));}
-        const body=await readJson(req); const amount=Number(body.amount)||0, method=String(body.method||''); const promo=String(body.promo||'').toUpperCase();
+        if(!sessionUser?.steamid){
+            res.writeHead(401);return res.end(JSON.stringify({error:'auth_required'}));
+        }
+        const body=await readJson(req);
+        const amount=Number(body.amount)||0;
+        const method=String(body.method||'');
+        const promo=String(body.promo||'').toUpperCase();
         if(amount<50){res.writeHead(400);return res.end(JSON.stringify({error:'min_50'}));}
         const pc=promo?data.promos[promo]:null;
-        if(promo && (!pc || pc.active===false || (pc.expiresAt && pc.expiresAt<=Date.now()))){res.writeHead(400);return res.end(JSON.stringify({error:'promo_invalid'}));}
+        if(promo && (!pc || pc.active===false || (pc.expiresAt && pc.expiresAt<=Date.now()))){
+            res.writeHead(400);return res.end(JSON.stringify({error:'promo_invalid'}));
+        }
         const bonus=pc?Math.min(amount*(Number(pc.percent)||0)/100,Number(pc.maxBonus)||Infinity):0;
         const id='dep_'+Date.now().toString(36)+'_'+crypto.randomBytes(3).toString('hex');
-        data.deposits.push({id,steamid:sessionUser.steamid,tgId:ensureUser(sessionUser.steamid)?.tgId||null,amount,bonus,method,promo,status:'pending',createdAt:Date.now()});saveStore();
+        data.deposits.push({
+            id,steamid:sessionUser.steamid,
+            tgId:ensureUser(sessionUser.steamid)?.tgId||null,
+            amount,bonus,method,promo,status:'pending',createdAt:Date.now()
+        });
+        saveStore();
         await notifyAdmins(`💳 <b>Новое пополнение</b>\nID: <code>${id}</code>\nSteam: <code>${sessionUser.steamid}</code>\nСумма: ${amount.toFixed(2)} ₽\nМетод: ${method}\nПромо: ${promo||'—'}\nК начислению: ${(amount+bonus).toFixed(2)} ₽`);
-        res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,id,bonus,total:amount+bonus}));
-    }
-
-    if(pathname==='/api/withdrawals' && req.method==='POST'){
-        if(!sessionUser?.steamid){res.writeHead(401);return res.end(JSON.stringify({error:'auth_required'}));}
-        const body=await readJson(req), index=Number(body.index); const stored=ensureUser(sessionUser.steamid);
-        if(stored.withdrawDisabled){res.writeHead(403);return res.end(JSON.stringify({error:'withdraw_disabled'}));}
-        const item=body.item; if(!item || !item.name || !Number(item.value)){res.writeHead(400);return res.end(JSON.stringify({error:'item_required'}));}
-        const itemUid=String(item.uid||'');
-        if(!itemUid){res.writeHead(400);return res.end(JSON.stringify({error:'item_uid_required'}));}
-        const alreadyPending=data.withdrawals.some(x=>x.steamid===sessionUser.steamid && x.item?.uid===itemUid && (x.status==='pending'||x.status==='approved'));
-        if(alreadyPending){res.writeHead(409);return res.end(JSON.stringify({error:'item_withdraw_pending'}));}
-        const id='wd_'+Date.now().toString(36)+'_'+crypto.randomBytes(3).toString('hex');
-        const w={id,steamid:sessionUser.steamid,tgId:stored.tgId||null,index,item:{name:item.name,value:Number(item.value),img:item.img||'',assetid:item.assetid||null,uid:itemUid},value:Number(item.value),refund:Number(item.value),status:'pending',createdAt:Date.now()};
-        data.withdrawals.push(w);saveStore();
-        await notifyAdmins(`🟠 <b>Новая заявка на вывод</b>\nID: <code>${id}</code>\nSteam: <code>${sessionUser.steamid}</code>\nСумма: ${w.value.toFixed(2)} ₽\nСкин: ${item.name}`,[[{text:'🎁 Выдать',callback_data:`wd:${id}:send`},{text:'❌ Отклонить',callback_data:`wd:${id}:reject`}]]);
-        res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,id,status:'pending'}));
-    }
-
-    if(pathname==='/api/admin/state' && req.method==='GET'){
-        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));}
         res.writeHead(200,{'Content-Type':'application/json'});
-        return res.end(JSON.stringify({users:Object.values(data.users),withdrawals:data.withdrawals.slice(-100).reverse(),deposits:data.deposits.slice(-100).reverse(),promos:promoList()}));
+        return res.end(JSON.stringify({ok:true,id,bonus,total:amount+bonus}));
     }
 
+    // WITHDRAWALS
+    if(pathname==='/api/withdrawals' && req.method==='POST'){
+        if(!sessionUser?.steamid){
+            res.writeHead(401);return res.end(JSON.stringify({error:'auth_required'}));
+        }
+        const body=await readJson(req);
+        const index=Number(body.index);
+        const stored=ensureUser(sessionUser.steamid);
+        if(stored.withdrawDisabled){
+            res.writeHead(403);return res.end(JSON.stringify({error:'withdraw_disabled'}));
+        }
+        const item=body.item;
+        if(!item || !item.name || !Number(item.value)){
+            res.writeHead(400);return res.end(JSON.stringify({error:'item_required'}));
+        }
+        const itemUid=String(item.uid||'');
+        if(!itemUid){
+            res.writeHead(400);return res.end(JSON.stringify({error:'item_uid_required'}));
+        }
+        const alreadyPending=data.withdrawals.some(x=>x.steamid===sessionUser.steamid && x.item?.uid===itemUid && (x.status==='pending'||x.status==='approved'));
+        if(alreadyPending){
+            res.writeHead(409);return res.end(JSON.stringify({error:'item_withdraw_pending'}));
+        }
+        const id='wd_'+Date.now().toString(36)+'_'+crypto.randomBytes(3).toString('hex');
+        const w={
+            id,steamid:sessionUser.steamid,tgId:stored.tgId||null,index,
+            item:{name:item.name,value:Number(item.value),img:item.img||'',assetid:item.assetid||null,uid:itemUid},
+            value:Number(item.value),refund:Number(item.value),status:'pending',createdAt:Date.now()
+        };
+        data.withdrawals.push(w);saveStore();
+        await notifyAdmins(
+            `🟠 <b>Новая заявка на вывод</b>\nID: <code>${id}</code>\nSteam: <code>${sessionUser.steamid}</code>\nСумма: ${w.value.toFixed(2)} ₽\nСкин: ${item.name}`,
+            [[{text:'🎁 Выдать',callback_data:`wd:${id}:send`},{text:'❌ Отклонить',callback_data:`wd:${id}:reject`}]]
+        );
+        res.writeHead(200,{'Content-Type':'application/json'});
+        return res.end(JSON.stringify({ok:true,id,status:'pending'}));
+    }
+
+    // ADMIN STATE
+    if(pathname==='/api/admin/state' && req.method==='GET'){
+        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
+            res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
+        }
+        res.writeHead(200,{'Content-Type':'application/json'});
+        return res.end(JSON.stringify({
+            users:Object.values(data.users),
+            withdrawals:data.withdrawals.slice(-100).reverse(),
+            deposits:data.deposits.slice(-100).reverse(),
+            promos:promoList()
+        }));
+    }
+
+    // ADMIN PROMO
     if(pathname==='/api/admin/promo' && req.method==='POST'){
-        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));}
-        const body=await readJson(req),code=String(body.code||'').trim().toUpperCase(),percent=Number(body.percent),maxBonus=Number(body.maxBonus)||0,expiresMinutes=Number(body.expiresMinutes)||0;
-        if(!/^[A-Z0-9_-]{3,32}$/.test(code)||!Number.isFinite(percent)||percent<1||percent>100){res.writeHead(400);return res.end(JSON.stringify({error:'invalid_promo'}));}
+        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
+            res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
+        }
+        const body=await readJson(req);
+        const code=String(body.code||'').trim().toUpperCase();
+        const percent=Number(body.percent);
+        const maxBonus=Number(body.maxBonus)||0;
+        const expiresMinutes=Number(body.expiresMinutes)||0;
+        if(!/^[A-Z0-9_-]{3,32}$/.test(code)||!Number.isFinite(percent)||percent<1||percent>100){
+            res.writeHead(400);return res.end(JSON.stringify({error:'invalid_promo'}));
+        }
         const p=makePromo(code,percent,maxBonus,{auto:false,expiresAt:expiresMinutes>0?Date.now()+expiresMinutes*60000:0});
-        res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,promo:p}));
+        res.writeHead(200,{'Content-Type':'application/json'});
+        return res.end(JSON.stringify({ok:true,promo:p}));
     }
 
+    // ADMIN USER
     if(pathname==='/api/admin/user' && req.method==='POST'){
-        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));}
-        const body=await readJson(req); const u=ensureUser(body.steamid); if(!u){res.writeHead(400);return res.end(JSON.stringify({error:'steamid_required'}));}
+        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
+            res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
+        }
+        const body=await readJson(req);
+        const u=ensureUser(body.steamid);
+        if(!u){res.writeHead(400);return res.end(JSON.stringify({error:'steamid_required'}));}
         if(body.balanceDelta!==undefined)u.balance+=Number(body.balanceDelta)||0;
         if(body.balance!==undefined)u.balance=Number(body.balance)||0;
         if(body.withdrawDisabled!==undefined)u.withdrawDisabled=!!body.withdrawDisabled;
         saveStore();
-        res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,user:u}));
+        res.writeHead(200,{'Content-Type':'application/json'});
+        return res.end(JSON.stringify({ok:true,user:u}));
     }
 
+    // ADMIN DEPOSIT CONFIRM
     if(pathname==='/api/admin/deposit-confirm' && req.method==='POST'){
-        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));}
-        const body=await readJson(req); const d=data.deposits.find(x=>x.id===body.id); if(!d){res.writeHead(404);return res.end(JSON.stringify({error:'not_found'}));}
+        if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
+            res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
+        }
+        const body=await readJson(req);
+        const d=data.deposits.find(x=>x.id===body.id);
+        if(!d){res.writeHead(404);return res.end(JSON.stringify({error:'not_found'}));}
         if(d.status!=='pending'){return res.end(JSON.stringify({ok:true,status:d.status}));}
         const u=ensureUser(d.steamid);
         u.balance+=d.amount+d.bonus;
@@ -909,9 +1077,11 @@ const server = http.createServer(async (req, res) => {
         if(d.promo&&data.promos[d.promo])data.promos[d.promo].uses=(data.promos[d.promo].uses||0)+1;
         d.status='paid';d.updatedAt=Date.now();saveStore();
         if(d.tgId)await tg('sendMessage',{chat_id:d.tgId,text:`✅ Пополнение <b>${d.id}</b> подтверждено: +${(d.amount+d.bonus).toFixed(2)} ₽`,parse_mode:'HTML'});
-        res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,user:u}));
+        res.writeHead(200,{'Content-Type':'application/json'});
+        return res.end(JSON.stringify({ok:true,user:u}));
     }
 
+    // USD-RUB
     if (pathname === '/api/usd-rub' && req.method === 'GET') {
         try {
             const controller = new AbortController();
@@ -933,6 +1103,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
+    // CS2 CATALOG
     if (pathname === '/api/cs2/catalog' && req.method === 'GET') {
         try {
             if (cs2CatalogCache.data && Date.now() < cs2CatalogCache.expires) {
@@ -951,6 +1122,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
+    // CS2 SCHEMA PROXY
     if (pathname === '/api/cs2/schema' && req.method === 'GET') {
         try {
             const r = await fetch('https://api.cs2.sh/v1/schema', {
@@ -965,6 +1137,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
+    // CS2 PRICES PROXY
     if (pathname === '/api/prices' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => { body += chunk; });
@@ -972,7 +1145,10 @@ const server = http.createServer(async (req, res) => {
             try {
                 const input = JSON.parse(body || '{}');
                 const items = Array.isArray(input.items) ? input.items.filter(x => typeof x === 'string' && x.trim()).slice(0, 100) : [];
-                if (!items.length) { res.writeHead(400, {'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'items_required'})); }
+                if (!items.length) {
+                    res.writeHead(400, {'Content-Type':'application/json'});
+                    return res.end(JSON.stringify({error:'items_required'}));
+                }
                 const r = await fetch('https://api.cs2.sh/v1/prices/latest', {
                     method: 'POST',
                     headers: {'Authorization':'Bearer ' + KEY, 'Content-Type':'application/json', 'Accept-Encoding':'gzip'},
@@ -989,26 +1165,39 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    // TELEGRAM ADMIN WEBHOOK
     if((pathname==='/telegram/admin-webhook' || pathname==='/telegram/webhook') && req.method==='POST'){
         const update=await readJson(req);
         const expected=TG_TOKEN ? crypto.createHash('sha256').update(TG_TOKEN).digest('hex').slice(0,32) : '';
         const provided=String(req.headers['x-telegram-bot-api-secret-token']||'');
-        if(expected && provided!==expected){ res.writeHead(403,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:false,error:'forbidden'})); return; }
-        res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:true}));
+        if(expected && provided!==expected){
+            res.writeHead(403,{'Content-Type':'application/json'});
+            res.end(JSON.stringify({ok:false,error:'forbidden'}));
+            return;
+        }
+        res.writeHead(200,{'Content-Type':'application/json'});
+        res.end(JSON.stringify({ok:true}));
         Promise.resolve(processTelegramUpdate(update)).catch(e=>console.error('Admin TG webhook:',e.message));
         return;
     }
 
+    // TELEGRAM PAYMENT WEBHOOK
     if(pathname==='/telegram/payment-webhook' && req.method==='POST'){
         const update=await readJson(req);
         const expected=PAY_TG_TOKEN ? crypto.createHash('sha256').update(PAY_TG_TOKEN).digest('hex').slice(0,32) : '';
         const provided=String(req.headers['x-telegram-bot-api-secret-token']||'');
-        if(expected && provided!==expected){ res.writeHead(403,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:false,error:'forbidden'})); return; }
-        res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:true}));
+        if(expected && provided!==expected){
+            res.writeHead(403,{'Content-Type':'application/json'});
+            res.end(JSON.stringify({ok:false,error:'forbidden'}));
+            return;
+        }
+        res.writeHead(200,{'Content-Type':'application/json'});
+        res.end(JSON.stringify({ok:true}));
         Promise.resolve(processPaymentTelegramUpdate(update)).catch(e=>console.error('Payment TG webhook:',e.message));
         return;
     }
 
+    // PRIVACY / TERMS / INFO
     if(pathname==='/privacy' || pathname==='/terms' || pathname==='/info') {
         const title = pathname==='/privacy' ? 'Политика конфиденциальности' : pathname==='/terms' ? 'Пользовательское соглашение' : 'Информация Zenodrop';
         const body = pathname==='/privacy' ? `
@@ -1030,9 +1219,11 @@ const server = http.createServer(async (req, res) => {
             <h1>Zenodrop — информация</h1><p><b>Актуально на 9 сентября 2026 года.</b></p>
             <p><a href="/privacy">Политика конфиденциальности</a></p><p><a href="/terms">Пользовательское соглашение</a></p>`;
         const page=`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{font-family:Arial,sans-serif;background:#0d0f17;color:#e8ecf4;max-width:820px;margin:0 auto;padding:32px;line-height:1.6}h1{color:#f59e0b}h2{color:#fff;margin-top:28px}a{color:#f7b32b}code{background:#1b2130;padding:3px 7px;border-radius:6px}</style></head><body>${body}<hr><p><a href="/info">← Вернуться к информации</a></p></body></html>`;
-        res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}); return res.end(page);
+        res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
+        return res.end(page);
     }
 
+    // 404
     res.writeHead(404);
     res.end('Not found');
 });
