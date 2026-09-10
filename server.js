@@ -21,9 +21,6 @@ if (!KEY) {
 
 const html = fs.readFileSync(path.join(__dirname, 'Zenodrop_CS2SH_400.html'));
 
-// ===============================
-// SESSIONS
-// ===============================
 const sessions = new Map();
 const SESSION_SECRET = (process.env.SESSION_SECRET || process.env.STEAM_SESSION_SECRET || KEY).trim();
 
@@ -40,9 +37,6 @@ function steamFromSessionCookie(value){
   return m[1];
 }
 
-// ===============================
-// STORE / TELEGRAM
-// ===============================
 const DATA_FILE = path.join(__dirname, 'zenodrop_data.json');
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_BOT_URL = (process.env.TELEGRAM_BOT_URL || '').trim();
@@ -51,9 +45,6 @@ const PAY_TG_TOKEN = (process.env.TELEGRAM_PAYMENT_BOT_TOKEN || '').trim();
 const PAY_TG_BOT_URL = (process.env.TELEGRAM_PAYMENT_BOT_URL || 'https://t.me/ZenodropPayBot').trim();
 const SUPPORT_CONTACT = '@Zenodropsupport';
 
-// ============================================================
-//  КЕЙСЫ
-// ============================================================
 const CASES = {
   micro:     { price: 13,    rtp: 0.72 },
   basic:     { price: 100,   rtp: 0.90 },
@@ -70,7 +61,6 @@ function itemPrice(s){
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-// Мягкая подгонка RTP: работает только в сторону уменьшения EV.
 function fitToRtp(list, cp, rtp){
   if (!list.length || !cp || !rtp) return list;
   const ev = list.reduce((s,x) => s + x.weight * itemPrice(x), 0);
@@ -85,11 +75,8 @@ function fitToRtp(list, cp, rtp){
   });
 }
 
-// Веса по относительной цене r = price / cp.
-// Усилен окуп: ядро cp..cp*1.20 получает больше массы, слив ограничен.
 function rangeWeight(price, cp){
   const r = cp > 0 ? price / cp : 0;
-
   if (r < 0.80) return 0.02;
   if (r < 0.86) return 0.20;
   if (r < 0.90) return 0.60;
@@ -115,24 +102,19 @@ function microWeight(price){
 
 function weightedRandom(skins, casePrice){
   if(!Array.isArray(skins) || !skins.length) return null;
-
   const cp = Number(casePrice || 0);
   const total = skins.reduce((s, x) => s + Number(x.weight || 0), 0);
-
   let list = skins.map(s => ({
     ...s,
     weight: total > 0 ? Number(s.weight || 0) / total : 1 / skins.length
   }));
-
   list = list.map(s => {
     const price = itemPrice(s);
     const m = cp <= 20 ? microWeight(price) : rangeWeight(price, cp);
     return { ...s, weight: Math.max(1e-9, s.weight * m), _price: price };
   });
-
   const rtp = Number(CASES[Object.keys(CASES).find(k => CASES[k].price === cp)]?.rtp || 0);
   if (rtp > 0 && cp > 0) list = fitToRtp(list, cp, rtp);
-
   const total2 = list.reduce((sum, x) => sum + x.weight, 0);
   if (total2 <= 0) {
     const fb = list[list.length - 1];
@@ -140,7 +122,6 @@ function weightedRandom(skins, casePrice){
     const { _price, ...rest } = fb;
     return rest;
   }
-
   const roll = Math.random();
   let cur = 0;
   for (const x of list) {
@@ -163,9 +144,6 @@ function openCase(caseKey, skins){
   return { skin, price: cfg.price };
 }
 
-// ============================================================
-//  АПГРЕЙД
-// ============================================================
 const LUCK_MAP = new Map();
 
 function getPlayerLuck(steamid){
@@ -187,26 +165,20 @@ function upgrade(chance, steamid, targetPrice){
   if (!Number.isFinite(chance)) return false;
   if (chance < 0)   chance = 0;
   if (chance > 100) chance = 100;
-
   const price = Number(targetPrice || 0);
-
   if (price > 20000) {
     const capped = Math.min(chance, 30);
     return Math.random() * 100 < capped;
   }
-
   const curved = chance <= 50 ? chance : 50 + (chance - 50) * 0.2;
   let real = curved * getPlayerLuck(steamid);
-
   if (price >= 15000)      real *= 0.08;
   else if (price >= 13000) real *= 0.10;
   else if (price >= 10000) real *= 0.15;
   else if (price >= 5000)  real *= 0.35;
   else if (price >= 2000)  real *= 0.65;
-
   if (real < 0.3) real = 0.3;
   if (real > 60)  real = 60;
-
   return Math.random() * 100 < real;
 }
 
@@ -238,14 +210,8 @@ function saveStore(){
 function ensureUser(steamid){
   const id=String(steamid||''); if(!id)return null;
   if(!data.users[id]) data.users[id]={
-    steamid:id,
-    balance:0,
-    stats:{totalDeposited:0},
-    withdrawDisabled:false,
-    tgId:null,
-    createdAt:Date.now(),
-    inventory:[],
-    bestDrop:{name:'--',value:0,img:''}
+    steamid:id,balance:0,stats:{totalDeposited:0},withdrawDisabled:false,
+    tgId:null,createdAt:Date.now(),inventory:[],bestDrop:{name:'--',value:0,img:''}
   };
   if(!data.users[id].stats) data.users[id].stats={totalDeposited:0};
   if(!Array.isArray(data.users[id].inventory)) data.users[id].inventory=[];
@@ -279,13 +245,8 @@ function pendingWithdrawalsForUser(steamid){
   return data.withdrawals
     .filter(w=>w.steamid===steamid && (w.status==='pending' || w.status==='approved'))
     .map(w=>({
-      id:w.id,
-      itemUid:w.item?.uid||null,
-      itemName:w.item?.name||'',
-      itemValue:Number(w.item?.value)||0,
-      status:w.status,
-      index:w.index,
-      createdAt:w.createdAt||0
+      id:w.id,itemUid:w.item?.uid||null,itemName:w.item?.name||'',
+      itemValue:Number(w.item?.value)||0,status:w.status,index:w.index,createdAt:w.createdAt||0
     }));
 }
 function isTgAdmin(id){return TG_ADMIN_IDS.has(String(id)) || !!data.admins[String(id)];}
@@ -296,9 +257,7 @@ async function tgWithToken(token,label,method,body={}){
   if(!token){ console.error(`Telegram ${label}: token is not set`); return null; }
   try{
     const r=await fetch(`https://api.telegram.org/bot${token}/${method}`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body)
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
     });
     const json=await r.json();
     if(!json?.ok) console.error(`Telegram ${label} API`,method,json?.description||'unknown error');
@@ -363,8 +322,7 @@ async function processTelegramUpdate(u){
         await tg('sendMessage',{chat_id:q.message.chat.id,text:`Заявка <b>${wid}</b> подтверждена.`,parse_mode:'HTML'});
         if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Вывод <b>${wid}</b> подтверждён.`,parse_mode:'HTML'});
       } else if(action==='reject'){
-        const user=ensureUser(w.steamid);
-        if(user){user.balance+=Number(w.refund||0);}
+        const user=ensureUser(w.steamid); if(user){user.balance+=Number(w.refund||0);}
         w.status='rejected';w.updatedAt=Date.now();saveStore();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка отклонена'});
         if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`❌ Вывод <b>${wid}</b> отклонён. Средства возвращены.`,parse_mode:'HTML'});
@@ -530,9 +488,6 @@ async function startTelegramPollingFallback(){
   }
 }
 
-// ===============================
-// CS2.SH
-// ===============================
 let cs2CatalogCache = { data: null, expires: 0 };
 const CS2_CACHE_MS = 10 * 60 * 1000;
 
@@ -677,9 +632,6 @@ async function buildCs2Catalog() {
     return result.slice(0, 7000);
 }
 
-// ===============================
-// COOKIES / READ JSON
-// ===============================
 function parseCookies(req) {
     const list = {};
     const rc = req.headers.cookie;
@@ -700,9 +652,6 @@ async function readJson(req){
   });
 }
 
-// ===============================
-// SERVER
-// ===============================
 const server = http.createServer(async (req, res) => {
 
     const urlObj = new URL(req.url, `http://${req.headers.host}`);
@@ -723,7 +672,6 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // STEAM LOGIN
     if (pathname === '/auth/steam') {
         const proto = req.headers['x-forwarded-proto'] || 'http';
         const realm = `${proto}://${req.headers.host}`;
@@ -740,7 +688,6 @@ const server = http.createServer(async (req, res) => {
         return res.end();
     }
 
-    // STEAM RETURN
     if (pathname === '/auth/steam/return') {
         try {
             const params = new URLSearchParams();
@@ -787,7 +734,6 @@ const server = http.createServer(async (req, res) => {
         return res.end();
     }
 
-    // CURRENT USER
     if (pathname === '/api/current-user' && req.method === 'GET') {
         res.writeHead(200, {'Content-Type':'application/json','Cache-Control':'no-store'});
         if(sessionUser){
@@ -802,7 +748,6 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify(null));
     }
 
-    // LOGOUT
     if (pathname === '/auth/logout') {
         if (cookies.session_id) sessions.delete(cookies.session_id);
         res.writeHead(302, {
@@ -812,13 +757,11 @@ const server = http.createServer(async (req, res) => {
         return res.end();
     }
 
-    // MAIN HTML
     if (req.url === '/') {
         res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
         return res.end(html);
     }
 
-    // UPGRADE ROLL
     if(pathname==='/api/upgrade-roll' && req.method==='POST'){
         if(!sessionUser?.steamid){
             res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});
@@ -840,7 +783,6 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // CASE OPEN
     if(pathname==='/api/case/open' && req.method==='POST'){
         if(!sessionUser?.steamid){
             res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});
@@ -880,7 +822,6 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // ACCOUNT SYNC — сохраняет баланс, инвентарь, bestDrop и stats к Steam-профилю.
     if(pathname==='/api/account/sync' && req.method==='POST'){
         if(!sessionUser?.steamid){
             res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});
@@ -891,9 +832,7 @@ const server = http.createServer(async (req, res) => {
             const u=ensureUser(sessionUser.steamid);
             ensureZenodropId(u);
             if(Number.isFinite(Number(body.balance))) u.balance=Math.max(0,Number(body.balance));
-            if(body.stats && typeof body.stats==='object'){
-                u.stats={...u.stats,...body.stats};
-            }
+            if(body.stats && typeof body.stats==='object'){ u.stats={...u.stats,...body.stats}; }
             if(Array.isArray(body.inventory)){
                 u.inventory=body.inventory.slice(0,5000).map(x=>({
                     id:String(x?.id||''),
@@ -924,7 +863,6 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // CONFIG
     if(pathname==='/api/config' && req.method==='GET'){
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
         return res.end(JSON.stringify({
@@ -934,26 +872,18 @@ const server = http.createServer(async (req, res) => {
         }));
     }
 
-    // PROMOS
     if(pathname==='/api/promos' && req.method==='GET'){
         const list=promoList().slice(0,8).map(x=>({
-            code:x.code,
-            percent:x.percent,
-            maxBonus:x.maxBonus,
-            expiresAt:x.expiresAt||0,
-            auto:!!x.auto,
-            uses:Number(x.uses||0),
-            maxUses:Number(x.maxUses||0)
+            code:x.code,percent:x.percent,maxBonus:x.maxBonus,
+            expiresAt:x.expiresAt||0,auto:!!x.auto,
+            uses:Number(x.uses||0),maxUses:Number(x.maxUses||0)
         }));
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
         return res.end(JSON.stringify({items:list}));
     }
 
-    // DEPOSIT
     if(pathname==='/api/deposit' && req.method==='POST'){
-        if(!sessionUser?.steamid){
-            res.writeHead(401);return res.end(JSON.stringify({error:'auth_required'}));
-        }
+        if(!sessionUser?.steamid){ res.writeHead(401); return res.end(JSON.stringify({error:'auth_required'})); }
         const body=await readJson(req);
         const amount=Number(body.amount)||0;
         const method=String(body.method||'');
@@ -976,29 +906,18 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({ok:true,id,bonus,total:amount+bonus}));
     }
 
-    // WITHDRAWALS
     if(pathname==='/api/withdrawals' && req.method==='POST'){
-        if(!sessionUser?.steamid){
-            res.writeHead(401);return res.end(JSON.stringify({error:'auth_required'}));
-        }
+        if(!sessionUser?.steamid){ res.writeHead(401); return res.end(JSON.stringify({error:'auth_required'})); }
         const body=await readJson(req);
         const index=Number(body.index);
         const stored=ensureUser(sessionUser.steamid);
-        if(stored.withdrawDisabled){
-            res.writeHead(403);return res.end(JSON.stringify({error:'withdraw_disabled'}));
-        }
+        if(stored.withdrawDisabled){ res.writeHead(403); return res.end(JSON.stringify({error:'withdraw_disabled'})); }
         const item=body.item;
-        if(!item || !item.name || !Number(item.value)){
-            res.writeHead(400);return res.end(JSON.stringify({error:'item_required'}));
-        }
+        if(!item || !item.name || !Number(item.value)){ res.writeHead(400); return res.end(JSON.stringify({error:'item_required'})); }
         const itemUid=String(item.uid||'');
-        if(!itemUid){
-            res.writeHead(400);return res.end(JSON.stringify({error:'item_uid_required'}));
-        }
+        if(!itemUid){ res.writeHead(400); return res.end(JSON.stringify({error:'item_uid_required'})); }
         const alreadyPending=data.withdrawals.some(x=>x.steamid===sessionUser.steamid && x.item?.uid===itemUid && (x.status==='pending'||x.status==='approved'));
-        if(alreadyPending){
-            res.writeHead(409);return res.end(JSON.stringify({error:'item_withdraw_pending'}));
-        }
+        if(alreadyPending){ res.writeHead(409); return res.end(JSON.stringify({error:'item_withdraw_pending'})); }
         const id='wd_'+Date.now().toString(36)+'_'+crypto.randomBytes(3).toString('hex');
         const w={
             id,steamid:sessionUser.steamid,tgId:stored.tgId||null,index,
@@ -1014,7 +933,6 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({ok:true,id,status:'pending'}));
     }
 
-    // ADMIN STATE
     if(pathname==='/api/admin/state' && req.method==='GET'){
         if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
             res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
@@ -1028,7 +946,6 @@ const server = http.createServer(async (req, res) => {
         }));
     }
 
-    // ADMIN PROMO
     if(pathname==='/api/admin/promo' && req.method==='POST'){
         if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
             res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
@@ -1046,7 +963,6 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({ok:true,promo:p}));
     }
 
-    // ADMIN USER
     if(pathname==='/api/admin/user' && req.method==='POST'){
         if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
             res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
@@ -1062,7 +978,6 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({ok:true,user:u}));
     }
 
-    // ADMIN DEPOSIT CONFIRM
     if(pathname==='/api/admin/deposit-confirm' && req.method==='POST'){
         if(!sessionUser?.steamid || !isWebAdmin(sessionUser.steamid)){
             res.writeHead(403);return res.end(JSON.stringify({error:'forbidden'}));
@@ -1081,7 +996,6 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({ok:true,user:u}));
     }
 
-    // USD-RUB
     if (pathname === '/api/usd-rub' && req.method === 'GET') {
         try {
             const controller = new AbortController();
@@ -1103,7 +1017,6 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // CS2 CATALOG
     if (pathname === '/api/cs2/catalog' && req.method === 'GET') {
         try {
             if (cs2CatalogCache.data && Date.now() < cs2CatalogCache.expires) {
@@ -1122,7 +1035,6 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // CS2 SCHEMA PROXY
     if (pathname === '/api/cs2/schema' && req.method === 'GET') {
         try {
             const r = await fetch('https://api.cs2.sh/v1/schema', {
@@ -1137,7 +1049,6 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // CS2 PRICES PROXY
     if (pathname === '/api/prices' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => { body += chunk; });
@@ -1165,7 +1076,6 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // TELEGRAM ADMIN WEBHOOK
     if((pathname==='/telegram/admin-webhook' || pathname==='/telegram/webhook') && req.method==='POST'){
         const update=await readJson(req);
         const expected=TG_TOKEN ? crypto.createHash('sha256').update(TG_TOKEN).digest('hex').slice(0,32) : '';
@@ -1181,7 +1091,6 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // TELEGRAM PAYMENT WEBHOOK
     if(pathname==='/telegram/payment-webhook' && req.method==='POST'){
         const update=await readJson(req);
         const expected=PAY_TG_TOKEN ? crypto.createHash('sha256').update(PAY_TG_TOKEN).digest('hex').slice(0,32) : '';
@@ -1197,7 +1106,6 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // PRIVACY / TERMS / INFO
     if(pathname==='/privacy' || pathname==='/terms' || pathname==='/info') {
         const title = pathname==='/privacy' ? 'Политика конфиденциальности' : pathname==='/terms' ? 'Пользовательское соглашение' : 'Информация Zenodrop';
         const body = pathname==='/privacy' ? `
@@ -1223,7 +1131,6 @@ const server = http.createServer(async (req, res) => {
         return res.end(page);
     }
 
-    // 404
     res.writeHead(404);
     res.end('Not found');
 });
