@@ -51,9 +51,6 @@ const PAY_TG_TOKEN = (process.env.TELEGRAM_PAYMENT_BOT_TOKEN || '').trim();
 const PAY_TG_BOT_URL = (process.env.TELEGRAM_PAYMENT_BOT_URL || 'https://t.me/ZenodropPayBot').trim();
 const SUPPORT_CONTACT = '@Zenodropsupport';
 
-// ============================================================
-//  КЕЙСЫ
-// ============================================================
 const CASES = {
   micro:     { price: 13,    rtp: 0.95 },
   basic:     { price: 100,   rtp: 0.82 },
@@ -111,24 +108,19 @@ function microWeight(price){
 
 function weightedRandom(skins, casePrice){
   if(!Array.isArray(skins) || !skins.length) return null;
-
   const cp = Number(casePrice || 0);
   const total = skins.reduce((s, x) => s + Number(x.weight || 0), 0);
-
   let list = skins.map(s => ({
     ...s,
     weight: total > 0 ? Number(s.weight || 0) / total : 1 / skins.length
   }));
-
   list = list.map(s => {
     const price = itemPrice(s);
     const m = cp <= 20 ? microWeight(price) : rangeWeight(price, cp);
     return { ...s, weight: Math.max(1e-9, s.weight * m), _price: price };
   });
-
   const rtp = Number(CASES[Object.keys(CASES).find(k => CASES[k].price === cp)]?.rtp || 0);
   if (rtp > 0 && cp > 0) list = fitToRtp(list, cp, rtp);
-
   const total2 = list.reduce((sum, x) => sum + x.weight, 0);
   if (total2 <= 0) {
     const fb = list[list.length - 1];
@@ -136,7 +128,6 @@ function weightedRandom(skins, casePrice){
     const { _price, ...rest } = fb;
     return rest;
   }
-
   const roll = Math.random();
   let cur = 0;
   for (const x of list) {
@@ -159,11 +150,6 @@ function openCase(caseKey, skins){
   return { skin, price: cfg.price };
 }
 
-// ============================================================
-//  АПГРЕЙД
-//  Честный для цели < 5000 ₽.
-//  Штраф только для цели от 5000 ₽ и выше.
-// ============================================================
 const LUCK_MAP = new Map();
 
 function getPlayerLuck(steamid){
@@ -177,7 +163,6 @@ function upgrade(chance, steamid, targetPrice){
   if (chance > 100) chance = 100;
 
   const price = Number(targetPrice || 0);
-
   let real = chance;
 
   if (price >= 20000)      real *= 0.35;
@@ -221,14 +206,17 @@ function ensureUser(steamid){
   if(!data.users[id]) data.users[id]={
     steamid:id,
     balance:0,
-    stats:{totalDeposited:0},
+    stats:{totalDeposited:0, upgradesTotal:0, casesOpened:0},
     withdrawDisabled:false,
     tgId:null,
     createdAt:Date.now(),
     inventory:[],
     bestDrop:{name:'--',value:0,img:''}
   };
-  if(!data.users[id].stats) data.users[id].stats={totalDeposited:0};
+  if(!data.users[id].stats) data.users[id].stats={totalDeposited:0, upgradesTotal:0, casesOpened:0};
+  if(typeof data.users[id].stats.totalDeposited!=='number') data.users[id].stats.totalDeposited=0;
+  if(typeof data.users[id].stats.upgradesTotal!=='number') data.users[id].stats.upgradesTotal=0;
+  if(typeof data.users[id].stats.casesOpened!=='number') data.users[id].stats.casesOpened=0;
   if(!Array.isArray(data.users[id].inventory)) data.users[id].inventory=[];
   if(!data.users[id].bestDrop) data.users[id].bestDrop={name:'--',value:0,img:''};
   return data.users[id];
@@ -789,7 +777,7 @@ const server = http.createServer(async (req, res) => {
                     saveStore();
                     res.writeHead(302, {
                         Location: '/',
-                        'Set-Cookie': `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax`
+                        'Set-Cookie': `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`
                     });
                     return res.end();
                 }
@@ -840,6 +828,11 @@ const server = http.createServer(async (req, res) => {
                 return res.end(JSON.stringify({error:'invalid_chance'}));
             }
             const success=upgrade(chance, sessionUser.steamid, Number(body.targetPrice)||0);
+            const user=ensureUser(sessionUser.steamid);
+            if(success){
+                user.stats.upgradesTotal=(user.stats.upgradesTotal||0)+1;
+                saveStore();
+            }
             res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
             return res.end(JSON.stringify({ok:true,success,chance}));
         }catch(e){
@@ -878,6 +871,7 @@ const server = http.createServer(async (req, res) => {
                 return res.end(JSON.stringify({error:'roll_failed'}));
             }
             user.balance = Number(user.balance||0) - cfg.price;
+            user.stats.casesOpened=(user.stats.casesOpened||0)+1;
             saveStore();
             res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
             return res.end(JSON.stringify({ok:true,case:caseKey,price:cfg.price,skin:result.skin,balance:user.balance}));
@@ -897,8 +891,11 @@ const server = http.createServer(async (req, res) => {
             const u=ensureUser(sessionUser.steamid);
             ensureZenodropId(u);
             if(Number.isFinite(Number(body.balance))) u.balance=Math.max(0,Number(body.balance));
+            // Мерджим stats, но НЕ трогаем totalDeposited (он только серверный)
             if(body.stats && typeof body.stats==='object'){
-                u.stats={...u.stats,...body.stats};
+                const {totalDeposited, ...clientStats}=body.stats;
+                if(typeof clientStats.upgradesTotal==='number') u.stats.upgradesTotal=Math.max(u.stats.upgradesTotal||0, clientStats.upgradesTotal);
+                if(typeof clientStats.casesOpened==='number') u.stats.casesOpened=Math.max(u.stats.casesOpened||0, clientStats.casesOpened);
             }
             if(Array.isArray(body.inventory)){
                 u.inventory=body.inventory.slice(0,5000).map(x=>({
