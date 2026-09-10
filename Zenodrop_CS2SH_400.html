@@ -9,20 +9,18 @@
 .zeno-toast-container{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;align-items:center;gap:8px;width:min(92vw,420px);pointer-events:none}.zeno-toast{background:rgba(22,25,36,.97);border:1px solid rgba(245,158,11,.35);color:#fff;border-radius:12px;padding:11px 15px;font-size:12px;font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.45);animation:toastIn .2s ease,toastOut .25s ease 2.75s forwards;text-align:center}.zeno-toast.error{border-color:rgba(248,113,113,.45)}.zeno-toast.success{border-color:rgba(74,222,128,.45)}@keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}@keyframes toastOut{to{opacity:0;transform:translateY(8px)}}
 body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px;overflow-x:hidden}
 .container{width:100%;max-width:480px;display:flex;flex-direction:column;gap:16px}
-.header{display:flex;justify-content:space-between;align-items:center;padding:0 4px;animation:fadeDown .5s ease both}
+.header{display:flex;justify-content:space-between;align-items:center;padding:0 4px}
 .logo-area{font-weight:900;font-size:18px;color:#fff;text-transform:uppercase;letter-spacing:1.5px;text-shadow:0 0 15px rgba(245,158,11,.4)}
-.logo-area span{color:#f59e0b;animation:logoPulse 3s ease-in-out infinite}
+.logo-area span{color:#f59e0b}
 .profile-avatar-btn{width:38px;height:38px;border-radius:50%;background:#161924;border:2px solid rgba(245,158,11,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:.2s}
-.profile-avatar-btn:hover{transform:scale(1.08);border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.4)}
 .profile-avatar-btn img{width:100%;height:100%;object-fit:cover}
-.main-nav{display:flex;gap:8px;background:#161924;padding:4px;border-radius:12px;border:1px solid rgba(255,255,255,.06);animation:fadeDown .6s ease both}
-.main-tab{flex:1;background:transparent;border:none;color:#9ca3af;padding:10px 0;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:.25s}
-.main-tab:hover{color:#fff;background:rgba(245,158,11,.06)}
+.main-nav{display:flex;gap:8px;background:#161924;padding:4px;border-radius:12px;border:1px solid rgba(255,255,255,.06)}
+.main-tab{flex:1;background:transparent;border:none;color:#9ca3af;padding:10px 0;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:.2s}
 .main-tab.active{background:#f59e0b;color:#11131c;box-shadow:0 0 15px rgba(245,158,11,.3)}
-.tab-content{display:none;flex-direction:column;gap:16px;width:100%}.tab-content.active{display:flex;animation:fadeIn .35s ease both}
+.tab-content{display:none;flex-direction:column;gap:16px;width:100%}.tab-content.active{display:flex}
 .zeno-layout{display:flex;flex-direction:column;gap:16px;width:100%}
 .wheel-container{display:flex;flex-direction:column;align-items:center;gap:16px;width:100%}
-.wheel-wrapper{position:relative;width:230px;height:230px;filter:drop-shadow(0 0 25px rgba(245,158,11,.25));animation:wheelBreath 4s ease-in-out infinite}
+.wheel-wrapper{position:relative;width:230px;height:230px;filter:drop-shadow(0 0 25px rgba(245,158,11,.25))}
 .fast-spin-btn{position:absolute;top:0;right:0;width:36px;height:36px;background:#161924;border:1px solid rgba(245,158,11,.3);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:25;transition:.2s;box-shadow:0 4px 12px rgba(0,0,0,.5)}
 .fast-spin-btn:hover{background:rgba(245,158,11,.15);border-color:#f59e0b;transform:scale(1.05)}
 .fast-spin-btn.active{background:#f59e0b;border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.5)}
@@ -32,32 +30,30 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .wheel-canvas-box{width:100%;height:100%;border-radius:50%;position:relative;overflow:hidden;box-shadow:0 0 30px rgba(245,158,11,.15), inset 0 0 15px rgba(0,0,0,.8);background:#161924;border:2px solid rgba(245,158,11,.2)}
 .wheel-wrapper canvas{width:100%;height:100%;display:block;transform-origin:center center}
 .wheel-center-content{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:6}
-.wheel-percent{font-size:26px;font-weight:900;color:#4ade80;line-height:1;text-shadow:0 0 12px rgba(74,222,128,.5);animation:percentGlow 2s ease-in-out infinite}
+.wheel-percent{font-size:26px;font-weight:900;color:#4ade80;line-height:1;text-shadow:0 0 12px rgba(74,222,128,.5)}
 .wheel-chance-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;margin-top:4px;font-weight:600}
 .disabled-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);border-radius:50%;z-index:10;display:none}
 #resultOverlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(11,13,20,.88);border-radius:50%;display:none;justify-content:center;align-items:center;z-index:15;flex-direction:column;backdrop-filter:blur(3px)}
-#resultText{font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:1px;text-shadow:0 2px 10px rgba(0,0,0,.8);animation:resultPop .5s cubic-bezier(.16,1.4,.3,1) both}
-.btn-upgrade{background:linear-gradient(135deg,#f59e0b,#d97706);border:none;color:#11131c;padding:14px 0;width:100%;border-radius:14px;font-weight:900;font-size:15px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;transition:all .3s ease;box-shadow:0 4px 20px rgba(245,158,11,.4);position:relative;overflow:hidden}
+#resultText{font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:1px;text-shadow:0 2px 10px rgba(0,0,0,.8)}
+.btn-upgrade{background:linear-gradient(135deg,#f59e0b,#d97706);border:none;color:#11131c;padding:14px 0;width:100%;border-radius:14px;font-weight:900;font-size:15px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;transition:all .3s ease;box-shadow:0 4px 20px rgba(245,158,11,.4)}
 .btn-upgrade:hover:not(:disabled){box-shadow:0 6px 25px rgba(245,158,11,.6);transform:translateY(-2px)}
 .btn-upgrade:active:not(:disabled){transform:scale(0.97)}
 .btn-upgrade:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
-.quick-chance-panel{display:flex;gap:6px;width:100%;justify-content:center;align-items:center;flex-wrap:wrap;animation:fadeUp .5s ease both}
+.quick-chance-panel{display:flex;gap:6px;width:100%;justify-content:center;align-items:center;flex-wrap:wrap}
 .q-btn{background:#161924;border:1px solid rgba(255,255,255,.08);color:#d1d5db;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:.2s}
-.q-btn:hover,.q-btn.active{border-color:#f59e0b;color:#f59e0b;background:rgba(245,158,11,.05);transform:translateY(-1px)}
+.q-btn:hover,.q-btn.active{border-color:#f59e0b;color:#f59e0b;background:rgba(245,158,11,.05)}
 .q-btn.settings-btn{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:#f59e0b}
-.skins-selection-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;min-width:0;animation:fadeUp .55s ease both}
-.card-skin{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:center;text-align:center;min-height:180px;justify-content:space-between;position:relative;box-shadow:0 10px 20px rgba(0,0,0,.4);min-width:0;width:100%;overflow:hidden;transition:transform .25s ease,border-color .25s ease}
-.card-skin:hover{border-color:rgba(245,158,11,.4);transform:translateY(-2px)}
+.skins-selection-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;min-width:0}
+.card-skin{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:center;text-align:center;min-height:180px;justify-content:space-between;position:relative;box-shadow:0 10px 20px rgba(0,0,0,.4);min-width:0;width:100%;overflow:hidden}
 .skin-type{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:700}
 .skin-name{font-size:12px;font-weight:800;color:#fff;margin:4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;min-width:0}
 .skin-img-wrap{width:100%;height:75px;display:flex;align-items:center;justify-content:center;position:relative;min-width:0;overflow:hidden}
-.skin-img-wrap img{max-width:100%;max-height:70px;width:auto;height:auto;object-fit:contain;filter:drop-shadow(0 5px 10px rgba(0,0,0,.8));animation:itemFloat 3s ease-in-out infinite}
+.skin-img-wrap img{max-width:100%;max-height:70px;width:auto;height:auto;object-fit:contain;filter:drop-shadow(0 5px 10px rgba(0,0,0,.8))}
 .skin-price{font-size:14px;font-weight:800;color:#fbbf24}
-.inventory-section{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.3);animation:fadeUp .6s ease both}
+.inventory-section{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
 .inv-header-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
 .inv-tabs{display:flex;gap:6px;flex-wrap:wrap}
-.inv-tab{background:#11131c;border:1px solid rgba(255,255,255,.06);color:#9ca3af;padding:6px 12px;border-radius:8px;font-weight:700;font-size:11px;cursor:pointer;transition:.2s}
-.inv-tab:hover{color:#fff}
+.inv-tab{background:#11131c;border:1px solid rgba(255,255,255,.06);color:#9ca3af;padding:6px 12px;border-radius:8px;font-weight:700;font-size:11px;cursor:pointer}
 .inv-tab.active{background:#f59e0b;color:#11131c;border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.3)}
 .inv-total-value{font-size:12px;font-weight:800;color:#fbbf24;background:#11131c;padding:6px 10px;border-radius:8px;border:1px solid rgba(245,158,11,.2)}
 .sell-all-btn{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.4);color:#f59e0b;padding:6px 12px;border-radius:8px;font-weight:800;font-size:11px;cursor:pointer;transition:.2s;text-transform:uppercase}
@@ -71,38 +67,29 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .profile-items-grid .item-card img{height:52px;margin:6px 0}
 .profile-items-grid .item-card .iname{font-size:10px}
 .profile-items-grid .item-card .iprice{font-size:11px}
-.item-card{background:#11131c;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;position:relative;transition:all .25s ease;min-width:0;overflow:hidden;animation:cardFadeIn .35s ease both}
-.item-card:nth-child(1){animation-delay:.00s}
-.item-card:nth-child(2){animation-delay:.03s}
-.item-card:nth-child(3){animation-delay:.06s}
-.item-card:nth-child(4){animation-delay:.09s}
-.item-card:nth-child(5){animation-delay:.12s}
-.item-card:nth-child(6){animation-delay:.15s}
-.item-card:nth-child(n+7){animation-delay:.18s}
+.item-card{background:#11131c;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;position:relative;transition:all .25s ease;min-width:0;overflow:hidden}
 .item-card:hover{border-color:rgba(245,158,11,.4);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,0.5)}
-.item-card.selected{border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.35);animation:cardPulse 1.6s ease-in-out infinite}
-.item-card img{width:100%;height:58px;object-fit:contain;margin:8px 0;filter:drop-shadow(0 4px 8px rgba(0,0,0,.6));max-width:100%;display:block;transition:transform .25s ease}
-.item-card:hover img{transform:scale(1.05)}
+.item-card.selected{border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,.35)}
+.item-card img{width:100%;height:58px;object-fit:contain;margin:8px 0;filter:drop-shadow(0 4px 8px rgba(0,0,0,.6));max-width:100%;display:block}
 .item-card .iname{font-size:11px;font-weight:700;color:#d1d5db;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;margin-bottom:2px}
 .item-card .iprice{font-size:12px;font-weight:800;color:#fbbf24;margin-top:4px}
 .item-card-actions{display:flex;gap:5px;width:100%;margin-top:8px;justify-content:stretch;flex-shrink:0}
 .mini-action-btn{background:#151822;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#8f96a5;height:23px;flex:1;min-width:0;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;font-weight:900;letter-spacing:.2px;transition:.18s;padding:0;line-height:1}
-.mini-action-btn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b;transform:translateY(-1px)}
+.mini-action-btn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b}
 .mini-action-btn.up-btn{letter-spacing:1px;font-size:10px}
 .cases-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%}
-.case-card{position:relative;background:radial-gradient(circle at 50% 38%,rgba(245,158,11,.12),transparent 42%),linear-gradient(145deg,#191c28,#0f1119);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:12px 11px 11px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;min-width:0;overflow:hidden;box-shadow:inset 0 1px rgba(255,255,255,.035),0 8px 22px rgba(0,0,0,.18);transition:.25s;animation:cardFadeIn .4s ease both}
+.case-card{position:relative;background:radial-gradient(circle at 50% 38%,rgba(245,158,11,.12),transparent 42%),linear-gradient(145deg,#191c28,#0f1119);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:12px 11px 11px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;min-width:0;overflow:hidden;box-shadow:inset 0 1px rgba(255,255,255,.035),0 8px 22px rgba(0,0,0,.18);transition:.22s}
 .case-card::before{content:'';position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);width:90px;height:90px;background:radial-gradient(circle, rgba(245,158,11,0.22) 0%, rgba(0,0,0,0) 70%);border-radius:50%;z-index:0;transition:opacity 0.3s ease, transform 0.3s ease;pointer-events:none}
 .case-card:hover{border-color:rgba(245,158,11,0.6);transform:translateY(-5px);box-shadow:0 12px 30px rgba(0,0,0,0.5), 0 0 20px rgba(245,158,11,0.15)}
 .case-card:hover::before{transform:translate(-50%,-50%) scale(1.4);opacity:0.9}
-.case-card img{position:relative;z-index:2;width:125px;height:76px;object-fit:contain;margin:5px 0 2px;filter:drop-shadow(0 7px 13px rgba(0,0,0,.75));transition:transform .3s ease}
-.case-card:hover img{transform:scale(1.06)}
+.case-card-glow{position:absolute;width:130px;height:130px;border-radius:50%;background:rgba(245,158,11,.12);filter:blur(28px);pointer-events:none}
 .case-topline,.case-meta{position:relative;z-index:2;width:100%;display:flex;justify-content:space-between;align-items:center;font-size:8px;font-weight:800;color:#737b8d;text-transform:uppercase;letter-spacing:.5px}
 .case-topline b{color:#fbbf24;font-size:9px}
+.case-card img{position:relative;z-index:2;width:125px;height:76px;object-fit:contain;margin:5px 0 2px;filter:drop-shadow(0 7px 13px rgba(0,0,0,.75))}
 .case-title{position:relative;z-index:2;font-size:12px;font-weight:900;color:#fff;margin-bottom:6px}
 .case-price{position:relative;z-index:2;width:100%;margin-top:7px;padding:7px 6px;border-radius:7px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.18);font-size:10px;font-weight:900;color:#fbbf24}
-.case-opening-view{display:none;flex-direction:column;gap:16px;width:100%;align-items:center}.case-opening-view.active{display:flex;animation:fadeIn .35s ease both}
-.back-cases-btn{align-self:flex-start;background:#161924;border:1px solid rgba(255,255,255,.08);color:#9ca3af;padding:6px 12px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;transition:.2s}
-.back-cases-btn:hover{color:#fff;border-color:rgba(245,158,11,.4)}
+.case-opening-view{display:none;flex-direction:column;gap:16px;width:100%;align-items:center}.case-opening-view.active{display:flex}
+.back-cases-btn{align-self:flex-start;background:#161924;border:1px solid rgba(255,255,255,.08);color:#9ca3af;padding:6px 12px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer}
 .roulette-container{position:relative;overflow:hidden;width:100%;height:130px;background:#12141c;border-radius:14px;border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 4px 15px rgba(0,0,0,.6)}
 .roulette-track{display:flex;gap:12px;position:absolute;left:0;top:0;height:100%;will-change:transform;align-items:center;padding-left:6px}
 .roulette-item{width:112px;min-width:112px;height:112px;background:radial-gradient(circle at 50% 42%,rgba(245,158,11,.10),transparent 58%),linear-gradient(145deg,#181b26,#13151f);border:1px solid rgba(255,255,255,.07);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:7px;position:relative;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.4),inset 0 1px rgba(255,255,255,.04)}
@@ -116,38 +103,28 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .multi-btn:hover{border-color:rgba(245,158,11,.55);color:#fbbf24;background:#171a24}
 .multi-btn.active{background:rgba(245,158,11,.13);border-color:#f59e0b;color:#fbbf24;box-shadow:0 0 12px rgba(245,158,11,.12)}
 #mainOpenBtn{width:100%;min-height:42px;margin-top:1px}
-.fast-case-toggle{display:flex;align-items:center;justify-content:center;gap:8px;background:#161924;border:1px solid rgba(255,255,255,.08);padding:8px;border-radius:10px;cursor:pointer;font-size:11px;font-weight:700;color:#9ca3af;user-select:none;transition:.2s}
-.fast-case-toggle:hover{border-color:rgba(245,158,11,.3)}
+.fast-case-toggle{display:flex;align-items:center;justify-content:center;gap:8px;background:#161924;border:1px solid rgba(255,255,255,.08);padding:8px;border-radius:10px;cursor:pointer;font-size:11px;font-weight:700;color:#9ca3af;user-select:none}
 .fast-case-toggle input{accent-color:#f59e0b;cursor:pointer}
-.action-buttons{display:none;gap:10px;width:100%;animation:fadeUp .35s ease both}.action-btn{flex:1;padding:12px 10px;border-radius:12px;font-weight:900;cursor:pointer;font-size:14px;border:none;text-transform:uppercase;transition:.2s}
-.action-btn:hover{transform:translateY(-2px)}
+.action-buttons{display:none;gap:10px;width:100%}.action-btn{flex:1;padding:12px 10px;border-radius:12px;font-weight:900;cursor:pointer;font-size:14px;border:none;text-transform:uppercase}
 .sell-btn{background:#2a2a2e;color:#ffb800;border:1px solid #ffb800}.retry-btn{background:linear-gradient(135deg,#ffb800,#ff8c00);color:#000}
-.profile-wrapper{display:flex;flex-direction:column;gap:12px;width:100%;animation:fadeUp .45s ease both}
+.profile-wrapper{display:flex;flex-direction:column;gap:12px;width:100%}
 .profile-main-card{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px}
 .profile-top-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:#9ca3af}
 .profile-username{color:#fff;font-weight:800;font-size:14px}
-.profile-center-row{display:flex;align-items:center;justify-content:center}
-.profile-avatar-large{width:72px;height:72px;border-radius:50%;background:#000;border:2px solid rgba(245,158,11,.3);display:flex;align-items:center;justify-content:center;overflow:hidden;animation:avatarGlow 3s ease-in-out infinite}
+.profile-center-row{display:flex;align-items:center;justify-content:center}.profile-avatar-large{width:72px;height:72px;border-radius:50%;background:#000;border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;overflow:hidden}
 .profile-avatar-large img{width:100%;height:100%;object-fit:cover}
 .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;margin-top:4px}
-.stat-card{background:#11131c;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;transition:.2s}
-.stat-card:hover{border-color:rgba(245,158,11,.35);transform:translateY(-2px)}
+.stat-card{background:#11131c;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px}
 .stat-title{font-size:9px;color:#9ca3af;text-transform:uppercase;font-weight:700}.stat-value{font-size:13px;font-weight:900;color:#fff}
-.profile-balance-row{display:flex;justify-content:space-between;align-items:center;background:#11131c;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.06);transition:.2s}
-.profile-balance-row:hover{border-color:rgba(245,158,11,.3)}
-.balance-amount{font-size:16px;font-weight:900;color:#fff}.balance-history{font-size:11px;color:#9ca3af;cursor:pointer}
-.zeno-id-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:9px 11px;background:#0d0f17;border:1px solid rgba(255,255,255,.07);border-radius:10px}
-.zeno-id-label{font-size:10px;color:#8d94a6;text-transform:uppercase}.zeno-id-value{font-size:12px;font-weight:900;color:#fff;letter-spacing:.5px}.zeno-id-copy{border:0;background:#242938;color:#fff;border-radius:7px;padding:5px 8px;font-size:10px;font-weight:800;cursor:pointer;transition:.2s}
-.zeno-id-copy:hover{background:#f59e0b;color:#11131c}
-.topup-btn{background:linear-gradient(135deg,#f59e0b,#d97706);color:#11131c;border:none;padding:10px 18px;border-radius:10px;font-weight:900;font-size:12px;cursor:pointer;text-transform:uppercase;transition:.2s;display:inline-flex;align-items:center;justify-content:center;gap:7px}
-.topup-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(245,158,11,.4)}
-.best-drop-card{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;transition:.2s}
-.best-drop-card:hover{border-color:rgba(245,158,11,.3)}
+.profile-balance-row{display:flex;justify-content:space-between;align-items:center;background:#11131c;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.06)}
+.balance-amount{font-size:16px;font-weight:900;color:#fff}.balance-history{font-size:11px;color:#9ca3af;cursor:pointer} .zeno-id-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:9px 11px;background:#0d0f17;border:1px solid rgba(255,255,255,.07);border-radius:10px}.zeno-id-label{font-size:10px;color:#8d94a6;text-transform:uppercase}.zeno-id-value{font-size:12px;font-weight:900;color:#fff;letter-spacing:.5px}.zeno-id-copy{border:0;background:#242938;color:#fff;border-radius:7px;padding:5px 8px;font-size:10px;font-weight:800;cursor:pointer}
+.topup-btn{background:linear-gradient(135deg,#f59e0b,#d97706);color:#11131c;border:none;padding:10px 18px;border-radius:10px;font-weight:900;font-size:12px;cursor:pointer;text-transform:uppercase}
+.best-drop-card{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
 .best-drop-title{font-size:10px;font-weight:800;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px}.best-drop-content{display:flex;justify-content:space-between;align-items:center}
 .best-drop-name{font-size:12px;font-weight:700;color:#d1d5db}.best-drop-price{font-size:14px;font-weight:900;color:#fbbf24}.best-drop-img{width:55px;height:40px;object-fit:contain}
 .profile-inventory-box{display:flex;flex-direction:column;gap:12px;background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px}
 #modalOverlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:none;justify-content:center;align-items:center;z-index:100;backdrop-filter:blur(4px)}
-.modal-card{background:#161924;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px;width:300px;display:flex;flex-direction:column;gap:12px;animation:modalIn .3s cubic-bezier(.16,1,.3,1) both}
+.modal-card{background:#161924;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px;width:300px;display:flex;flex-direction:column;gap:12px}
 .modal-inputs input{background:#11131c;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:8px;font-size:13px;width:100%}
 .modal-buttons{display:flex;gap:8px;margin-top:8px}.modal-buttons button{flex:1;padding:8px;border-radius:8px;font-weight:700;cursor:pointer;border:none}
 .btn-save{background:#f59e0b;color:#11131c}.btn-close{background:#272a37;color:#9ca3af}
@@ -161,18 +138,6 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 @keyframes zenoLine{to{transform:scaleX(1)}}
 @keyframes zenoSub{to{opacity:1}}
 @keyframes zenoGlow{0%,100%{transform:scale(.85);opacity:.55}50%{transform:scale(1.18);opacity:1}}
-@keyframes fadeDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
-@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes cardFadeIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
-@keyframes cardPulse{0%,100%{box-shadow:0 0 15px rgba(245,158,11,.35)}50%{box-shadow:0 0 25px rgba(245,158,11,.65)}}
-@keyframes logoPulse{0%,100%{text-shadow:0 0 8px rgba(245,158,11,.4)}50%{text-shadow:0 0 16px rgba(245,158,11,.75)}}
-@keyframes wheelBreath{0%,100%{filter:drop-shadow(0 0 25px rgba(245,158,11,.25))}50%{filter:drop-shadow(0 0 35px rgba(245,158,11,.45))}}
-@keyframes percentGlow{0%,100%{text-shadow:0 0 12px rgba(74,222,128,.5)}50%{text-shadow:0 0 20px rgba(74,222,128,.9)}}
-@keyframes avatarGlow{0%,100%{border-color:rgba(245,158,11,.3)}50%{border-color:rgba(245,158,11,.65)}}
-@keyframes resultPop{0%{opacity:0;transform:scale(.6)}60%{opacity:1;transform:scale(1.15)}100%{opacity:1;transform:scale(1)}}
-@keyframes modalIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
-@keyframes itemFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 @media (max-width:420px){
   body{padding:10px}
   .container{max-width:100%;gap:10px}
@@ -196,6 +161,9 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
   .multi-btn{height:32px;font-size:10px}
   #mainOpenBtn{min-height:40px;font-size:12px}
 }
+.item-card-actions{display:flex;gap:4px;width:100%;margin-top:8px;justify-content:stretch;flex-shrink:0}
+.mini-action-btn{min-width:0;height:24px;padding:0 5px;background:#151822;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#8f96a5;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;line-height:1;cursor:pointer;transition:.18s}
+.mini-action-btn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b}
 .profile-items-grid .item-card{min-height:156px}
 @media (max-width:420px){
   .profile-items-grid .item-card{min-height:148px;padding:7px 6px}
@@ -205,14 +173,30 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
   .profile-items-grid .item-card .item-card-actions{margin-top:7px;gap:3px}
   .profile-items-grid .item-card .mini-action-btn{height:22px;font-size:7px}
 }
-.topup-modal{position:fixed;inset:0;background:rgba(4,6,12,.86);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:1000;padding:14px}.topup-modal.active{display:flex;animation:fadeIn .25s ease both}.topup-card{width:min(560px,100%);max-height:94vh;overflow:auto;background:linear-gradient(180deg,#181d2a,#111520);border:1px solid rgba(245,158,11,.28);border-radius:22px;box-shadow:0 28px 100px rgba(0,0,0,.7);padding:18px;animation:modalIn .35s cubic-bezier(.16,1,.3,1) both}.topup-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.topup-title{font-size:21px;font-weight:950;color:#fff}.topup-subtitle{font-size:10px;color:#7f899c;margin-top:3px}.topup-close{background:#222838;border:0;color:#f7b32b;font-size:23px;width:38px;height:38px;border-radius:11px;cursor:pointer;transition:.2s}.topup-close:hover{background:#f59e0b;color:#11131c}.payment-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:8px 0 14px}.payment-tab{background:#1b2130;border:1px solid rgba(255,255,255,.06);color:#8e96a8;padding:11px 4px;border-radius:11px;font-weight:900;font-size:10px;cursor:pointer;transition:.18s}.payment-tab.active{color:#fff;border-color:#f59e0b;background:linear-gradient(180deg,#2a3040,#202636);box-shadow:0 6px 20px rgba(245,158,11,.09)}.pay-panel{background:#0f141f;border:1px solid rgba(255,255,255,.055);padding:14px;border-radius:15px}.pay-info-card{display:flex;align-items:center;gap:10px;background:#171d2b;border:1px solid rgba(255,255,255,.05);padding:11px;border-radius:12px;margin-bottom:11px}.pay-info-title{font-size:12px;color:#fff;font-weight:900}.pay-info-text{font-size:9px;color:#7f899c;margin-top:2px;line-height:1.35}.pay-input{width:100%;background:#1a2030;border:1px solid #30384c;color:#fff;padding:12px;border-radius:11px;font-size:15px;outline:none;margin-bottom:8px;transition:.2s}.pay-input:focus{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.08)}.quick-amounts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:-2px 0 9px}.quick-amount{background:#202738;border:1px solid rgba(255,255,255,.05);color:#bfc6d5;border-radius:9px;padding:8px 4px;font-size:10px;font-weight:900;cursor:pointer;transition:.2s}.quick-amount:hover{border-color:rgba(245,158,11,.5);color:#fff;transform:translateY(-1px)}.promo-box{display:flex;align-items:center;gap:8px;margin-bottom:9px}.promo-box .pay-input{margin:0}.promo-active{font-size:9px;color:#f7b32b;min-height:13px;margin:-3px 0 8px}.pay-action{width:100%;border:0;background:linear-gradient(135deg,#ffb52e,#e8790c);color:#17120a;padding:14px;border-radius:12px;font-weight:950;cursor:pointer;box-shadow:0 9px 24px rgba(245,158,11,.16);transition:.2s}.pay-action:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(245,158,11,.3)}.tg-pay-action{background:linear-gradient(135deg,#42b5ff,#2186d5);color:#fff}.promo-chip{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;border-radius:9px;padding:7px 10px;font-size:11px;font-weight:900;margin:3px;cursor:pointer;transition:.2s}.promo-chip:hover{transform:translateY(-1px)}.withdraw-note{font-size:10px;color:#8b93a4;margin-top:7px;line-height:1.35}.admin-box{background:#111520;border:1px solid rgba(245,158,11,.25);border-radius:13px;padding:12px;margin-top:12px}.admin-row{display:grid;grid-template-columns:1.3fr .8fr .8fr;gap:6px;margin:6px 0}.admin-input{width:100%;box-sizing:border-box;background:#1b2130;color:#fff;border:1px solid #30384d;border-radius:8px;padding:8px;font-size:11px}.admin-btn{background:#242b3b;color:#fff;border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:8px;font-size:10px;font-weight:800;cursor:pointer;transition:.2s}.admin-btn:hover{background:#f59e0b;color:#11131c}.promo-small{font-size:9px;color:#9ca3af;margin:4px 0}@media(max-width:520px){.payment-tabs{grid-template-columns:repeat(3,1fr)}.payment-tab{font-size:9px}.quick-amounts{grid-template-columns:repeat(4,1fr)}}
-.promo-heading{padding:22px 22px 18px;background:linear-gradient(180deg,#171c29,#111520);border:1px solid rgba(245,158,11,.22);border-radius:18px;cursor:pointer;box-shadow:0 16px 45px rgba(0,0,0,.22);transition:.25s}.promo-heading:hover{border-color:rgba(245,158,11,.5);transform:translateY(-2px)}.promo-heading-title{font-size:21px;font-weight:950;color:#fff;letter-spacing:.1px}.promo-heading-subtitle{font-size:12px;color:#8e98aa;margin-top:6px;line-height:1.45}.cases-section-title{font-size:20px;font-weight:950;color:#fff;margin:2px 2px 0}.promo-list{display:flex;gap:9px;overflow:auto;padding:16px 0 4px;scrollbar-width:none}.promo-list::-webkit-scrollbar{display:none}.promo-timer{font-size:11px;color:#f4b942;margin-top:7px}.topup-card{width:min(720px,100%);max-height:96vh;padding:26px;border-radius:26px;background:linear-gradient(180deg,#181d2a,#10141e);border:1px solid rgba(245,158,11,.3);box-shadow:0 30px 110px rgba(0,0,0,.75)}.topup-head{margin-bottom:20px}.topup-title{font-size:29px;line-height:1.1}.topup-subtitle{font-size:13px;margin-top:7px;color:#8d97aa}.topup-close{width:44px;height:44px;font-size:27px}.payment-tabs{grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0 18px}.payment-tab{min-height:58px;padding:10px 8px;border-radius:13px;font-size:12px;line-height:1.2}.pay-panel{padding:22px;border-radius:18px}.pay-info-card{padding:17px 18px;border-radius:14px;margin-bottom:19px}.pay-info-title{font-size:16px}.pay-info-text{font-size:12px;margin-top:5px;line-height:1.45}.field-label{font-size:12px;color:#aeb7c7;font-weight:850;margin:0 0 8px}.pay-input{padding:16px 17px;border-radius:13px;font-size:18px;margin-bottom:12px;min-height:56px}.quick-amounts{gap:8px;margin:0 0 19px}.quick-amount{padding:13px 6px;border-radius:11px;font-size:13px;min-height:48px}.promo-box{gap:9px;margin-bottom:10px}.promo-refresh{min-height:56px;padding:0 18px;background:#222a3a;border:1px solid rgba(245,158,11,.28);color:#fff;border-radius:13px;font-size:13px;font-weight:900;cursor:pointer}.promo-active{font-size:12px;min-height:18px;margin:2px 0 13px;color:#f7b32b}.pay-action{padding:17px;border-radius:13px;font-size:15px;min-height:58px}.tg-pay-action{background:#268bd2}.withdraw-note{font-size:12px;margin-top:11px}.deposit-footnote{margin-top:16px;font-size:11px;color:#777f90;line-height:1.5}@media(max-width:650px){.topup-card{padding:18px;border-radius:22px}.topup-title{font-size:24px}.payment-tabs{grid-template-columns:repeat(2,1fr)}.payment-tab{min-height:52px}.pay-panel{padding:16px}.quick-amounts{grid-template-columns:repeat(2,1fr)}.promo-heading{padding:18px}.promo-heading-title{font-size:18px}}
+.topup-modal{position:fixed;inset:0;background:rgba(4,6,12,.86);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:1000;padding:14px}.topup-modal.active{display:flex}.topup-card{width:min(560px,100%);max-height:94vh;overflow:auto;background:linear-gradient(180deg,#181d2a,#111520);border:1px solid rgba(245,158,11,.28);border-radius:22px;box-shadow:0 28px 100px rgba(0,0,0,.7);padding:18px}.topup-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.topup-title{font-size:21px;font-weight:950;color:#fff}.topup-subtitle{font-size:10px;color:#7f899c;margin-top:3px}.topup-close{background:#222838;border:0;color:#f7b32b;font-size:23px;width:38px;height:38px;border-radius:11px;cursor:pointer}.payment-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:8px 0 14px}.payment-tab{background:#1b2130;border:1px solid rgba(255,255,255,.06);color:#8e96a8;padding:11px 4px;border-radius:11px;font-weight:900;font-size:10px;cursor:pointer;transition:.18s}.payment-tab.active{color:#fff;border-color:#f59e0b;background:linear-gradient(180deg,#2a3040,#202636);box-shadow:0 6px 20px rgba(245,158,11,.09)}.pay-panel{background:#0f141f;border:1px solid rgba(255,255,255,.055);padding:14px;border-radius:15px}.pay-info-card{display:flex;align-items:center;gap:10px;background:#171d2b;border:1px solid rgba(255,255,255,.05);padding:11px;border-radius:12px;margin-bottom:11px}.pay-info-title{font-size:12px;color:#fff;font-weight:900}.pay-info-text{font-size:9px;color:#7f899c;margin-top:2px;line-height:1.35}.pay-input{width:100%;background:#1a2030;border:1px solid #30384c;color:#fff;padding:12px;border-radius:11px;font-size:15px;outline:none;margin-bottom:8px}.pay-input:focus{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.08)}.quick-amounts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:-2px 0 9px}.quick-amount{background:#202738;border:1px solid rgba(255,255,255,.05);color:#bfc6d5;border-radius:9px;padding:8px 4px;font-size:10px;font-weight:900;cursor:pointer}.quick-amount:hover{border-color:rgba(245,158,11,.5);color:#fff}.promo-box{display:flex;align-items:center;gap:8px;margin-bottom:9px}.promo-box .pay-input{margin:0}.promo-active{font-size:9px;color:#f7b32b;min-height:13px;margin:-3px 0 8px}.pay-action{width:100%;border:0;background:linear-gradient(135deg,#ffb52e,#e8790c);color:#17120a;padding:14px;border-radius:12px;font-weight:950;cursor:pointer;box-shadow:0 9px 24px rgba(245,158,11,.16)}.tg-pay-action{background:linear-gradient(135deg,#42b5ff,#2186d5);color:#fff}.promo-chip{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;border-radius:9px;padding:7px 10px;font-size:11px;font-weight:900;margin:3px;cursor:pointer}.withdraw-note{font-size:10px;color:#8b93a4;margin-top:7px;line-height:1.35}.admin-box{background:#111520;border:1px solid rgba(245,158,11,.25);border-radius:13px;padding:12px;margin-top:12px}.admin-row{display:grid;grid-template-columns:1.3fr .8fr .8fr;gap:6px;margin:6px 0}.admin-input{width:100%;box-sizing:border-box;background:#1b2130;color:#fff;border:1px solid #30384d;border-radius:8px;padding:8px;font-size:11px}.admin-btn{background:#242b3b;color:#fff;border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:8px;font-size:10px;font-weight:800;cursor:pointer}.promo-small{font-size:9px;color:#9ca3af;margin:4px 0}@media(max-width:520px){.payment-tabs{grid-template-columns:repeat(3,1fr)}.payment-tab{font-size:9px}.quick-amounts{grid-template-columns:repeat(4,1fr)}}
+.promo-heading{padding:22px 22px 18px;background:linear-gradient(180deg,#171c29,#111520);border:1px solid rgba(245,158,11,.22);border-radius:18px;cursor:pointer;box-shadow:0 16px 45px rgba(0,0,0,.22)}.promo-heading-title{font-size:21px;font-weight:950;color:#fff}.promo-heading-subtitle{font-size:12px;color:#8e98aa;margin-top:6px;line-height:1.45}.cases-section-title{font-size:20px;font-weight:950;color:#fff;margin:2px 2px 0}.promo-list{display:flex;gap:9px;overflow:auto;padding:16px 0 4px;scrollbar-width:none}.promo-list::-webkit-scrollbar{display:none}.promo-timer{font-size:11px;color:#f4b942;margin-top:7px}.promo-refresh{min-height:56px;padding:0 18px;background:#222a3a;border:1px solid rgba(245,158,11,.28);color:#fff;border-radius:13px;font-size:13px;font-weight:900;cursor:pointer}.deposit-footnote{margin-top:16px;font-size:11px;color:#777f90;line-height:1.5}.field-label{font-size:12px;color:#aeb7c7;font-weight:850;margin:0 0 8px}
 .steam-icon{width:16px;height:16px;display:block;flex:0 0 auto}
+.topup-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}
 #steamAuthBtn{background:#161924;color:#fff;border:1px solid rgba(245,158,11,.35);padding:7px 11px;border-radius:9px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:7px;transition:.2s}
 #steamAuthBtn:hover{background:#1d2230;border-color:#f59e0b;box-shadow:0 0 14px rgba(245,158,11,.16)}
 .steam-mini-btn{padding:0!important}
 .steam-mini-btn .steam-icon{width:15px;height:15px}
 .inv-action-icon{width:15px;height:15px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.mini-action-btn:hover .inv-action-icon{stroke:#11131c}
+
+/* MP3 плеер */
+.zeno-mp3-player{position:fixed;bottom:16px;right:16px;z-index:9998;background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(245,158,11,.35);border-radius:14px;padding:12px 14px;width:min(320px,calc(100vw - 32px));box-shadow:0 10px 40px rgba(0,0,0,.6);font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db}
+.mp3-track-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:110px;overflow-y:auto}
+.mp3-track{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;transition:.15s;border:1px solid transparent}
+.mp3-track:hover{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2)}
+.mp3-track.active{background:rgba(245,158,11,.14);border-color:#f59e0b;color:#fbbf24}
+.mp3-track-status{font-size:12px;opacity:.7}
+.mp3-controls{display:flex;align-items:center;gap:6px}
+.mp3-controls button{background:#1a1f2e;border:1px solid rgba(255,255,255,.08);color:#f59e0b;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:.15s}
+.mp3-controls button:hover{background:#f59e0b;color:#11131c}
+#mp3Seek{flex:1;accent-color:#f59e0b;height:4px}
+#mp3Volume{width:60px;accent-color:#f59e0b;height:4px}
+#mp3Time{font-size:10px;color:#8d94a6;min-width:70px;text-align:center}
+@media (max-width:420px){.zeno-mp3-player{bottom:8px;right:8px;padding:9px 10px}}
 </style>
 </head>
 <body>
@@ -278,7 +262,6 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 <button class="back-cases-btn" onclick="closeCaseOpening()">← Назад к кейсам</button>
 <div style="font-size:16px;font-weight:900;color:#fff;" id="activeCaseTitle">Кейс</div>
 <div class="roulette-container"><div class="roulette-pointer"></div><div class="roulette-track" id="rouletteTrack"></div></div>
-
 <div class="case-actions-panel" id="caseActionsPanel">
   <div class="case-open-count-title">Количество открытий</div>
   <div class="multi-open-row">
@@ -301,15 +284,39 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 <div class="tab-content" id="tabProfileContent"><div class="profile-wrapper" id="profileContentArea"></div></div>
 </div>
 
-
-<div class="topup-modal" id="topupModal"><div class="topup-card"><div class="topup-head"><div><div class="topup-title">Пополнение баланса</div><div class="topup-subtitle">Выберите способ, укажите сумму и при наличии введите промокод</div></div><button class="topup-close" onclick="closeTopup()">×</button></div><div class="payment-tabs"><button class="payment-tab active" data-method="СБП" onclick="selectPaymentMethod('СБП')">СБП</button><button class="payment-tab" data-method="Крипта" onclick="selectPaymentMethod('Крипта')">Криптовалюта</button><button class="payment-tab" data-method="Telegram" onclick="selectPaymentMethod('Telegram')">Telegram</button></div><div class="pay-panel"><div class="pay-info-card"><div><div class="pay-info-title" id="paymentTitle">СБП</div><div id="paymentInfo" class="pay-info-text">Заявка создаётся прямо на сайте. После оплаты её можно подтвердить через администратора.</div></div></div><div class="field-label">Сумма пополнения</div><input id="depositAmount" class="pay-input" type="number" min="50" placeholder="Введите сумму, ₽" oninput="updateDepositPreview()"><div class="quick-amounts"><button class="quick-amount" onclick="setDepositAmount(100)">100 ₽</button><button class="quick-amount" onclick="setDepositAmount(500)">500 ₽</button><button class="quick-amount" onclick="setDepositAmount(1000)">1 000 ₽</button><button class="quick-amount" onclick="setDepositAmount(5000)">5 000 ₽</button><span style="display:flex;align-items:center;padding:0 4px;color:#8e98aa;font-size:12px;font-weight:700;">и другие суммы</span></div><div class="field-label">Промокод</div><div class="promo-box"><input id="depositPromo" class="pay-input" placeholder="Введите промокод" oninput="updateDepositPreview()"><button class="promo-refresh" onclick="loadPromoCodes(true)">Обновить</button></div><div id="promoActiveText" class="promo-active"></div><button id="depositMainAction" class="pay-action" onclick="createDepositRequest()">Пополнить баланс</button><button id="telegramDepositAction" class="pay-action tg-pay-action" onclick="openTelegramDeposit()" style="display:none;margin-top:10px">Открыть Telegram</button><div id="depositResult" class="withdraw-note"></div></div><div id="depositFootnote" class="deposit-footnote">Заявка создаётся на сайте. После оплаты администратор подтверждает пополнение.</div></div></div>
+<div class="topup-modal" id="topupModal"><div class="topup-card"><div class="topup-head"><div><div class="topup-title">Пополнение баланса</div><div class="topup-subtitle">Выберите способ, укажите сумму и при наличии введите промокод</div></div><button class="topup-close" onclick="closeTopup()">×</button></div><div class="payment-tabs"><button class="payment-tab active" data-method="СБП" onclick="selectPaymentMethod('СБП')">СБП</button><button class="payment-tab" data-method="Крипта" onclick="selectPaymentMethod('Крипта')">Криптовалюта</button><button class="payment-tab" data-method="Telegram" onclick="selectPaymentMethod('Telegram')">Telegram</button></div><div class="pay-panel"><div class="pay-info-card"><div><div class="pay-info-title" id="paymentTitle">СБП</div><div id="paymentInfo" class="pay-info-text">Заявка создаётся прямо на сайте.</div></div></div><div class="field-label">Сумма пополнения</div><input id="depositAmount" class="pay-input" type="number" min="50" placeholder="Введите сумму, ₽" oninput="updateDepositPreview()"><div class="quick-amounts"><button class="quick-amount" onclick="setDepositAmount(100)">100 ₽</button><button class="quick-amount" onclick="setDepositAmount(500)">500 ₽</button><button class="quick-amount" onclick="setDepositAmount(1000)">1 000 ₽</button><button class="quick-amount" onclick="setDepositAmount(5000)">5 000 ₽</button></div><div class="field-label">Промокод</div><div class="promo-box"><input id="depositPromo" class="pay-input" placeholder="Введите промокод" oninput="updateDepositPreview()"><button class="promo-refresh" onclick="loadPromoCodes(true)">Обновить</button></div><div id="promoActiveText" class="promo-active"></div><button id="depositMainAction" class="pay-action" onclick="createDepositRequest()">Пополнить баланс</button><button id="telegramDepositAction" class="pay-action tg-pay-action" onclick="openTelegramDeposit()" style="display:none;margin-top:10px">Открыть Telegram</button><div id="depositResult" class="withdraw-note"></div></div></div></div>
 
 <div id="modalOverlay"><div class="modal-card"><h3>Настройка быстрых кнопок</h3><p style="font-size:11px;color:#9ca3af;">Введите проценты (максимум до 70%)</p><div class="modal-inputs"><input type="text" id="quickValuesInput" value="10, 20, 30, 40, 50, 70"></div><div class="modal-buttons"><button class="btn-close" onclick="document.getElementById('modalOverlay').style.display='none'">Отмена</button><button class="btn-save" onclick="saveQuickSettings()">Сохранить</button></div></div></div>
+
+<!-- MP3 ПЛЕЕР -->
+<div class="zeno-mp3-player">
+  <div class="mp3-track-list">
+    <div class="mp3-track" data-src="https://muzend.net/uploads/music/2026/08/The_Limba_Cha_sha.mp3">
+      <span class="mp3-track-name">The Limba — Ча ща</span>
+      <span class="mp3-track-status">▶</span>
+    </div>
+    <div class="mp3-track" data-sc="https://soundcloud.com/linneasodahl/zara-larsson-lush-life-co-wrote">
+      <span class="mp3-track-name">Zara Larsson — Lush Life</span>
+      <span class="mp3-track-status">▶</span>
+    </div>
+    <div class="mp3-track" data-sc="https://soundcloud.com/search?q=Kagramanov%20Танцуй%20пантера">
+      <span class="mp3-track-name">Kagramanov — Танцуй, пантера</span>
+      <span class="mp3-track-status">▶</span>
+    </div>
+  </div>
+  <audio id="zenoAudio" preload="none" style="display:none"></audio>
+  <iframe id="zenoSC" width="100%" height="120" frameborder="0" allow="autoplay" style="display:none;border-radius:10px;margin-top:6px"></iframe>
+  <div class="mp3-controls">
+    <button id="mp3PlayBtn">▶</button>
+    <input type="range" id="mp3Seek" value="0" min="0" max="100" step="0.1">
+    <span id="mp3Time">0:00 / 0:00</span>
+    <input type="range" id="mp3Volume" min="0" max="1" step="0.05" value="0.7">
+  </div>
+</div>
 
 <script>
 const API={catalog:'/api/cs2/catalog'};
 let USD_RUB_RATE=80;
-let PRICE_MAP={};
 let CATALOG_ITEMS=[],CASES_DATA=[];
 let currentUser=null,currentTab='inventory';
 let activeCase=null,isCaseSpinning=false,currentWonItem=null,currentWonItemsList=[];
@@ -337,12 +344,7 @@ function finishIntro(){const el=document.getElementById('loadingScreen');if(!el)
 function stableHash(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 
 async function loadUsdRubRate(){
-  try{
-    const c=JSON.parse(localStorage.getItem('zeno_usd_rate')||'null');
-    if(c && Number(c.rate)>0 && Date.now()-c.ts < 6*60*60*1000){
-      USD_RUB_RATE=Number(c.rate);
-    }
-  }catch(e){}
+  try{const c=JSON.parse(localStorage.getItem('zeno_usd_rate')||'null');if(c&&Number(c.rate)>0&&Date.now()-c.ts<6*60*60*1000)USD_RUB_RATE=Number(c.rate);}catch(e){}
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),3000);
   try{
@@ -350,10 +352,7 @@ async function loadUsdRubRate(){
     if(!r.ok)return;
     const d=await r.json();
     const rate=Number(d?.rate);
-    if(Number.isFinite(rate)&&rate>0){
-      USD_RUB_RATE=rate;
-      try{localStorage.setItem('zeno_usd_rate',JSON.stringify({rate,ts:Date.now()}));}catch(e){}
-    }
+    if(Number.isFinite(rate)&&rate>0){USD_RUB_RATE=rate;try{localStorage.setItem('zeno_usd_rate',JSON.stringify({rate,ts:Date.now()}));}catch(e){}}
   }catch(e){}
   finally{clearTimeout(timer);}
 }
@@ -372,10 +371,7 @@ async function fetchCs2ShJSON(url,options={}){
 async function loadCs2ShCatalog(){
   for(let attempt=0; attempt<8; attempt++){
     const data=await fetchCs2ShJSON(API.catalog);
-    if(data?.warming){
-      await new Promise(r=>setTimeout(r, 2500));
-      continue;
-    }
+    if(data?.warming){ await new Promise(r=>setTimeout(r,2500)); continue; }
     const raw=data?.items||[];
     const arr=Array.isArray(raw)?raw:Object.values(raw||{});
     const items=arr.map((x,i)=>{
@@ -469,9 +465,9 @@ function isWithdrawalLocked(item){
   if(!item||!currentUser?.serverAccount)return false;
   const list=Array.isArray(currentUser.serverAccount.pendingWithdrawals)?currentUser.serverAccount.pendingWithdrawals:[];
   return list.some(w=>{
-    if(w.itemUid && item.uid) return w.itemUid===item.uid;
-    const legacyName=w.itemName||w.name,legacyValue=Number(w.itemValue||w.value);
-    return !w.itemUid && legacyName===item.name && Number(item.value)===legacyValue;
+    if(w.itemUid&&item.uid)return w.itemUid===item.uid;
+    const lName=w.itemName||w.name,lVal=Number(w.itemValue||w.value);
+    return !w.itemUid && lName===item.name && Number(item.value)===lVal;
   });
 }
 function ensureInventoryUids(user){if(!user||!Array.isArray(user.inventory))return;user.inventory.forEach(x=>{if(!x.uid)x.uid=newInventoryUid();});}
@@ -503,13 +499,13 @@ function findApiSkin(name){if(!name)return null;const n=cleanName(name).toLowerC
 
 let __saveTimer=null;
 function saveUserData(){
-  if(!currentUser || !currentUser.steamid) return;
+  if(!currentUser||!currentUser.steamid)return;
   try{localStorage.setItem('zeno_local_user_'+currentUser.steamid,JSON.stringify(currentUser));}catch(e){}
-  if(__saveTimer) clearTimeout(__saveTimer);
-  __saveTimer=setTimeout(flushUserData, 400);
+  if(__saveTimer)clearTimeout(__saveTimer);
+  __saveTimer=setTimeout(flushUserData,400);
 }
 async function flushUserData(){
-  if(!currentUser || !currentUser.steamid) return;
+  if(!currentUser||!currentUser.steamid)return;
   try{
     const r=await fetch('/api/account/sync',{
       method:'POST',
@@ -534,10 +530,9 @@ async function flushUserData(){
 }
 
 function initSteamAuth(){window.location.href='/auth/steam';}
-
 function updateAuthUI(){
   const btn=document.getElementById('steamAuthBtn'),profileBtn=document.getElementById('headerProfileBtn');
-  if(currentUser && currentUser.steamid){if(btn)btn.style.display='none';if(profileBtn)profileBtn.style.display='flex';updateHeaderAvatar();}
+  if(currentUser&&currentUser.steamid){if(btn)btn.style.display='none';if(profileBtn)profileBtn.style.display='flex';updateHeaderAvatar();}
   else{if(btn)btn.style.display='flex';if(profileBtn)profileBtn.style.display='none';}
 }
 
@@ -557,11 +552,9 @@ async function initializeApp(){
         if(steamUser.serverAccount.stats)currentUser.stats={...currentUser.stats,...steamUser.serverAccount.stats};
       }
       ensureInventoryUids(currentUser);
-    }else{
-      currentUser=defaultUser(null);
-    }
+    }else currentUser=defaultUser(null);
 
-    await loadUsdRubRate().catch(()=>{});
+    loadUsdRubRate().catch(()=>{});
     const cached=loadSelectedCatalog();
     if(cached){
       CATALOG_ITEMS=cached.map(x=>({...x})).filter(x=>Number(x.value)>=8&&x.img);
@@ -585,7 +578,7 @@ async function initializeApp(){
 function updateHeaderAvatar(){const b=document.getElementById('headerAvatarContainer');if(!b)return;b.innerHTML=currentUser?.avatar?`<img src="${escapeAttr(currentUser.avatar)}" alt="Avatar">`:'<div style="width:100%;height:100%;background:#333"></div>';}
 
 function switchMainTab(tab){
-  if(isCaseSpinning && tab!=='cases')return;
+  if(isCaseSpinning&&tab!=='cases')return;
   if(tab!=='cases')resetCaseResultState();
   ['navUpgrade','navCases','navProfile'].forEach(x=>document.getElementById(x).classList.remove('active'));
   ['tabUpgradeContent','tabCasesContent','tabProfileContent'].forEach(x=>document.getElementById(x).classList.remove('active'));
@@ -599,50 +592,24 @@ function renderProfile(){
   const a=document.getElementById('profileContentArea'),s=currentUser.stats,b=currentUser.bestDrop;
   if(!a)return;
   if(!currentUser.steamid){
-    a.innerHTML=`<div class="profile-main-card" style="text-align:center;padding:30px 16px;">
-      <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:12px;">Требуется авторизация</div>
-      <p style="font-size:12px;color:#9ca3af;margin-bottom:16px;">Войдите через Steam, чтобы получить доступ к профилю, инвентарю и балансу.</p>
-      <button class="topup-btn" onclick="initSteamAuth()"><svg class="steam-icon" viewBox="0 0 24 24" aria-hidden="true">
-<defs><linearGradient id="steamGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#66c0f4"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs>
-<circle cx="16.9" cy="7.1" r="4.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/>
-<circle cx="6.2" cy="16.9" r="3.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/>
-<path d="M8.9 15.1 14.2 10.2" fill="none" stroke="url(#steamGrad)" stroke-width="2.2" stroke-linecap="round"/>
-<circle cx="16.9" cy="7.1" r="1.35" fill="#fff"/>
-<circle cx="6.2" cy="16.9" r="1" fill="#fff"/>
-</svg><span>Войти через Steam</span></button>
-    </div>`;
+    a.innerHTML=`<div class="profile-main-card" style="text-align:center;padding:30px 16px;"><div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:12px;">Требуется авторизация</div><p style="font-size:12px;color:#9ca3af;margin-bottom:16px;">Войдите через Steam, чтобы получить доступ к профилю, инвентарю и балансу.</p><button class="topup-btn" onclick="initSteamAuth()">Войти через Steam</button></div>`;
     return;
   }
   a.innerHTML=`<div class="profile-main-card">
-    <div class="profile-top-row">
-      <div class="profile-username">${escapeHtml(currentUser.username)}</div>
-      <a href="/auth/logout" style="color:#f87171;font-size:11px;text-decoration:none;font-weight:700;">Выйти</a>
-    </div>
+    <div class="profile-top-row"><div class="profile-username">${escapeHtml(currentUser.username)}</div><a href="/auth/logout" style="color:#f87171;font-size:11px;text-decoration:none;font-weight:700;">Выйти</a></div>
     <div class="profile-center-row"><div class="profile-avatar-large">${currentUser.avatar?`<img src="${escapeAttr(currentUser.avatar)}">`:''}</div></div>
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-title">Апгрейды</div><div class="stat-value">${s.upgradesTotal}</div></div>
       <div class="stat-card"><div class="stat-title">Кейсы</div><div class="stat-value">${s.casesOpened}</div></div>
       <div class="stat-card"><div class="stat-title">Депозит</div><div class="stat-value">${s.totalDeposited} ₽</div></div>
     </div>
-    <div class="profile-balance-row">
-      <div><div class="balance-amount">${currentUser.balance.toFixed(2)} ₽</div><div class="balance-history">Баланс привязан к Steam</div></div>
-      <button class="topup-btn" onclick="topUpBalance()">Пополнить</button>
-    </div>
+    <div class="profile-balance-row"><div><div class="balance-amount">${currentUser.balance.toFixed(2)} ₽</div><div class="balance-history">Баланс привязан к Steam</div></div><button class="topup-btn" onclick="topUpBalance()">Пополнить</button></div>
     <div class="zeno-id-row"><div><div class="zeno-id-label">Zenodrop ID</div><div class="zeno-id-value" id="zenoIdValue">${escapeHtml(currentUser.serverAccount?.zenoId||'—')}</div></div><button class="zeno-id-copy" onclick="copyZenodropId()">Копировать</button></div>
   </div>
   ${currentUser.webAdmin?`<div class="admin-box"><div style="font-size:12px;font-weight:900;color:#f59e0b">ADMIN PANEL</div><div class="admin-row"><input id="adminSteamId" class="admin-input" placeholder="Steam ID"><input id="adminAmount" class="admin-input" type="number" placeholder="Баланс"><button class="admin-btn" onclick="adminGiveBalance()">Выдать</button><button class="admin-btn" onclick="adminToggleWithdraw()">Вывод ON/OFF</button></div><div class="admin-row"><input id="adminPromoCode" class="admin-input" placeholder="PROMO"><input id="adminPromoPercent" class="admin-input" type="number" placeholder="%"><button class="admin-btn" onclick="adminCreatePromo()">Промо</button></div><div id="adminState" class="promo-small">Загрузка...</div></div>`:''}
-  <div class="best-drop-card">
-    <div class="best-drop-title">Лучший дроп</div>
-    <div class="best-drop-content">
-      <div><div class="best-drop-name">${escapeHtml(b.name)}</div><div class="best-drop-price">${b.value>0?b.value.toFixed(2)+' ₽':'--'}</div></div>
-      ${b.img?`<img src="${escapeAttr(b.img)}" class="best-drop-img">`:''}
-    </div>
-  </div>
+  <div class="best-drop-card"><div class="best-drop-title">Лучший дроп</div><div class="best-drop-content"><div><div class="best-drop-name">${escapeHtml(b.name)}</div><div class="best-drop-price">${b.value>0?b.value.toFixed(2)+' ₽':'--'}</div></div>${b.img?`<img src="${escapeAttr(b.img)}" class="best-drop-img">`:''}</div></div>
   <div class="profile-inventory-box">
-    <div class="inv-header-row">
-      <div style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase">Инвентарь (${currentUser.inventory.length})</div>
-      ${currentUser.inventory.length > 0 ? '<button class="sell-all-btn" onclick="sellAllProfileItems()">Продать все</button>' : ''}
-    </div>
+    <div class="inv-header-row"><div style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase">Инвентарь (${currentUser.inventory.length})</div>${currentUser.inventory.length>0?'<button class="sell-all-btn" onclick="sellAllProfileItems()">Продать все</button>':''}</div>
     <div class="items-grid profile-items-grid" id="profileItemsGrid"></div>
   </div>`;
   renderProfileInventory();
@@ -676,22 +643,7 @@ function renderProfileInventory(){
     const c=document.createElement('div');
     c.className='item-card';
     c.style.cursor='default';
-    c.innerHTML=`
-      <img src="${escapeAttr(x.img)}" alt="">
-      <div class="iname">${escapeHtml(x.name)}</div>
-      <div class="iprice">${x.value.toFixed(2)} ₽</div>
-      <div class="item-card-actions">
-        <button class="mini-action-btn up-btn" title="${isWithdrawalLocked(x)?'Скин в заявке на вывод':'Апгрейд'}" ${isWithdrawalLocked(x)?'disabled style="opacity:.35;cursor:not-allowed"':''} onclick="event.stopPropagation(); sendItemToUpgrade(${index})">UP</button>
-        <button class="mini-action-btn" title="${isWithdrawalLocked(x)?'Скин в заявке на вывод':'Продать'}" ${isWithdrawalLocked(x)?'disabled style="opacity:.35;cursor:not-allowed"':''} onclick="event.stopPropagation(); sellProfileItem(${index})"><svg class="inv-action-icon" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v5c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 11v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/></svg></button>
-        <button class="mini-action-btn steam-mini-btn" title="Вывести в Steam" onclick="event.stopPropagation(); withdrawProfileItem(${index})"><svg class="steam-icon" viewBox="0 0 24 24" aria-hidden="true">
-<defs><linearGradient id="steamGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#66c0f4"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs>
-<circle cx="16.9" cy="7.1" r="4.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/>
-<circle cx="6.2" cy="16.9" r="3.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/>
-<path d="M8.9 15.1 14.2 10.2" fill="none" stroke="url(#steamGrad)" stroke-width="2.2" stroke-linecap="round"/>
-<circle cx="16.9" cy="7.1" r="1.35" fill="#fff"/>
-<circle cx="6.2" cy="16.9" r="1" fill="#fff"/>
-</svg></button>
-      </div>`;
+    c.innerHTML=`<img src="${escapeAttr(x.img)}" alt=""><div class="iname">${escapeHtml(x.name)}</div><div class="iprice">${x.value.toFixed(2)} ₽</div><div class="item-card-actions"><button class="mini-action-btn up-btn" title="${isWithdrawalLocked(x)?'Скин в заявке на вывод':'Апгрейд'}" ${isWithdrawalLocked(x)?'disabled style="opacity:.35;cursor:not-allowed"':''} onclick="event.stopPropagation(); sendItemToUpgrade(${index})">UP</button><button class="mini-action-btn" title="${isWithdrawalLocked(x)?'Скин в заявке на вывод':'Продать'}" ${isWithdrawalLocked(x)?'disabled style="opacity:.35;cursor:not-allowed"':''} onclick="event.stopPropagation(); sellProfileItem(${index})"><svg class="inv-action-icon" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v5c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 11v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/></svg></button><button class="mini-action-btn steam-mini-btn" title="Вывести в Steam" onclick="event.stopPropagation(); withdrawProfileItem(${index})"><svg class="steam-icon" viewBox="0 0 24 24"><defs><linearGradient id="steamGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#66c0f4"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs><circle cx="16.9" cy="7.1" r="4.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/><circle cx="6.2" cy="16.9" r="3.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/><path d="M8.9 15.1 14.2 10.2" fill="none" stroke="url(#steamGrad)" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>`;
     frag.appendChild(c);
   });
   g.appendChild(frag);
@@ -699,7 +651,7 @@ function renderProfileInventory(){
 
 function sendItemToUpgrade(index){
   const item=currentUser.inventory[index];if(!item)return;
-  if(isWithdrawalLocked(item)){silentNotice('Этот скин уже находится в заявке на вывод. Дождитесь обработки заявки.');return;}
+  if(isWithdrawalLocked(item)){silentNotice('Этот скин уже находится в заявке на вывод.');return;}
   switchMainTab('upgrade');
   const invIndex=currentUser.inventory.findIndex(x=>x.uid===item.uid);
   if(invIndex!==-1){selectedItemIndex=invIndex;activeQuickChance=null;targetWeapon=null;renderQuickChances();renderGrid();updateUI();}
@@ -746,21 +698,14 @@ async function sellAllProfileItems(){
 
 function renderCasesList(){
   const g=document.getElementById('casesGrid');if(!g)return;g.innerHTML='';
-  CASES_DATA.forEach((c,i)=>{
+  CASES_DATA.forEach(c=>{
     const d=document.createElement('div');
     d.className='case-card';
-    d.style.animationDelay=(i*0.05)+'s';
-    d.innerHTML=`
-      <div class="case-card-glow"></div>
-      <div class="case-topline"><span>CASE</span><b>${c.price} ₽</b></div>
-      <img src="${escapeAttr(c.img)}" alt="">
-      <div class="case-title">${escapeHtml(c.name)}</div>
-      <div class="case-price">Открыть · ${c.price} ₽</div>`;
+    d.innerHTML=`<div class="case-card-glow"></div><div class="case-topline"><span>CASE</span><b>${c.price} ₽</b></div><img src="${escapeAttr(c.img)}" alt=""><div class="case-title">${escapeHtml(c.name)}</div><div class="case-price">Открыть · ${c.price} ₽</div>`;
     d.onclick=()=>openCaseScreen(c);
     g.appendChild(d);
   });
 }
-
 function selectOpenCount(count){
   if(isCaseSpinning)return;
   selectedOpenCount=Math.max(1,Math.min(5,Number(count)||1));
@@ -802,7 +747,7 @@ function renderTrack(){
 
 async function startOpening(count){
   count=Math.max(1,Math.min(5,Number(count)||selectedOpenCount||1));
-  if(!currentUser || !currentUser.steamid){silentNotice('Для открытия кейсов необходимо войти через Steam!');return;}
+  if(!currentUser||!currentUser.steamid){silentNotice('Для открытия кейсов необходимо войти через Steam!');return;}
   if(isCaseSpinning||!activeCase)return;
   if(!activeCase.key){silentNotice('Кейс не настроен. Обнови страницу.');return;}
   const totalPrice=activeCase.price*count;
@@ -813,10 +758,28 @@ async function startOpening(count){
   document.getElementById('actionButtons').style.display='none';
   track.style.transition='none';track.style.transform='translate3d(0,0,0)';
 
+  const fakeIdx=Math.floor(Math.random()*activeCase.items.length);
+  const itemWidth=112,gap=12,leftPad=6,step=itemWidth+gap;
+  const cycles=5;
+  const containerWidth=document.querySelector('.roulette-container')?.clientWidth||360;
+  const center=(containerWidth-itemWidth)/2;
+  const isFast=document.getElementById('fastCaseCheckbox').checked;
+  const animDuration=isFast?800:4200;
+  setTimeout(()=>{
+    track.style.transition=`transform ${animDuration/1000}s cubic-bezier(.15,.85,.35,1)`;
+    track.style.transform=`translate3d(-${cycles*activeCase.items.length*step+(leftPad+fakeIdx*step)-center}px,0,0)`;
+  },50);
+
+  let spinTicks=0;
+  const spinInterval=setInterval(()=>{
+    playCaseSpinTick();spinTicks++;
+    if(spinTicks>(isFast?8:32))clearInterval(spinInterval);
+  },isFast?50:110);
+
   currentWonItemsList=[];
   const payloadSkins=activeCase.items.map(x=>({id:x.id,name:x.name,value:x.value,img:x.img}));
   let serverBalance=currentUser.balance;
-
+  let serverError=null;
   try{
     for(let i=0;i<count;i++){
       const r=await fetch('/api/case/open',{
@@ -826,64 +789,33 @@ async function startOpening(count){
         body:JSON.stringify({case:activeCase.key,skins:payloadSkins})
       });
       const d=await r.json();
-      if(!r.ok){
-        for(const it of currentWonItemsList)currentUser.inventory.push({...it,uid:newInventoryUid()});
-        currentUser.balance=serverBalance;
-        saveUserData();
-        isCaseSpinning=false;
-        document.getElementById('caseActionsPanel').style.display='flex';
-        renderGrid();updateUI();
-        silentNotice(d.error==='insufficient_balance'?'Недостаточно средств!':(d.error||'Ошибка открытия кейса'),'error');
-        return;
-      }
+      if(!r.ok){ serverError=d.error||'open_failed'; break; }
       serverBalance=Number(d.balance);
       const won=findApiSkin(d.skin.name)||d.skin;
-      const item={
+      currentWonItemsList.push({
         id: won.id||d.skin.id||('skin_'+stableHash(d.skin.name).toString(36)),
         name: d.skin.name||won.name,
         category:'skins',
         value: Number(d.skin.value ?? won.value ?? 0),
         img: d.skin.img||won.img,
         uid: newInventoryUid()
-      };
-      currentWonItemsList.push(item);
+      });
     }
-  }catch(e){
-    currentUser.balance=serverBalance;
-    isCaseSpinning=false;
-    document.getElementById('caseActionsPanel').style.display='flex';
-    silentNotice('Сервер недоступен: '+e.message,'error');
-    return;
-  }
-
-  currentUser.balance=serverBalance;
-  currentUser.stats.casesOpened+=count;
-  saveUserData();
-  currentWonItem=currentWonItemsList[0];
-
-  const idx=activeCase.items.findIndex(x=>x.id===currentWonItem.id);
-  const safeIdx=idx>=0?idx:Math.floor(Math.random()*activeCase.items.length);
-  const itemWidth=112,gap=12,leftPad=6,step=itemWidth+gap;
-  const cycles=5;
-  const containerWidth=document.querySelector('.roulette-container')?.clientWidth||360;
-  const center=(containerWidth-itemWidth)/2;
-  const isFast=document.getElementById('fastCaseCheckbox').checked;
-  const animDuration=isFast?800:4200;
-  setTimeout(()=>{
-    track.style.transition=`transform ${animDuration/1000}s cubic-bezier(.15,.85,.35,1)`;
-    const targetX=leftPad+safeIdx*step;
-    track.style.transform=`translate3d(-${cycles*activeCase.items.length*step+targetX-center}px,0,0)`;
-  },50);
-
-  let spinTicks=0;
-  const spinInterval=setInterval(()=>{
-    playCaseSpinTick();spinTicks++;
-    if(spinTicks>(isFast?8:32))clearInterval(spinInterval);
-  },isFast?50:110);
+  }catch(e){ serverError=e.message; }
 
   setTimeout(async()=>{
     clearInterval(spinInterval);
     isCaseSpinning=false;
+    if(serverError){
+      document.getElementById('caseActionsPanel').style.display='flex';
+      silentNotice(serverError==='insufficient_balance'?'Недостаточно средств!':serverError,'error');
+      renderGrid();updateUI();
+      return;
+    }
+    currentUser.balance=serverBalance;
+    currentUser.stats.casesOpened+=count;
+    saveUserData();
+    currentWonItem=currentWonItemsList[0];
     let totalWonSum=0;
     currentWonItemsList.forEach(item=>{
       currentUser.inventory.push({...item});
@@ -892,17 +824,16 @@ async function startOpening(count){
     });
     saveUserData();
     playCaseResultSound(totalWonSum/count,activeCase.price);
-
     document.getElementById('sellBtn').textContent=count>1
       ? `Продать всё за ${totalWonSum.toFixed(2)} ₽`
       : `Продать за ${currentWonItem.value.toFixed(2)} ₽`;
     document.getElementById('actionButtons').style.display='flex';
     renderGrid();updateUI();
-  },animDuration+100);
+  }, animDuration+100);
 }
 
 async function sellCurrentItem(){
-  if(!currentWonItemsList || currentWonItemsList.length===0)return;
+  if(!currentWonItemsList||currentWonItemsList.length===0)return;
   let sum=0;
   currentWonItemsList.forEach(wonItem=>{
     sum+=wonItem.value;
@@ -979,7 +910,6 @@ function renderGrid(){
   }
   g.appendChild(frag);
 }
-
 function createCard(x,sel,click){
   const c=document.createElement('div');
   c.className=`item-card ${sel?'selected':''} ${isWithdrawalLocked(x)?'withdraw-locked':''}`;
@@ -1013,7 +943,7 @@ function resetUpgradePointer(){
 }
 
 document.getElementById('upgradeBtn').onclick=async()=>{
-  if(!currentUser || !currentUser.steamid){silentNotice('Для апгрейда необходимо войти через Steam!');return;}
+  if(!currentUser||!currentUser.steamid){silentNotice('Для апгрейда необходимо войти через Steam!');return;}
   if(isSpinning||selectedItemIndex===null||!targetWeapon)return;
   const source=currentUser.inventory[selectedItemIndex];
   if(!source)return;
@@ -1032,7 +962,7 @@ document.getElementById('upgradeBtn').onclick=async()=>{
       body:JSON.stringify({chance, targetPrice:Number(targetWeapon.value)||0})
     });
     const roll=await rollRes.json().catch(()=>null);
-    if(!rollRes.ok || !roll?.ok) throw new Error(roll?.error||'upgrade_roll_failed');
+    if(!rollRes.ok||!roll?.ok)throw new Error(roll?.error||'upgrade_roll_failed');
     success=!!roll.success;
   }catch(e){
     isSpinning=false;upgradeBtn.disabled=false;wheelOverlay.style.display='none';
@@ -1073,6 +1003,60 @@ document.getElementById('upgradeBtn').onclick=async()=>{
   const tickInterval=setInterval(()=>{playUpgradeSpinSound();tickCount++;if(tickCount>25)clearInterval(tickInterval);},120);
   setTimeout(()=>{clearInterval(tickInterval);handleUpgradeResult();},3700);
 };
+
+// MP3 плеер
+(function(){
+  const audio=document.getElementById('zenoAudio');
+  const scFrame=document.getElementById('zenoSC');
+  const tracks=document.querySelectorAll('.mp3-track');
+  const playBtn=document.getElementById('mp3PlayBtn');
+  const seek=document.getElementById('mp3Seek');
+  const timeEl=document.getElementById('mp3Time');
+  const vol=document.getElementById('mp3Volume');
+  let currentIdx=0;
+
+  function scEmbed(url){return 'https://w.soundcloud.com/player/?url='+encodeURIComponent(url)+'&color=%23f59e0b&auto_play=true&hide_related=true&show_comments=false&show_user=false&show_reposts=false';}
+
+  function loadTrack(i){
+    tracks.forEach(t=>t.classList.remove('active'));
+    const t=tracks[i]; if(!t)return;
+    t.classList.add('active'); currentIdx=i;
+    if(t.dataset.src){
+      scFrame.style.display='none';
+      audio.style.display='block';
+      audio.src=t.dataset.src;
+      audio.volume=vol.value;
+      audio.play().catch(()=>{});
+      playBtn.textContent='⏸';
+    } else if(t.dataset.sc){
+      audio.pause(); audio.removeAttribute('src'); audio.style.display='none';
+      scFrame.src=scEmbed(t.dataset.sc);
+      scFrame.style.display='block';
+      playBtn.textContent='⏸';
+    }
+  }
+
+  tracks.forEach((t,i)=>t.addEventListener('click',()=>loadTrack(i)));
+  playBtn.addEventListener('click',()=>{
+    if(!audio.src && scFrame.style.display==='none'){ loadTrack(currentIdx); return; }
+    if(audio.src){
+      if(audio.paused){ audio.play(); playBtn.textContent='⏸'; }
+      else{ audio.pause(); playBtn.textContent='▶'; }
+    }
+  });
+  audio.addEventListener('timeupdate',()=>{
+    if(audio.duration){
+      seek.value=(audio.currentTime/audio.duration)*100;
+      const m=Math.floor(audio.currentTime/60),s=Math.floor(audio.currentTime%60);
+      const dm=Math.floor(audio.duration/60),ds=Math.floor(audio.duration%60);
+      timeEl.textContent=`${m}:${String(s).padStart(2,'0')} / ${dm}:${String(ds).padStart(2,'0')}`;
+    }
+  });
+  seek.addEventListener('input',()=>{ if(audio.duration) audio.currentTime=(seek.value/100)*audio.duration; });
+  vol.addEventListener('input',()=>{ audio.volume=vol.value; });
+  audio.addEventListener('ended',()=>loadTrack((currentIdx+1)%tracks.length));
+})();
+
 window.onload=initializeApp;
 </script>
 <footer style="margin:30px 12px 20px;padding:16px 0;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#687184;text-align:center;line-height:1.7"><a href="/info" style="color:#aab3c3;text-decoration:none">Информация</a> · <a href="/privacy" style="color:#aab3c3;text-decoration:none">Политика конфиденциальности</a> · <a href="/terms" style="color:#aab3c3;text-decoration:none">Пользовательское соглашение</a> · Поддержка: @Zenodropsupport<br><span style="color:#687184">Кодовое слово: Agetalp</span></footer>
