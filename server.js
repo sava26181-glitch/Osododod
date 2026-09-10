@@ -53,8 +53,11 @@ const SUPPORT_CONTACT = '@Zenodropsupport';
 
 // ============================================================
 //  КЕЙСЫ
+//   micro 13₽: масса дешёвых (до 20₽), иногда неокуп.
+//   legendary 10к: ядро 8–14к, слив 5–8к реже, джекпоты редки.
 // ============================================================
 const CASES = {
+  micro:     { price: 13,    rtp: 0.72 },
   basic:     { price: 100,   rtp: 0.85 },
   premium:   { price: 500,   rtp: 0.88 },
   expensive: { price: 1000,  rtp: 0.90 },
@@ -67,7 +70,6 @@ function itemPrice(s){
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-// Сжатие RTP: тянем мат.ожидание к cp*rtp, дорогие жмём сильнее.
 function fitToRtp(list, cp, rtp){
   if (!list.length || !cp || !rtp) return list;
   const ev = list.reduce((s,x) => s + x.weight * itemPrice(x), 0);
@@ -75,7 +77,11 @@ function fitToRtp(list, cp, rtp){
   const k = (cp * rtp) / ev;
   return list.map(x => {
     const p = itemPrice(x);
-    const factor = p >= cp ? Math.pow(k, 1.6) : p >= cp*0.5 ? Math.pow(k, 1.0) : Math.pow(k, 0.6);
+    let factor;
+    if (p >= cp * 2)      factor = Math.pow(k, 1.8);
+    else if (p >= cp)     factor = Math.pow(k, 1.4);
+    else if (p >= cp*0.5) factor = Math.pow(k, 1.0);
+    else                  factor = Math.pow(k, 0.5);
     return { ...x, weight: Math.max(1e-9, x.weight * factor) };
   });
 }
@@ -91,50 +97,85 @@ function weightedRandom(skins, casePrice){
     weight: total > 0 ? Number(s.weight || 0) / total : 1 / skins.length
   }));
 
-  // Модификаторы по цене скина и цене кейса.
-  // 100₽ кейс: дорогие почти не выпадают. 10к кейс: 10–11.5к окупается.
   list = list.map(s => {
     const price = itemPrice(s);
     let w = s.weight;
+    const r = cp > 0 ? price / cp : 0;
 
-    if (cp <= 100) {
-      if (price >= 500)      w *= 0.02;
-      else if (price >= 100) w *= 0.15;
-      else if (price >= 30)  w *= 0.6;
-      else                   w *= 1.3;
-    } else if (cp <= 1000) {
-      if (price >= cp * 5)   w *= 0.1;
-      else if (price >= cp*2)w *= 0.4;
-      else if (price >= cp)  w *= 0.9;
-      else                   w *= 1.1;
-    } else if (cp < 5000) {
-      if (price >= cp * 3)     w *= 0.15;
-      else if (price >= cp*1.5)w *= 0.5;
-      else if (price >= cp)    w *= 1.0;
-      else                     w *= 1.2;
+    if (cp <= 20) {
+      // 13₽: масса дешёвых до 20₽, иногда полный неокуп
+      if      (price <= 8)   w *= 6.0;
+      else if (price <= 20)  w *= 3.2;
+      else if (price <= 40)  w *= 0.55;
+      else if (price <= 80)  w *= 0.15;
+      else if (price <= 150) w *= 0.03;
+      else                   w *= 0.005;
+
+    } else if (cp <= 150) {
+      // 100₽
+      if      (price <= cp * 0.4) w *= 3.0;
+      else if (price <= cp * 0.9) w *= 1.4;
+      else if (price <= cp * 1.2) w *= 0.9;
+      else if (price <= cp * 3)   w *= 0.25;
+      else if (price <= cp * 8)   w *= 0.05;
+      else                        w *= 0.01;
+
+    } else if (cp <= 1200) {
+      // 500 / 1000₽
+      if      (price <= cp * 0.5)  w *= 2.0;
+      else if (price <= cp * 0.9)  w *= 1.3;
+      else if (price <= cp * 1.15) w *= 1.0;
+      else if (price <= cp * 2.5)  w *= 0.35;
+      else if (price <= cp * 6)    w *= 0.08;
+      else                         w *= 0.02;
+
+    } else if (cp < 7000) {
+      // 5000₽
+      if      (price <= cp * 0.6)  w *= 1.4;
+      else if (price <= cp * 0.95) w *= 1.2;
+      else if (price <= cp * 1.15) w *= 1.3;
+      else if (price <= cp * 1.6)  w *= 0.5;
+      else if (price <= cp * 2.5)  w *= 0.1;
+      else                         w *= 0.02;
+
     } else {
-      if (price >= cp * 2.5)                          w *= 0.05;
-      else if (price >= cp * 1.5)                     w *= 0.2;
-      else if (price >= cp * 1.0 && price < cp * 1.15)w *= 1.5;
-      else if (price >= cp * 0.9 && price < cp * 1.0) w *= 1.3;
-      else if (price < cp * 0.5)                      w *= 0.8;
+      // 10000₽: ядро 0.8–1.4×, слив 0.5–0.8× реже, джекпоты редки
+      if (r < 0.5)         w *= 0.15;  // < 5k — сильный слив (редко)
+      else if (r < 0.8)    w *= 0.9;   // 5–8k — слив
+      else if (r < 1.0)    w *= 2.2;   // 8–10k — неокуп, близко к номиналу
+      else if (r < 1.15)   w *= 2.6;   // 10–11.5k — лёгкий плюс, основной поток
+      else if (r < 1.4)    w *= 1.6;   // 11.5–14k — заметный плюс
+      else if (r < 2.0)    w *= 0.25;  // 14–20k — редко
+      else if (r < 3.0)    w *= 0.04;  // 20–30k — очень редко
+      else                 w *= 0.005; // > 30k — джекпот
     }
-    return { ...s, weight: w };
+
+    return { ...s, weight: Math.max(1e-9, w), _price: price };
   });
 
   const rtp = Number(CASES[Object.keys(CASES).find(k => CASES[k].price === cp)]?.rtp || 0);
-  if (rtp > 0) list = fitToRtp(list, cp, rtp);
+  if (rtp > 0 && cp > 0) list = fitToRtp(list, cp, rtp);
 
   const total2 = list.reduce((sum, x) => sum + x.weight, 0);
-  if (total2 <= 0) return list[list.length - 1];
+  if (total2 <= 0) {
+    const fb = list[list.length - 1];
+    if (!fb) return null;
+    const { _price, ...rest } = fb;
+    return rest;
+  }
 
   const roll = Math.random();
   let cur = 0;
-  for (const skin of list) {
-    cur += skin.weight / total2;
-    if (roll <= cur) return skin;
+  for (const x of list) {
+    cur += x.weight / total2;
+    if (roll <= cur) {
+      const { _price, ...rest } = x;
+      return rest;
+    }
   }
-  return list[list.length - 1];
+  const last = list[list.length - 1];
+  const { _price, ...rest } = last;
+  return rest;
 }
 
 function openCase(caseKey, skins){
@@ -147,8 +188,6 @@ function openCase(caseKey, skins){
 
 // ============================================================
 //  АПГРЕЙД
-//  Сжатие высоких шансов: 70% → ~54%, 75% → ~55%, 100% → 60%.
-//  Скины >20к — максимум 30%. Персональная удача игрока.
 // ============================================================
 const LUCK_MAP = new Map();
 
@@ -159,8 +198,8 @@ function getPlayerLuck(steamid){
   const hash = crypto.createHash('sha256').update('zenodrop_luck:' + id).digest();
   const r = hash[0] / 255;
   let luck;
-  if (r < 0.30)      luck = 1 / 3;  // ~30% неудачников
-  else if (r < 0.50) luck = 1.3;    // ~20% счастливчиков
+  if (r < 0.30)      luck = 1 / 3;
+  else if (r < 0.50) luck = 1.3;
   else               luck = 1.0;
   LUCK_MAP.set(id, luck);
   return luck;
@@ -200,7 +239,6 @@ const TG_ADMIN_IDS = new Set(String(process.env.TG_ADMIN_IDS || '').split(',').m
 const data = loadStore();
 for(const u of Object.values(data.users)){ ensureZenodropId(u); }
 saveStore();
-let tgUsername = '';
 
 function loadStore(){
   try {
@@ -276,8 +314,7 @@ function makePromo(code,percent,maxBonus=0,extra={}){
 }
 function createAutoPromo(){
   const percent=[10,12,15,18,20,25][crypto.randomInt(0,6)];
-  const p=makePromo('ZEN'+percent,percent,0,{auto:true,expiresAt:Date.now()+15*60*1000,maxUses:0});
-  return p;
+  return makePromo('ZEN'+percent,percent,0,{auto:true,expiresAt:Date.now()+15*60*1000,maxUses:0});
 }
 function ensureOneActivePromo(){
   const active=promoList();
@@ -306,8 +343,8 @@ async function processTelegramUpdate(u){
       if(action==='send'){
         w.status='approved';w.updatedAt=Date.now();saveStore();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка подтверждена'});
-        await tg('sendMessage',{chat_id:q.message.chat.id,text:`Заявка <b>${wid}</b> подтверждена.\nОтправка скинов: <b>в обработке</b>.`,parse_mode:'HTML'});
-        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Вывод <b>${wid}</b> подтверждён. Скины отправляются.`,parse_mode:'HTML'});
+        await tg('sendMessage',{chat_id:q.message.chat.id,text:`Заявка <b>${wid}</b> подтверждена.`,parse_mode:'HTML'});
+        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Вывод <b>${wid}</b> подтверждён.`,parse_mode:'HTML'});
       } else if(action==='reject'){
         const user=ensureUser(w.steamid); if(user){user.balance+=Number(w.refund||0);}
         w.status='rejected';w.updatedAt=Date.now();saveStore();
@@ -322,7 +359,7 @@ async function processTelegramUpdate(u){
   const text=rawText.replace(/^\/(\w+)(?:@[^\s]+)?/, '/$1');
   const admin=isTgAdmin(chatId);
   if(/^\/start(?:\s|$)/i.test(text)){
-    return tg('sendMessage',{chat_id:chatId,text:'<b>Zenodrop</b>\n\nВаш Telegram ID: <code>'+chatId+'</code>\n\n/link STEAMID — привязать Steam\n/status — баланс и привязка\n/help — список команд',parse_mode:'HTML'});
+    return tg('sendMessage',{chat_id:chatId,text:'<b>Zenodrop</b>\n\nВаш Telegram ID: <code>'+chatId+'</code>\n\n/link STEAMID\n/status\n/help',parse_mode:'HTML'});
   }
   if(text==='/help') return tg('sendMessage',{chat_id:chatId,text:'<b>Zenodrop</b>\n\n/link STEAMID\n/status\n/help'+(admin?'\n\nАдмин:\n/give STEAMID SUM\n/withdrawlock STEAMID on|off\n/adminsteam STEAMID\n/admin TELEGRAM_ID\n/promo CODE PERCENT\n/withdrawals':''),parse_mode:'HTML'});
   if(text==='/status'){
@@ -380,7 +417,7 @@ async function processPaymentTelegramUpdate(u){
         user.tgId=chatId;
         data.links[chatId]=user.steamid;
         saveStore();
-        return tgPay('sendMessage',{chat_id:chatId,text:`<b>Zenodrop — Пополнение</b>\n\nАккаунт привязан.\nID: <code>${ensureZenodropId(user)}</code>\nБаланс: <b>${Number(user.balance||0).toFixed(2)} ₽</b>`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'💰 Пополнить',callback_data:'pay:topup'},{text:'👤 Профиль',callback_data:'pay:profile'}]]}});
+        return tgPay('sendMessage',{chat_id:chatId,text:`<b>Zenodrop — Пополнение</b>\n\nID: <code>${ensureZenodropId(user)}</code>\nБаланс: <b>${Number(user.balance||0).toFixed(2)} ₽</b>`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'💰 Пополнить',callback_data:'pay:topup'},{text:'👤 Профиль',callback_data:'pay:profile'}]]}});
       }
     }
     return sendPaymentMenu(chatId);
@@ -422,7 +459,6 @@ async function telegramStart(){
   try{
     const me=await tg('getMe',{});
     if(!me?.ok){ console.error('Telegram: invalid token'); return; }
-    tgUsername=me.result.username||'';
     await tg('setMyCommands',{commands:[
       {command:'start',description:'Открыть Zenodrop'},
       {command:'status',description:'Показать баланс'},
@@ -477,15 +513,15 @@ async function cs2Fetch(url, options = {}) {
             }
         });
         const text = await r.text();
-        let data = null;
-        try { data = JSON.parse(text); } catch (_) {}
+        let d = null;
+        try { d = JSON.parse(text); } catch (_) {}
         if (!r.ok) {
-            const err = new Error(data?.message || data?.error || ('HTTP ' + r.status));
+            const err = new Error(d?.message || d?.error || ('HTTP ' + r.status));
             err.status = r.status;
-            err.body = data || text.slice(0, 1000);
+            err.body = d || text.slice(0, 1000);
             throw err;
         }
-        return data;
+        return d;
     } finally { clearTimeout(timer); }
 }
 
@@ -736,7 +772,7 @@ const server = http.createServer(async (req, res) => {
         return res.end(html);
     }
 
-    // UPGRADE ROLL — передаёт steamid и targetPrice в upgrade()
+    // UPGRADE ROLL
     if(pathname==='/api/upgrade-roll' && req.method==='POST'){
         if(!sessionUser?.steamid){
             res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});
