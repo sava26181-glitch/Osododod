@@ -161,21 +161,13 @@ function openCase(caseKey, skins){
 
 // ============================================================
 //  АПГРЕЙД
+//  Честный для цели < 5000 ₽.
+//  Штраф только для цели от 5000 ₽ и выше.
 // ============================================================
 const LUCK_MAP = new Map();
 
 function getPlayerLuck(steamid){
-  const id = String(steamid || '');
-  if (!id) return 1.0;
-  if (LUCK_MAP.has(id)) return LUCK_MAP.get(id);
-  const hash = crypto.createHash('sha256').update('zenodrop_luck:' + id).digest();
-  const r = hash[0] / 255;
-  let luck;
-  if (r < 0.30)      luck = 1 / 3;
-  else if (r < 0.50) luck = 1.3;
-  else               luck = 1.0;
-  LUCK_MAP.set(id, luck);
-  return luck;
+  return 1.0;
 }
 
 function upgrade(chance, steamid, targetPrice){
@@ -186,22 +178,15 @@ function upgrade(chance, steamid, targetPrice){
 
   const price = Number(targetPrice || 0);
 
-  if (price > 20000) {
-    const capped = Math.min(chance, 30);
-    return Math.random() * 100 < capped;
-  }
+  let real = chance;
 
-  const curved = chance <= 50 ? chance : 50 + (chance - 50) * 0.2;
-  let real = curved * getPlayerLuck(steamid);
+  if (price >= 20000)      real *= 0.35;
+  else if (price >= 15000) real *= 0.50;
+  else if (price >= 10000) real *= 0.60;
+  else if (price >= 5000)  real *= 0.75;
 
-  if (price >= 15000)      real *= 0.08;
-  else if (price >= 13000) real *= 0.10;
-  else if (price >= 10000) real *= 0.15;
-  else if (price >= 5000)  real *= 0.35;
-  else if (price >= 2000)  real *= 0.65;
-
-  if (real < 0.3) real = 0.3;
-  if (real > 60)  real = 60;
+  if (real < 0.5) real = 0.5;
+  if (real > 95)  real = 95;
 
   return Math.random() * 100 < real;
 }
