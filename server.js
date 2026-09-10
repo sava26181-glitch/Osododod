@@ -95,11 +95,40 @@ function openCase(caseData,skins){
 // Серверный бросок апгрейда: использует ровно переданный шанс.
 // Здесь нет скрытого персонального коэффициента — результат одинаково
 // рассчитывается для всех игроков при одинаковом отображаемом шансе.
-function upgrade(chance){
-  chance=Number(chance);
-  if(!Number.isFinite(chance))return false;
-  chance=Math.max(0,Math.min(100,chance));
-  return Math.random()*100<chance;
+// ============================================================
+//  ПЕРСОНАЛЬНАЯ УДАЧА + СЛИВ ДОРОГИХ АПГРЕЙДОВ
+//  30% — сбривает (шанс/3), 20% — чуть плюс (шанс*1.3), 50% — как есть.
+//  Скины от 5000 ₽ — жёсткий слив, от 15000 ₽ — почти невозможно.
+// ============================================================
+const LUCK_MAP = new Map();
+
+function getPlayerLuck(steamid) {
+  const id = String(steamid || '');
+  if (!id) return 1.0;
+  if (LUCK_MAP.has(id)) return LUCK_MAP.get(id);
+  const hash = crypto.createHash('sha256').update('zenodrop_luck:' + id).digest();
+  const r = hash[0] / 255;
+  let luck;
+  if (r < 0.30)      luck = 1 / 3;
+  else if (r < 0.50) luck = 1.3;
+  else               luck = 1.0;
+  LUCK_MAP.set(id, luck);
+  return luck;
+}
+
+function upgrade(chance, steamid, targetPrice) {
+  chance = Number(chance);
+  if (!Number.isFinite(chance)) return false;
+  const luck = getPlayerLuck(steamid);
+  let real = chance * luck;
+  const price = Number(targetPrice || 0);
+  if (price >= 15000)      real *= 0.10;
+  else if (price >= 10000) real *= 0.20;
+  else if (price >= 5000)  real *= 0.35;
+  else if (price >= 2000)  real *= 0.65;
+  if (real < 0.5) real = 0.5;
+  if (real > 99)  real = 99;
+  return Math.random() * 100 < real;
 }
 
 const PAY_TG_WEBHOOK_URL = (process.env.TELEGRAM_PAYMENT_WEBHOOK_URL || ((process.env.RENDER_EXTERNAL_URL || '').trim() ? (process.env.RENDER_EXTERNAL_URL.trim().replace(/\/$/,'') + '/telegram/payment-webhook') : '')).trim();
@@ -1018,7 +1047,8 @@ const server = http.createServer(
               res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
               return res.end(JSON.stringify({error:'invalid_chance'}));
             }
-            const result=upgrade(chance);
+            const targetPrice=Number(body.targetPrice)||0;
+const result=upgrade(chance, sessionUser.steamid, targetPrice);
             res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
             return res.end(JSON.stringify({ok:true,success:result,chance}));
           }catch(e){
