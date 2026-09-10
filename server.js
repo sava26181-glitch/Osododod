@@ -80,25 +80,62 @@ function normalizeWeights(skins){
 //  - Скины дороже 13 000 ₽ — суммарный шанс ровно 10%.
 //  - Остальные 90% — скины до 13 000 ₽ (по весам).
 // ============================================================
-function weightedRandom(skins){
+// ============================================================
+//  КЕЙСЫ С УЧЁТОМ ЦЕНЫ КЕЙСА
+//  - 13₽ кейс: дорогие скины почти не выпадают.
+//  - 10к кейс: иногда даёт 10–11.5к (окупается).
+// ============================================================
+function weightedRandom(skins, casePrice){
   if(!Array.isArray(skins) || !skins.length) return null;
 
-  const THRESHOLD = 13000;   // порог дорогого дропа
-  const RARE_CHANCE = 0.10;  // 10% на весь дорогой пул
+  const cp = Number(casePrice || 0);
 
-  const expensive = skins.filter(s => Number(s.price || s.value || 0) >= THRESHOLD);
-  const normal    = skins.filter(s => Number(s.price || s.value || 0) <  THRESHOLD);
+  const total = skins.reduce((s, x) => s + Number(x.weight || 0), 0);
+  let list = skins.map(s => ({
+    ...s,
+    weight: total > 0 ? Number(s.weight || 0) / total : 1 / skins.length
+  }));
 
-  // Если дорогих нет — обычный взвешенный рандом
-  if(!expensive.length){
-    const total = normal.reduce((s, x) => s + Number(x.weight || 0), 0);
-    if(total <= 0) return normal[Math.floor(Math.random() * normal.length)];
-    const roll = Math.random() * total;
-    let cur = 0;
-    for(const s of normal){
-      cur += Number(s.weight || 0);
-      if(roll <= cur) return s;
+  list = list.map(s => {
+    const price = Number(s.price || s.value || 0);
+    let w = s.weight;
+
+    if (cp <= 100) {
+      if (price >= 500)       w *= 0.02;
+      else if (price >= 100)  w *= 0.15;
+      else if (price >= 30)   w *= 0.6;
+      else                    w *= 1.3;
+    } else if (cp <= 1000) {
+      if (price >= cp * 5)    w *= 0.1;
+      else if (price >= cp*2) w *= 0.4;
+      else if (price >= cp)   w *= 0.9;
+      else                    w *= 1.1;
+    } else if (cp < 5000) {
+      if (price >= cp * 3)      w *= 0.15;
+      else if (price >= cp*1.5) w *= 0.5;
+      else if (price >= cp)     w *= 1.0;
+      else                      w *= 1.2;
+    } else {
+      if (price >= cp * 2.5)                          w *= 0.05;
+      else if (price >= cp * 1.5)                     w *= 0.2;
+      else if (price >= cp * 1.0 && price < cp * 1.15) w *= 1.5;
+      else if (price >= cp * 0.9 && price < cp * 1.0)  w *= 1.3;
+      else if (price < cp * 0.5)                      w *= 0.8;
     }
+    return { ...s, weight: w };
+  });
+
+  const total2 = list.reduce((sum, x) => sum + x.weight, 0);
+  if (total2 <= 0) return list[list.length - 1];
+
+  const roll = Math.random();
+  let cur = 0;
+  for (const skin of list) {
+    cur += skin.weight / total2;
+    if (roll <= cur) return skin;
+  }
+  return list[list.length - 1];
+}
     return normal[normal.length - 1];
   }
 
@@ -150,6 +187,10 @@ function openCase(caseData,skins){
 //  Всё, что дороже 20 000 ₽ — максимум 30% шанс.
 //  Если игрок выставил меньше 30% — остаётся как выставил.
 // ============================================================
+// ============================================================
+//  АПГРЕЙД: сжатие высоких шансов + слив дорогих скинов
+//  70% → ~54%, 75% → ~55%, 100% → 60%. Скины >20к — максимум 30%.
+// ============================================================
 const LUCK_MAP = new Map();
 
 function getPlayerLuck(steamid) {
@@ -169,28 +210,41 @@ function getPlayerLuck(steamid) {
 function upgrade(chance, steamid, targetPrice) {
   chance = Number(chance);
   if (!Number.isFinite(chance)) return false;
+  if (chance < 0)   chance = 0;
+  if (chance > 100) chance = 100;
 
   const price = Number(targetPrice || 0);
 
-  // Для дорогих скинов (> 20к) — ограничиваем максимальный шанс 30%
   if (price > 20000) {
     const capped = Math.min(chance, 30);
     return Math.random() * 100 < capped;
   }
 
-  // Обычная логика: удача + слив
-  const luck = getPlayerLuck(steamid);
-  let real = chance * luck;
+  let curved;
+  if (chance <= 50) {
+    curved = chance;
+  } else {
+    curved = 50 + (chance - 50) * 0.2;
+  }
 
-  if (price >= 13000)      real *= 0.10;
+  const luck = getPlayerLuck(steamid);
+  let real = curved * luck;
+
+  if (price >= 15000)      real *= 0.08;
+  else if (price >= 13000) real *= 0.10;
   else if (price >= 10000) real *= 0.15;
   else if (price >= 5000)  real *= 0.35;
   else if (price >= 2000)  real *= 0.65;
 
   if (real < 0.3) real = 0.3;
-  if (real > 99)  real = 99;
+  if (real > 60)  real = 60;
+
   return Math.random() * 100 < real;
 }
+
+
+
+
 
 const PAY_TG_WEBHOOK_URL = (process.env.TELEGRAM_PAYMENT_WEBHOOK_URL || ((process.env.RENDER_EXTERNAL_URL || '').trim() ? (process.env.RENDER_EXTERNAL_URL.trim().replace(/\/$/,'') + '/telegram/payment-webhook') : '')).trim();
 const TG_ADMIN_IDS = new Set(String(process.env.TG_ADMIN_IDS || '').split(',').map(x=>x.trim()).filter(Boolean));
@@ -1108,7 +1162,7 @@ const server = http.createServer(
               res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
               return res.end(JSON.stringify({error:'invalid_chance'}));
             }
-            const result=upgrade(chance);
+         const result=upgrade(chance, sessionUser.steamid, Number(body.targetPrice)||0);
             res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
             return res.end(JSON.stringify({ok:true,success:result,chance}));
           }catch(e){
