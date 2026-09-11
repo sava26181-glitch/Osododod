@@ -39,11 +39,12 @@ const DATA_DIR = (process.env.DATA_DIR || __dirname).trim();
 const DATA_FILE = path.join(DATA_DIR, 'zenodrop_data.json');
 const CATALOG_FILE = path.join(DATA_DIR, 'cs2_catalog_cache.json');
 
-// ============ ТОЛЬКО АДМИН-БОТ ============
+// ============ ТЕЛЕГРАМ ============
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_BOT_URL = (process.env.TELEGRAM_BOT_URL || '').trim();
 const TG_WEBHOOK_URL = (process.env.TELEGRAM_WEBHOOK_URL || (PUBLIC_URL ? PUBLIC_URL + '/telegram/admin-webhook' : '')).trim();
 const SUPPORT_CONTACT = '@Zenodropsupport';
+const SUPPORT_EMAIL = (process.env.SUPPORT_EMAIL || 'support@zenodrop.io').trim();
 const TG_ADMIN_IDS = new Set(String(process.env.TG_ADMIN_IDS || '').split(',').map(x=>x.trim()).filter(Boolean));
 
 async function redisCmd(args){
@@ -166,7 +167,6 @@ function insideBandWeight(price, alpha, band){
   return w;
 }
 
-// ============ РАЗНООБРАЗИЕ ============
 function applyDiversity(list, recentDrops){
   if (!Array.isArray(recentDrops) || !recentDrops.length) return list;
   const now = Date.now();
@@ -464,18 +464,16 @@ async function processTelegramUpdate(u){
         }
         w.status='approved'; w.updatedAt=Date.now();
         await saveStoreNow();
-
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Скин выдан'});
         await tg('sendMessage',{
           chat_id:q.message.chat.id,
-          text:`🎁 <b>${wid}</b> — скин выдан.\nИнвентарь игрока очищен.\n\n<b>Подтвердите факт отправки в Steam:</b>\n<i>${w.item?.name}</i>\n\n🔗 <b>Trade ссылка:</b>\n${w.tradeLink ? w.tradeLink : 'не указана'}`,
+          text:`🎁 <b>${wid}</b> — скин выдан.\nИнвентарь игрока очищен.\n\n<b>Подтвердите факт отправки в Steam:</b>\n<i>${w.item?.name}</i>\n\n🔗 <b>Trade ссылка:</b>\n${w.tradeLink||'не указана'}`,
           parse_mode:'HTML',
           reply_markup:{inline_keyboard:[[{text:'✅ Подтвердить отправку',callback_data:`wd:${wid}:confirm`}]]}
         });
         if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Ваш вывод <b>${wid}</b> обрабатывается.\nСкин «${w.item?.name}» будет отправлен в Steam.`,parse_mode:'HTML'});
         return;
       }
-
       if(action==='confirm'){
         w.status='delivered'; w.deliveredAt=Date.now();
         await saveStoreNow();
@@ -484,7 +482,6 @@ async function processTelegramUpdate(u){
         if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`✅ Ваш скин «${w.item?.name}» отправлен в Steam.`,parse_mode:'HTML'});
         return;
       }
-
       if(action==='reject'){
         w.status='rejected'; w.updatedAt=Date.now();
         await saveStoreNow();
@@ -526,7 +523,7 @@ async function processTelegramUpdate(u){
       const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
       if(!list.length) return tg('sendMessage',{chat_id:q.message.chat.id,text:'Заявок нет.'});
       for(const w of list){
-        await tg('sendMessage',{chat_id:q.message.chat.id,text:`🟠 <b>${w.id}</b>\n<code>${w.steamid}</code>\n${Number(w.value).toFixed(2)} ₽\n${w.item.name}\n🔗 Trade: ${w.tradeLink || 'не указана'}`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'🎁 Выдать',callback_data:`wd:${w.id}:send`},{text:'❌ Отклонить',callback_data:`wd:${w.id}:reject`}]]}});
+        await tg('sendMessage',{chat_id:q.message.chat.id,text:`🟠 <b>${w.id}</b>\n<code>${w.steamid}</code>\n${Number(w.value).toFixed(2)} ₽\n${w.item.name}\n🔗 Trade: ${w.tradeLink||'не указана'}`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'🎁 Выдать',callback_data:`wd:${w.id}:send`},{text:'❌ Отклонить',callback_data:`wd:${w.id}:reject`}]]}});
       }
       return;
     }
@@ -592,7 +589,7 @@ async function processTelegramUpdate(u){
     const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
     if(!list.length) return tg('sendMessage',{chat_id:chatId,text:'Нет.'});
     for(const w of list){
-      await tg('sendMessage',{chat_id:chatId,text:`🟠 <b>${w.id}</b>\n<code>${w.steamid}</code>\n${Number(w.value).toFixed(2)} ₽\n${w.item.name}\n🔗 Trade: ${w.tradeLink || 'не указана'}`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'🎁',callback_data:`wd:${w.id}:send`},{text:'❌',callback_data:`wd:${w.id}:reject`}]]}});
+      await tg('sendMessage',{chat_id:chatId,text:`🟠 <b>${w.id}</b>\n<code>${w.steamid}</code>\n${Number(w.value).toFixed(2)} ₽\n${w.item.name}\n🔗 Trade: ${w.tradeLink||'не указана'}`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'🎁',callback_data:`wd:${w.id}:send`},{text:'❌',callback_data:`wd:${w.id}:reject`}]]}});
     }
     return;
   }
@@ -843,27 +840,17 @@ const server = http.createServer(async (req, res) => {
       if(!skins.length){ res.writeHead(400); return res.end(JSON.stringify({error:'empty_pool'})); }
       const user = ensureUser(sessionUser.steamid); ensureZenodropId(user);
       if(Number(user.balance||0) < cfg.price){ res.writeHead(400); return res.end(JSON.stringify({error:'insufficient_balance',balance:Number(user.balance||0),price:cfg.price})); }
-
       const pityState = user.pity.byCase[caseKey] || 0;
       const recentDrops = Array.isArray(user.recentDrops) ? user.recentDrops : [];
       const result = openCase(caseKey, skins, pityState, recentDrops);
       if(!result || !result.skin){ res.writeHead(500); return res.end(JSON.stringify({error:'roll_failed'})); }
-
       user.balance = Number(user.balance||0) - cfg.price;
       user.stats.casesOpened = (user.stats.casesOpened||0)+1;
-
-      user.recentDrops.unshift({
-        name: result.skin.name,
-        weapon: weaponKey(result.skin.name),
-        value: result.skin.value,
-        ts: Date.now()
-      });
+      user.recentDrops.unshift({ name: result.skin.name, weapon: weaponKey(result.skin.name), value: result.skin.value, ts: Date.now() });
       user.recentDrops = user.recentDrops.slice(0, 8);
-
       const goodBands = new Set(['core','rare','mid']);
       if(goodBands.has(result.tier)) user.pity.byCase[caseKey] = 0;
       else user.pity.byCase[caseKey] = (user.pity.byCase[caseKey]||0)+1;
-
       saveStore();
       res.writeHead(200,{'Content-Type':'application/json'});
       return res.end(JSON.stringify({ok:true,case:caseKey,price:cfg.price,skin:result.skin,tier:result.tier,label:result.label,balance:user.balance}));
@@ -975,23 +962,9 @@ const server = http.createServer(async (req, res) => {
     const ap = data.withdrawals.some(x=>x.steamid===sessionUser.steamid && x.item?.uid===itemUid && (x.status==='pending'||x.status==='approved'));
     if(ap){ res.writeHead(409); return res.end(JSON.stringify({error:'item_withdraw_pending'})); }
     const id = 'wd_'+Date.now().toString(36)+'_'+crypto.randomBytes(3).toString('hex');
-    const w = {
-      id,
-      steamid:sessionUser.steamid,
-      tgId:stored.tgId||null,
-      index,
-      item:{name:item.name,value:Number(item.value),img:item.img||'',assetid:item.assetid||null,uid:itemUid},
-      value:Number(item.value),
-      status:'pending',
-      createdAt:Date.now(),
-      tradeLink: stored.tradeLink,
-      username: sessionUser.username || ''
-    };
+    const w = {id,steamid:sessionUser.steamid,tgId:stored.tgId||null,index,item:{name:item.name,value:Number(item.value),img:item.img||'',assetid:item.assetid||null,uid:itemUid},value:Number(item.value),status:'pending',createdAt:Date.now(),tradeLink:stored.tradeLink,username:sessionUser.username||''};
     data.withdrawals.push(w); await saveStoreNow();
-    await notifyAdmins(
-      `🟠 <b>Вывод</b>\n<code>${id}</code>\n<code>${sessionUser.steamid}</code>\n${w.value.toFixed(2)} ₽\n${item.name}\n\n🔗 <b>Trade:</b>\n${stored.tradeLink}`,
-      [[{text:'🎁 Выдать',callback_data:`wd:${id}:send`},{text:'❌ Отклонить',callback_data:`wd:${id}:reject`}]]
-    );
+    await notifyAdmins(`🟠 <b>Вывод</b>\n<code>${id}</code>\n<code>${sessionUser.steamid}</code>\n${w.value.toFixed(2)} ₽\n${item.name}\n\n🔗 <b>Trade:</b> ${stored.tradeLink}`,[[{text:'🎁 Выдать',callback_data:`wd:${id}:send`},{text:'❌ Отклонить',callback_data:`wd:${id}:reject`}]]);
     res.writeHead(200,{'Content-Type':'application/json'});
     return res.end(JSON.stringify({ok:true,id,status:'pending'}));
   }
@@ -1107,9 +1080,198 @@ const server = http.createServer(async (req, res) => {
 
   if(pathname==='/privacy' || pathname==='/terms' || pathname==='/info'){
     const title = pathname==='/privacy' ? 'Политика конфиденциальности' : pathname==='/terms' ? 'Пользовательское соглашение' : 'Информация Zenodrop';
-    const body = pathname==='/privacy' ? `<h1>Политика конфиденциальности Zenodrop</h1><p><b>Дата актуализации: 9 сентября 2026 года.</b></p><p>Настоящая политика описывает обработку данных при использовании сайта Zenodrop.</p><h2>1. Какие данные обрабатываются</h2><p>Steam ID, отображаемое имя и аватар Steam, данные аккаунта Zenodrop, операции пополнения и вывода, а также технические данные, необходимые для работы сайта.</p><h2>2. Цели обработки</h2><p>Авторизация, ведение аккаунта, выполнение операций, предотвращение злоупотреблений, поддержка пользователей и обеспечение безопасности.</p><h2>3. Хранение</h2><p>Данные хранятся только в объёме, необходимом для работы сервиса и исполнения операций.</p><h2>4. Передача</h2><p>Данные могут передаваться техническим и платёжным провайдерам только в объёме, необходимом для соответствующей операции.</p><h2>5. Обращения</h2><p>Поддержка: ${SUPPORT_CONTACT}</p>` : pathname==='/terms' ? `<h1>Пользовательское соглашение Zenodrop</h1><p><b>Дата актуализации: 9 сентября 2026 года.</b></p><h2>1. Общие положения</h2><p>Используя Zenodrop, пользователь подтверждает, что ознакомился с настоящим соглашением и принимает его условия.</p><h2>2. Аккаунт</h2><p>Для использования функций аккаунта требуется авторизация через Steam.</p><h2>3. Пополнение</h2><p>Перед оплатой пользователь видит выбранный тариф и конкретную сумму.</p><h2>4. Вывод</h2><p>Заявки на вывод обрабатываются в соответствии с правилами сервиса.</p><h2>5. Поддержка</h2><p>${SUPPORT_CONTACT}</p>` : `<h1>Zenodrop — информация</h1><p><b>Актуально на 9 сентября 2026 года.</b></p><p><a href="/privacy">Политика конфиденциальности</a></p><p><a href="/terms">Пользовательское соглашение</a></p>`;
-    const page = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{font-family:Arial,sans-serif;background:#0d0f17;color:#e8ecf4;max-width:820px;margin:0 auto;padding:32px;line-height:1.6}h1{color:#f59e0b}h2{color:#fff;margin-top:28px}a{color:#f7b32b}code{background:#1b2130;padding:3px 7px;border-radius:6px}</style></head><body>${body}<hr><p><a href="/info">← К информации</a></p></body></html>`;
-    res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'}); return res.end(page);
+    let body;
+    if(pathname==='/privacy'){
+      body = `
+<h1>Политика конфиденциальности Zenodrop</h1>
+<p><b>Дата актуализации: 12 сентября 2026 года.</b></p>
+<p>Настоящая Политика конфиденциальности (далее — «Политика») описывает порядок обработки и защиты персональных данных пользователей сайта Zenodrop (далее — «Сервис»). Используя Сервис, вы соглашаетесь с условиями настоящей Политики.</p>
+
+<h2>1. Оператор персональных данных</h2>
+<p>Оператором персональных данных является администрация проекта Zenodrop. Контакты для обращений указаны в разделе 8.</p>
+
+<h2>2. Какие данные мы собираем</h2>
+<p>При использовании Сервиса мы можем обрабатывать следующие категории данных:</p>
+<ul>
+  <li><b>Данные Steam:</b> SteamID, публичное отображаемое имя, ссылка на аватар. Передаются Steam OpenID при авторизации.</li>
+  <li><b>Данные аккаунта Zenodrop:</b> внутренний идентификатор (Zenodrop ID), история операций, баланс, состав виртуального инвентаря.</li>
+  <li><b>Платёжные данные:</b> суммы пополнений и выводов, статусы транзакций, применённые промокоды. Мы не получаем и не храним полные реквизиты банковских карт — платежи обрабатываются платёжными провайдерами.</li>
+  <li><b>Технические данные:</b> IP-адрес, тип устройства, браузер, cookies, время визита — в объёме, необходимом для работы Сервиса и предотвращения злоупотреблений.</li>
+  <li><b>Контактные данные:</b> Telegram ID — если пользователь привязывает аккаунт к боту поддержки.</li>
+</ul>
+
+<h2>3. Цели обработки</h2>
+<ul>
+  <li>Авторизация пользователя через Steam.</li>
+  <li>Ведение аккаунта, учёт баланса и виртуального инвентаря.</li>
+  <li>Обработка заявок на пополнение и вывод скинов.</li>
+  <li>Предотвращение мошенничества и злоупотреблений.</li>
+  <li>Обратная связь и поддержка пользователей.</li>
+  <li>Улучшение работы Сервиса и анализ статистики.</li>
+</ul>
+
+<h2>4. Правовые основания</h2>
+<p>Обработка данных осуществляется на основании согласия пользователя (ст. 6 ФЗ-152 «О персональных данных»), а также в целях исполнения обязательств перед пользователем по оказанию услуг Сервиса.</p>
+
+<h2>5. Передача данных третьим лицам</h2>
+<p>Данные могут передаваться следующим категориям получателей строго в объёме, необходимом для соответствующей операции:</p>
+<ul>
+  <li><b>Steam (Valve Corporation)</b> — для авторизации пользователя.</li>
+  <li><b>Платёжные провайдеры</b> (СБП, криптовалютные шлюзы) — для обработки платежей.</li>
+  <li><b>Telegram</b> — для уведомлений и работы админ-панели.</li>
+  <li><b>Хостинг-провайдеры</b> — для размещения инфраструктуры Сервиса.</li>
+</ul>
+<p>Мы не продаём и не передаём персональные данные третьим лицам в маркетинговых целях.</p>
+
+<h2>6. Хранение и защита данных</h2>
+<p>Данные хранятся на защищённых серверах с использованием шифрования при передаче (HTTPS), подписанных сессионных cookies и ограниченного доступа со стороны администрации. Срок хранения — пока существует аккаунт пользователя или до отзыва согласия. Резервные копии хранятся не более 30 дней.</p>
+
+<h2>7. Права пользователя</h2>
+<ul>
+  <li>Запросить информацию об обработке своих данных.</li>
+  <li>Потребовать исправления или удаления данных.</li>
+  <li>Отозвать согласие на обработку, обратившись в поддержку.</li>
+  <li>Удалить аккаунт — после этого данные будут удалены в течение 30 дней, кроме случаев, когда хранение требуется по закону.</li>
+</ul>
+
+<h2>8. Контакты</h2>
+<p>По вопросам обработки персональных данных, удаления аккаунта, а также любым другим вопросам обращайтесь:</p>
+<ul>
+  <li><b>Telegram:</b> <a href="https://t.me/Zenodropsupport" target="_blank" rel="noopener">${SUPPORT_CONTACT}</a></li>
+  <li><b>Email:</b> ${SUPPORT_EMAIL}</li>
+  <li><b>Страница информации:</b> <a href="/info">/info</a></li>
+</ul>
+
+<h2>9. Изменения Политики</h2>
+<p>Мы вправе обновлять настоящую Политику. Актуальная версия всегда доступна по адресу <code>/privacy</code>. Дата актуализации указана в начале документа.</p>
+
+<h2>10. Cookies</h2>
+<p>Сервис использует cookies для авторизации, сохранения пользовательских настроек и защиты от подделок сессии. Вы можете отключить cookies в настройках браузера, но это может нарушить работу Сервиса.</p>
+`;
+    } else if(pathname==='/terms'){
+      body = `
+<h1>Пользовательское соглашение Zenodrop</h1>
+<p><b>Дата актуализации: 12 сентября 2026 года.</b></p>
+<p>Настоящее Пользовательское соглашение (далее — «Соглашение») регулирует отношения между администрацией проекта Zenodrop (далее — «Сервис», «мы») и пользователем (далее — «Вы») при использовании сайта Zenodrop. Используя Сервис, вы подтверждаете, что ознакомились с условиями Соглашения и принимаете их в полном объёме.</p>
+
+<h2>1. Общие положения</h2>
+<ul>
+  <li>Сервис предоставляет доступ к виртуальным операциям с цифровыми предметами игры Counter-Strike 2 (далее — «скины»).</li>
+  <li>Сервис не является официальным продуктом Valve Corporation и не связан с ней.</li>
+  <li>Использование Сервиса разрешено лицам, достигшим 18 лет, либо младше — с согласия законных представителей.</li>
+</ul>
+
+<h2>2. Регистрация и аккаунт</h2>
+<ul>
+  <li>Для доступа к функциям аккаунта требуется авторизация через Steam OpenID.</li>
+  <li>Пользователь обязуется не передавать свой аккаунт третьим лицам и не использовать чужие аккаунты.</li>
+  <li>Запрещено использование VPN, proxy и других средств обхода геолокационных ограничений с целью мошенничества.</li>
+</ul>
+
+<h2>3. Пополнение баланса</h2>
+<ul>
+  <li>Минимальная сумма пополнения — 50 ₽.</li>
+  <li>Пополнение происходит путём создания заявки и перевода средств через платёжную систему, подключённую к Сервису (СБП, криптовалюта, Telegram).</li>
+  <li>Перед оплатой пользователь видит точную сумму пополнения и итоговую сумму к зачислению (с учётом промокода, если применим).</li>
+  <li>Заявка считается исполненной после подтверждения оплаты со стороны платёжной системы и зачисления баланса.</li>
+  <li>В случае технической ошибки при зачислении — обратитесь в поддержку. Средства будут зачислены или возвращены.</li>
+</ul>
+
+<h2>4. Открытие кейсов и апгрейд</h2>
+<ul>
+  <li>Стоимость открытия кейса указана на его карточке.</li>
+  <li>Шанс выпадения предмета зависит от его рыночной стоимости относительно цены кейса.</li>
+  <li>Результат генерации дропа, шанс апгрейда и начисление баланса происходят на сервере и не могут быть оспорены как «нечестные» при отсутствии технических ошибок.</li>
+  <li>Пользователь понимает, что результат каждой операции случаен и не гарантирует получение какого-либо конкретного предмета.</li>
+</ul>
+
+<h2>5. Вывод скинов</h2>
+<ul>
+  <li>Вывод возможен только при указанной торговой ссылке Steam в профиле.</li>
+  <li>Вывод осуществляется вручную администрацией. Ориентировочное время обработки — несколько часов с момента подачи заявки.</li>
+  <li>Один и тот же скин не может находиться в двух активных заявках одновременно.</li>
+  <li>Администрация вправе отклонить заявку при подозрении на мошенничество или нарушение настоящего Соглашения. При отклонении скин возвращается в инвентарь пользователя.</li>
+</ul>
+
+<h2>6. Возвраты</h2>
+<ul>
+  <li>Виртуальные предметы (скины) и внутренняя валюта (баланс) не подлежат возврату после зачисления и/или вывода.</li>
+  <li>Возврат денежных средств возможен в случае технической ошибки при оплате (двойное списание, ошибочное зачисление и т. п.) — по обращению в поддержку.</li>
+  <li>Возврат производится тем же способом, которым была произведена оплата, в срок до 10 рабочих дней.</li>
+</ul>
+
+<h2>7. Ответственность</h2>
+<ul>
+  <li>Сервис предоставляется «как есть». Мы не несём ответственности за возможные убытки, возникшие в результате использования Сервиса.</li>
+  <li>Мы не отвечаем за перебои в работе Steam, платёжных систем и других сторонних сервисов.</li>
+  <li>Мы вправе приостановить или прекратить доступ пользователя к Сервису при нарушении Соглашения.</li>
+</ul>
+
+<h2>8. Запрещённые действия</h2>
+<ul>
+  <li>Попытки взлома, эксплуатации уязвимостей, использования скриптов и ботов.</li>
+  <li>Мультиаккаунтинг с целью получения бонусов.</li>
+  <li>Мошенничество с платежами (чарджбэки без оснований, поддельные документы).</li>
+  <li>Оскорбления в адрес администрации и других пользователей.</li>
+</ul>
+
+<h2>9. Поддержка</h2>
+<p>По всем вопросам, включая работу Сервиса, пополнение, вывод и обработку данных, обращайтесь:</p>
+<ul>
+  <li><b>Telegram:</b> <a href="https://t.me/Zenodropsupport" target="_blank" rel="noopener">${SUPPORT_CONTACT}</a></li>
+  <li><b>Email:</b> ${SUPPORT_EMAIL}</li>
+  <li><b>Страница информации:</b> <a href="/info">/info</a></li>
+</ul>
+
+<h2>10. Изменения Соглашения</h2>
+<p>Мы вправе обновлять настоящее Соглашение. Актуальная версия всегда доступна по адресу <code>/terms</code>. Дата актуализации указана в начале документа.</p>
+`;
+    } else {
+      body = `
+<h1>Zenodrop — информация</h1>
+<p><b>Актуально на 12 сентября 2026 года.</b></p>
+<h2>О проекте</h2>
+<p>Zenodrop — платформа для открытия виртуальных кейсов CS2, апгрейда скинов и вывода предметов в Steam.</p>
+<h2>Правовые документы</h2>
+<ul>
+  <li><a href="/privacy">Политика конфиденциальности</a></li>
+  <li><a href="/terms">Пользовательское соглашение</a></li>
+</ul>
+<h2>Поддержка</h2>
+<ul>
+  <li><b>Telegram:</b> <a href="https://t.me/Zenodropsupport" target="_blank" rel="noopener">${SUPPORT_CONTACT}</a></li>
+  <li><b>Email:</b> ${SUPPORT_EMAIL}</li>
+</ul>
+<p>Отвечаем в течение 24 часов в рабочие дни. По срочным вопросам, связанным с оплатой и выводом, указывайте в сообщении ваш Zenodrop ID.</p>
+<h2>Порядок работы</h2>
+<ul>
+  <li><b>Авторизация:</b> через Steam OpenID.</li>
+  <li><b>Пополнение баланса:</b> через СБП, криптовалюту или Telegram-бота. Минимум — 50 ₽.</li>
+  <li><b>Открытие кейсов:</b> выберите кейс, нажмите «Открыть», дождитесь результата. Мульти-открытие — до 5 кейсов за раз.</li>
+  <li><b>Апгрейд:</b> выберите свой скин и целевой скин, установите шанс (до 70%), нажмите «Прокачать».</li>
+  <li><b>Вывод:</b> укажите торговую ссылку Steam в профиле, затем нажмите иконку Steam на нужном скине.</li>
+</ul>
+<h2>Часто задаваемые вопросы</h2>
+<p><b>Где взять торговую ссылку Steam?</b><br>Steam → Инвентарь → Обмен → «Ссылка для обмена». Скопируйте и вставьте в профиле Zenodrop.</p>
+<p><b>Сколько идёт вывод?</b><br>Обычно несколько часов. В редких случаях — до 24 часов.</p>
+<p><b>Что делать, если скин не пришёл?</b><br>Напишите в поддержку с указанием Zenodrop ID и названия скина.</p>
+<p><b>Можно ли вернуть деньги?</b><br>Виртуальные предметы возврату не подлежат. Возврат возможен только при технической ошибке оплаты — см. <a href="/terms">Пользовательское соглашение</a>.</p>
+`;
+    }
+    const page = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — Zenodrop</title><style>
+body{font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#0d0f17;color:#e8ecf4;max-width:820px;margin:0 auto;padding:32px 20px;line-height:1.65}
+h1{color:#f59e0b;font-size:26px;margin-bottom:14px}
+h2{color:#fff;margin-top:28px;font-size:17px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:6px}
+p,li{color:#c4cad6;font-size:14px}
+a{color:#f7b32b;text-decoration:none}a:hover{text-decoration:underline}
+code{background:#1b2130;padding:2px 7px;border-radius:5px;color:#fbbf24;font-size:13px}
+ul{margin:8px 0 8px 20px;padding:0}
+hr{border:0;border-top:1px solid rgba(255,255,255,.08);margin:28px 0}
+.footer-nav{display:flex;gap:16px;flex-wrap:wrap;margin-top:20px;font-size:13px}
+@media (max-width:520px){body{padding:20px 14px}h1{font-size:22px}h2{font-size:15px}p,li{font-size:13px}}
+</style></head><body>${body}<hr><div class="footer-nav"><a href="/">← Вернуться на сайт</a><a href="/info">Информация</a><a href="/privacy">Политика конфиденциальности</a><a href="/terms">Пользовательское соглашение</a></div></body></html>`;
+    res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});
+    return res.end(page);
   }
 
   res.writeHead(404); res.end('Not found');
@@ -1117,7 +1279,7 @@ const server = http.createServer(async (req, res) => {
 
 (async () => {
   await initStore();
-  for(const u of Object.values(data.users)){ ensureZenodropId(u); if(typeof u.tradeLink !== 'string') u.tradeLink = ''; }
+  for(const u of Object.values(data.users)){ ensureZenodropId(u); if(typeof u.tradeLink !== 'string') u.tradeLink=''; }
   await saveStoreNow();
   ensureOneActivePromo();
   setInterval(()=>{ const a = promoList()[0]; if(!a || (a.expiresAt && a.expiresAt<=Date.now()) || a.auto) createAutoPromo(); }, 15*60*1000);
