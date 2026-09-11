@@ -182,8 +182,6 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .steam-mini-btn{padding:0!important}
 .steam-mini-btn .steam-icon{width:15px;height:15px}
 .inv-action-icon{width:15px;height:15px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.mini-action-btn:hover .inv-action-icon{stroke:#11131c}
-
-/* MP3 плеер */
 #mp3OpenBtn{background:#161924;color:#f59e0b;border:1px solid rgba(245,158,11,.35);width:34px;height:34px;border-radius:50%;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;flex-shrink:0}
 #mp3OpenBtn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b;box-shadow:0 0 14px rgba(245,158,11,.4)}
 .zeno-mp3{position:fixed;bottom:14px;right:14px;z-index:9998;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;display:none}
@@ -398,6 +396,10 @@ async function loadCs2ShCatalog(){
   throw new Error('Каталог CS2 не прогрелся за 20 секунд');
 }
 
+function baseSkinName(name){
+  return String(name||'').replace(/\s*\([^)]*\)\s*$/,'').trim().toLowerCase();
+}
+
 function buildCaseContents(price,index){
   const valid=CATALOG_ITEMS.filter(x=>x&&x.img&&Number(x.value)>=8);
   if(!valid.length)return [];
@@ -417,16 +419,53 @@ function buildCaseContents(price,index){
     mega:valid.filter(x=>x.value>=price*1.50&&x.value<price*3.00),
     jackpot:valid.filter(x=>x.value>=price*3.00&&x.value<price*12.00)
   };
-  const used=new Set(),out=[];
-  const addRandom=(pool,n)=>{const shuffled=pool.slice().sort(()=>Math.random()-.5);for(const x of shuffled){if(out.length>=n)break;if(!used.has(x.id)){used.add(x.id);out.push({...x});}}};
+
+  const usedIds=new Set();
+  const usedBase=new Set();
+  const out=[];
+
+  const addRandom=(pool,n)=>{
+    const shuffled=pool.slice().sort(()=>Math.random()-.5);
+    for(const x of shuffled){
+      if(out.length>=n)break;
+      if(usedIds.has(x.id))continue;
+      const base=baseSkinName(x.name);
+      if(usedBase.has(base))continue;
+      usedIds.add(x.id);
+      usedBase.add(base);
+      out.push({...x});
+    }
+  };
+
   addRandom(pools.loss,losses);
   addRandom(pools.lowflat,lowflats);
   addRandom(pools.flat,flats);
   addRandom(pools.big,bigs);
   addRandom(pools.mega,megas);
   addRandom(pools.jackpot,jackpots);
-  if(out.length<100){const rest=valid.slice().sort((a,b)=>Math.abs(a.value-price)-Math.abs(b.value-price));addRandom(rest,100-out.length);}
-  while(out.length<100)out.push({...valid[Math.floor(Math.random()*valid.length)]});
+
+  if(out.length<100){
+    const rest=valid.slice().sort((a,b)=>Math.abs(a.value-price)-Math.abs(b.value-price));
+    for(const x of rest){
+      if(out.length>=100)break;
+      if(usedIds.has(x.id))continue;
+      const base=baseSkinName(x.name);
+      if(usedBase.has(base))continue;
+      usedIds.add(x.id);
+      usedBase.add(base);
+      out.push({...x});
+    }
+  }
+
+  if(out.length<100){
+    for(const x of valid){
+      if(out.length>=100)break;
+      if(usedIds.has(x.id))continue;
+      usedIds.add(x.id);
+      out.push({...x});
+    }
+  }
+
   return out.slice(0,100);
 }
 
@@ -563,7 +602,6 @@ async function initializeApp(){
     try{const res=await fetch('/api/current-user',{cache:'no-store',credentials:'same-origin'});steamUser=await res.json();}catch(e){}
 
     // Гости видят сайт сразу — никакого принудительного Steam-гейта.
-    // Кнопка «Войти через Steam» в шапке идёт на /auth/steam.
     currentUser = defaultUser(steamUser && steamUser.steamid ? steamUser : null);
 
     if(steamUser && steamUser.steamid && steamUser.serverAccount){
