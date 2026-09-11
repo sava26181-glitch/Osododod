@@ -65,7 +65,7 @@ async function redisSave(key,obj){ try{ await redisCmd(['SET',key,JSON.stringify
 // ============ КЕЙСЫ ============
 const CASE_CONFIG = {
   micro: {
-    price: 13, rtp: 0.90, alpha: 0.30, pity: 12,
+    price: 13, rtp: 0.95, alpha: 0.30, pity: 12,
     accept: [8, 60],
     bands: [
       { name:'core', min:8, max:23, weight:100, label:'часто', peak:15, spread:4 },
