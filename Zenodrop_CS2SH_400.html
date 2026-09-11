@@ -1305,7 +1305,17 @@ window.addEventListener('pagehide',()=>{
   }catch(e){}
 });
 
+window.onerror=function(msg,src,line,col){
+  const el=document.getElementById('loadingScreen');
+  if(el){el.style.opacity='1';el.style.display='flex';el.innerHTML='<div style="padding:24px;text-align:center;max-width:90vw"><div style="color:#f87171;font-weight:900;font-size:15px;margin-bottom:10px">Ошибка JS</div><div style="color:#fff;font-size:12px;line-height:1.5;word-break:break-word">'+String(msg)+'<br><br>строка: '+line+'</div></div>';}
+  return false;
+};
+window.addEventListener('unhandledrejection',function(e){
+  const el=document.getElementById('loadingScreen');
+  if(el){el.style.opacity='1';el.style.display='flex';el.innerHTML='<div style="padding:24px;text-align:center;max-width:90vw"><div style="color:#f87171;font-weight:900;font-size:15px;margin-bottom:10px">Promise</div><div style="color:#fff;font-size:12px;word-break:break-word">'+String((e.reason&&e.reason.message)||e.reason||'')+'</div></div>';}
+});
 window.onload=initializeApp;
+setTimeout(function(){try{finishIntro();}catch(e){}},8000);
 </script>
 <footer style="margin:30px 12px 20px;padding:16px 0;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#687184;text-align:center;line-height:1.7"><a href="/info" style="color:#aab3c3;text-decoration:none">Информация</a> · <a href="/privacy" style="color:#aab3c3;text-decoration:none">Политика конфиденциальности</a> · <a href="/terms" style="color:#aab3c3;text-decoration:none">Пользовательское соглашение</a> · Поддержка: @Zenodropsupport<br><span style="color:#687184">Кодовое слово: Agetalp</span></footer>
 </body>
