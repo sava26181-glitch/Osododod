@@ -355,7 +355,8 @@ function ensureUser(steamid){
     withdrawDisabled:false, tgId:null, createdAt:Date.now(),
     inventory:[], bestDrop:{name:'--',value:0,img:''},
     pity:{count:0, byCase:{}},
-    recentDrops:[]
+    recentDrops:[],
+    tradeLink:''
   };
   if(!data.users[id].stats) data.users[id].stats={totalDeposited:0, upgradesTotal:0, casesOpened:0};
   ['totalDeposited','upgradesTotal','casesOpened'].forEach(k=>{ if(typeof data.users[id].stats[k]!=='number') data.users[id].stats[k]=0; });
@@ -364,6 +365,7 @@ function ensureUser(steamid){
   if(!data.users[id].pity) data.users[id].pity={count:0, byCase:{}};
   if(!data.users[id].pity.byCase) data.users[id].pity.byCase={};
   if(!Array.isArray(data.users[id].recentDrops)) data.users[id].recentDrops=[];
+  if(typeof data.users[id].tradeLink !== 'string') data.users[id].tradeLink = '';
   return data.users[id];
 }
 function makeZenodropId(userOrSteam){
@@ -466,7 +468,7 @@ async function processTelegramUpdate(u){
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Скин выдан'});
         await tg('sendMessage',{
           chat_id:q.message.chat.id,
-          text:`🎁 <b>${wid}</b> — скин выдан.\nИнвентарь игрока очищен.\n\n<b>Подтвердите факт отправки в Steam:</b>\n<i>${w.item?.name}</i>`,
+          text:`🎁 <b>${wid}</b> — скин выдан.\nИнвентарь игрока очищен.\n\n<b>Подтвердите факт отправки в Steam:</b>\n<i>${w.item?.name}</i>\n\n🔗 <b>Trade ссылка:</b>\n${w.tradeLink ? w.tradeLink : 'не указана'}`,
           parse_mode:'HTML',
           reply_markup:{inline_keyboard:[[{text:'✅ Подтвердить отправку',callback_data:`wd:${wid}:confirm`}]]}
         });
@@ -524,7 +526,7 @@ async function processTelegramUpdate(u){
       const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
       if(!list.length) return tg('sendMessage',{chat_id:q.message.chat.id,text:'Заявок нет.'});
       for(const w of list){
-        await tg('sendMessage',{chat_id:q.message.chat.id,text:`🟠 <b>${w.id}</b>\n<code>${w.steamid}</code>\n${Number(w.value).toFixed(2)} ₽\n${w.item.name}`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'🎁 Выдать',callback_data:`wd:${w.id}:send`},{text:'❌ Отклонить',callback_data:`wd:${w.id}:reject`}]]}});
+        await tg('sendMessage',{chat_id:q.message.chat.id,text:`🟠 <b>${w.id}</b>\n<code>${w.steamid}</code>\n${Number(w.value).toFixed(2)} ₽\n${w.item.name}\n🔗 Trade: ${w.tradeLink || 'не указана'}`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'🎁 Выдать',callback_data:`wd:${w.id}:send`},{text:'❌ Отклонить',callback_data:`wd:${w.id}:reject`}]]}});
       }
       return;
     }
@@ -590,7 +592,7 @@ async function processTelegramUpdate(u){
     const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
     if(!list.length) return tg('sendMessage',{chat_id:chatId,text:'Нет.'});
     for(const w of list){
-      await tg('sendMessage',{chat_id:chatId,text:`🟠 <b>${w.id}</b>\n<code>${w.steamid}</code>\n${Number(w.value).toFixed(2)} ₽\n${w.item.name}`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'🎁',callback_data:`wd:${w.id}:send`},{text:'❌',callback_data:`wd:${w.id}:reject`}]]}});
+      await tg('sendMessage',{chat_id:chatId,text:`🟠 <b>${w.id}</b>\n<code>${w.steamid}</code>\n${Number(w.value).toFixed(2)} ₽\n${w.item.name}\n🔗 Trade: ${w.tradeLink || 'не указана'}`,parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:'🎁',callback_data:`wd:${w.id}:send`},{text:'❌',callback_data:`wd:${w.id}:reject`}]]}});
     }
     return;
   }
@@ -916,6 +918,22 @@ const server = http.createServer(async (req, res) => {
     }catch(e){ res.writeHead(400); return res.end(JSON.stringify({error:'invalid_json'})); }
   }
 
+  // === TRADE LINK ===
+  if(pathname==='/api/account/tradelink' && req.method==='POST'){
+    if(!sessionUser?.steamid){ res.writeHead(401); return res.end(JSON.stringify({error:'auth_required'})); }
+    try{
+      const body = await readJson(req);
+      const link = String(body.tradeLink||'').trim();
+      const RE = /^https?:\/\/steamcommunity\.com\/tradeoffer\/new\/\?partner=\d+&token=[A-Za-z0-9_-]+/i;
+      if(link && !RE.test(link)){ res.writeHead(400); return res.end(JSON.stringify({error:'invalid_trade_link'})); }
+      const u = ensureUser(sessionUser.steamid);
+      u.tradeLink = link;
+      await saveStoreNow();
+      res.writeHead(200,{'Content-Type':'application/json'});
+      return res.end(JSON.stringify({ok:true,tradeLink:u.tradeLink}));
+    }catch(e){ res.writeHead(400); return res.end(JSON.stringify({error:'invalid_json'})); }
+  }
+
   if(pathname==='/api/config' && req.method==='GET'){
     res.writeHead(200,{'Content-Type':'application/json'});
     return res.end(JSON.stringify({telegramBotUrl:TG_BOT_URL||null,cases:CASES,bands:CASE_BANDS,storage:USE_REDIS?'redis':'disk'}));
@@ -949,6 +967,7 @@ const server = http.createServer(async (req, res) => {
     const index = Number(body.index);
     const stored = ensureUser(sessionUser.steamid);
     if(stored.withdrawDisabled){ res.writeHead(403); return res.end(JSON.stringify({error:'withdraw_disabled'})); }
+    if(!stored.tradeLink){ res.writeHead(400); return res.end(JSON.stringify({error:'trade_link_required'})); }
     const item = body.item;
     if(!item||!item.name||!Number(item.value)){ res.writeHead(400); return res.end(JSON.stringify({error:'item_required'})); }
     const itemUid = String(item.uid||'');
@@ -956,9 +975,23 @@ const server = http.createServer(async (req, res) => {
     const ap = data.withdrawals.some(x=>x.steamid===sessionUser.steamid && x.item?.uid===itemUid && (x.status==='pending'||x.status==='approved'));
     if(ap){ res.writeHead(409); return res.end(JSON.stringify({error:'item_withdraw_pending'})); }
     const id = 'wd_'+Date.now().toString(36)+'_'+crypto.randomBytes(3).toString('hex');
-    const w = {id,steamid:sessionUser.steamid,tgId:stored.tgId||null,index,item:{name:item.name,value:Number(item.value),img:item.img||'',assetid:item.assetid||null,uid:itemUid},value:Number(item.value),status:'pending',createdAt:Date.now()};
+    const w = {
+      id,
+      steamid:sessionUser.steamid,
+      tgId:stored.tgId||null,
+      index,
+      item:{name:item.name,value:Number(item.value),img:item.img||'',assetid:item.assetid||null,uid:itemUid},
+      value:Number(item.value),
+      status:'pending',
+      createdAt:Date.now(),
+      tradeLink: stored.tradeLink,
+      username: sessionUser.username || ''
+    };
     data.withdrawals.push(w); await saveStoreNow();
-    await notifyAdmins(`🟠 <b>Вывод</b>\n<code>${id}</code>\n<code>${sessionUser.steamid}</code>\n${w.value.toFixed(2)} ₽\n${item.name}`,[[{text:'🎁 Выдать',callback_data:`wd:${id}:send`},{text:'❌ Отклонить',callback_data:`wd:${id}:reject`}]]);
+    await notifyAdmins(
+      `🟠 <b>Вывод</b>\n<code>${id}</code>\n<code>${sessionUser.steamid}</code>\n${w.value.toFixed(2)} ₽\n${item.name}\n\n🔗 <b>Trade:</b>\n${stored.tradeLink}`,
+      [[{text:'🎁 Выдать',callback_data:`wd:${id}:send`},{text:'❌ Отклонить',callback_data:`wd:${id}:reject`}]]
+    );
     res.writeHead(200,{'Content-Type':'application/json'});
     return res.end(JSON.stringify({ok:true,id,status:'pending'}));
   }
@@ -1084,7 +1117,7 @@ const server = http.createServer(async (req, res) => {
 
 (async () => {
   await initStore();
-  for(const u of Object.values(data.users)){ ensureZenodropId(u); }
+  for(const u of Object.values(data.users)){ ensureZenodropId(u); if(typeof u.tradeLink !== 'string') u.tradeLink = ''; }
   await saveStoreNow();
   ensureOneActivePromo();
   setInterval(()=>{ const a = promoList()[0]; if(!a || (a.expiresAt && a.expiresAt<=Date.now()) || a.auto) createAutoPromo(); }, 15*60*1000);
