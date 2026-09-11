@@ -207,6 +207,18 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 #mp3Vol{width:44px;accent-color:#f59e0b;height:3px}
 #mp3Time{font-size:9px;color:#8d94a6;min-width:58px;text-align:center}
 @media (max-width:420px){.zeno-mp3{bottom:8px;right:8px}.mp3-mini{min-width:170px}#mp3OpenBtn{width:30px;height:30px;font-size:12px}}
+/* === TRADE LINK === */
+.trade-link-box{display:flex;flex-direction:column;gap:8px;background:#0d0f17;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 11px;margin-top:10px}
+.trade-link-title{font-size:10px;color:#8d94a6;text-transform:uppercase;font-weight:800;letter-spacing:.5px}
+.trade-link-row{display:flex;gap:8px;align-items:center}
+.trade-link-input{flex:1;min-width:0;background:#151822;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:9px 10px;font-size:11px;outline:none;font-weight:600}
+.trade-link-input:focus{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.08)}
+.trade-link-save{background:linear-gradient(135deg,#f59e0b,#d97706);color:#11131c;border:0;border-radius:8px;padding:9px 14px;font-weight:900;font-size:11px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px}
+.trade-link-save:hover{filter:brightness(1.05)}
+.trade-link-hint{font-size:9px;color:#6f7686;line-height:1.4}
+.trade-link-badge{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:900;padding:3px 7px;border-radius:6px;text-transform:uppercase}
+.trade-link-badge.ok{background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.3)}
+.trade-link-badge.no{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)}
 </style>
 </head>
 <body>
@@ -329,8 +341,8 @@ let USD_RUB_RATE=80;
 let CATALOG_ITEMS=[],CASES_DATA=[];
 let currentUser=null,currentTab='inventory';
 let activeCase=null,isCaseSpinning=false,currentWonItem=null,currentWonItemsList=[];
-let selectedItemIndex=null,targetWeapon=null,isSpinning=false,currentRotation=0,activeQuickChance=null;
-let quickChances=[10,20,30,40,50,70],MAX_CHANCE=70,isFastSpinActive=false;
+let">< selectedItemIndexinput=null,targetWeapon id=null,isSpinning=false,current="Rotation=0,activeQuickChadminance=null;
+let quickChSteances=[10,20,30,40,am50,70],MAX_CHANCE=70,isFastSpinActive=false;
 let selectedOpenCount=1;
 const canvas=document.getElementById('wheelCanvas'),ctx=canvas.getContext('2d'),track=document.getElementById('rouletteTrack');
 
@@ -601,7 +613,6 @@ async function initializeApp(){
     let steamUser=null;
     try{const res=await fetch('/api/current-user',{cache:'no-store',credentials:'same-origin'});steamUser=await res.json();}catch(e){}
 
-    // Гости видят сайт сразу — никакого принудительного Steam-гейта.
     currentUser = defaultUser(steamUser && steamUser.steamid ? steamUser : null);
 
     if(steamUser && steamUser.steamid && steamUser.serverAccount){
@@ -656,6 +667,7 @@ function renderProfile(){
     a.innerHTML=`<div class="profile-main-card" style="text-align:center;padding:30px 16px;"><div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:12px;">Требуется авторизация</div><p style="font-size:12px;color:#9ca3af;margin-bottom:16px;">Войдите через Steam, чтобы получить доступ к профилю, инвентарю и балансу.</p><button class="topup-btn" onclick="initSteamAuth()">Войти через Steam</button></div>`;
     return;
   }
+  const tradeLink=currentUser.serverAccount?.tradeLink||'';
   a.innerHTML=`<div class="profile-main-card">
     <div class="profile-top-row"><div class="profile-username">${escapeHtml(currentUser.username)}</div><a href="/auth/logout" style="color:#f87171;font-size:11px;text-decoration:none;font-weight:700;">Выйти</a></div>
     <div class="profile-center-row"><div class="profile-avatar-large">${currentUser.avatar?`<img src="${escapeAttr(currentUser.avatar)}">`:''}</div></div>
@@ -666,8 +678,23 @@ function renderProfile(){
     </div>
     <div class="profile-balance-row"><div><div class="balance-amount">${currentUser.balance.toFixed(2)} ₽</div><div class="balance-history">Баланс привязан к Steam</div></div><button class="topup-btn" onclick="topUpBalance()">Пополнить</button></div>
     <div class="zeno-id-row"><div><div class="zeno-id-label">Zenodrop ID</div><div class="zeno-id-value" id="zenoIdValue">${escapeHtml(currentUser.serverAccount?.zenoId||'—')}</div></div><button class="zeno-id-copy" onclick="copyZenodropId()">Копировать</button></div>
+    <div class="trade-link-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="trade-link-title">Steam Trade ссылка</div>
+        ${tradeLink
+          ? '<span class="trade-link-badge ok">Указана</span>'
+          : '<span class="trade-link-badge no">Не указана</span>'}
+      </div>
+      <div class="trade-link-row">
+        <input id="tradeLinkInput" class="trade-link-input" type="text"
+          placeholder="https://steamcommunity.com/tradeoffer/new/?partner=...&token=..."
+          value="${escapeAttr(tradeLink)}">
+        <button class="trade-link-save" onclick="saveTradeLink()">Сохранить</button>
+      </div>
+      <div class="trade-link-hint">Без неё вывод скинов в Steam недоступен. Открой Steam → Инвентарь → Обмен → «Ссылка для обмена».</div>
+    </div>
   </div>
-  ${currentUser.webAdmin?`<div class="admin-box"><div style="font-size:12px;font-weight:900;color:#f59e0b">ADMIN PANEL</div><div class="admin-row"><input id="adminSteamId" class="admin-input" placeholder="Steam ID"><input id="adminAmount" class="admin-input" type="number" placeholder="Баланс"><button class="admin-btn" onclick="adminGiveBalance()">Выдать</button><button class="admin-btn" onclick="adminToggleWithdraw()">Вывод ON/OFF</button></div><div class="admin-row"><input id="adminPromoCode" class="admin-input" placeholder="PROMO"><input id="adminPromoPercent" class="admin-input" type="number" placeholder="%"><button class="admin-btn" onclick="adminCreatePromo()">Промо</button></div><div id="adminState" class="promo-small">Загрузка...</div></div>`:''}
+  ${currentUser.webAdmin?`<div class="admin-box"><div style="font-size:12px;font-weight:900;color:#f59e0b">ADMIN PANEL</div><div class="admin-rowId" class="admin-input" placeholder="Steam ID"><input id="adminAmount" class="admin-input" type="number" placeholder="Баланс"><button class="admin-btn" onclick="adminGiveBalance()">Выдать</button><button class="admin-btn" onclick="adminToggleWithdraw()">Вывод ON/OFF</button></div><div class="admin-row"><input id="adminPromoCode" class="admin-input" placeholder="PROMO"><input id="adminPromoPercent" class="admin-input" type="number" placeholder="%"><button class="admin-btn" onclick="adminCreatePromo()">Промо</button></div><div id="adminState" class="promo-small">Загрузка...</div></div>`:''}
   <div class="best-drop-card"><div class="best-drop-title">Лучший дроп</div><div class="best-drop-content"><div><div class="best-drop-name">${escapeHtml(b.name)}</div><div class="best-drop-price">${b.value>0?b.value.toFixed(2)+' ₽':'--'}</div></div>${b.img?`<img src="${escapeAttr(b.img)}" class="best-drop-img">`:''}</div></div>
   <div class="profile-inventory-box">
     <div class="inv-header-row"><div style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase">Инвентарь (${currentUser.inventory.length})</div>${currentUser.inventory.length>0?'<button class="sell-all-btn" onclick="sellAllProfileItems()">Продать все</button>':''}</div>
@@ -722,6 +749,34 @@ async function createDepositRequest(){const amount=Number(document.getElementByI
 async function loadPromoCodes(openModal=false){try{const r=await fetch('/api/promos');const d=await r.json();const items=(d.items||[]).slice(0,1);const el=document.getElementById('promoCodesBlock');if(el)el.innerHTML=items.map(x=>`<span class="promo-chip" onclick="document.getElementById('depositPromo').value='${escapeAttr(x.code)}';topUpBalance()">${escapeHtml(x.code)} <span>+${Number(x.percent).toFixed(0)}%</span></span>`).join('');const auto=items.find(x=>x.auto)||items[0];if(auto){promoExpiresAt=Number(auto.expiresAt||0);const inp=document.getElementById('depositPromo');if(inp&&!inp.value&&openModal)inp.value=auto.code;}if(promoTimer)clearInterval(promoTimer);promoTimer=setInterval(()=>{const left=Math.max(0,promoExpiresAt-Date.now());const min=Math.floor(left/60000),sec=Math.floor((left%60000)/1000);const el2=document.getElementById('promoActiveText'),el3=document.getElementById('promoHeadingTimer');const timerText=auto?`Действует ${auto.code}: +${Number(auto.percent).toFixed(0)}% · обновление через ${min}:${String(sec).padStart(2,'0')}`:'';if(el2&&!document.getElementById('depositPromo').value)el2.textContent=timerText;if(el3)el3.textContent=timerText;if(left<=0){loadPromoCodes(false);}},1000);}catch(e){}}
 
 async function copyZenodropId(){const id=currentUser?.serverAccount?.zenoId||'';if(!id)return;try{await navigator.clipboard.writeText(id);silentNotice('Zenodrop ID скопирован','success');}catch(e){}}
+
+async function saveTradeLink(){
+  const input=document.getElementById('tradeLinkInput');
+  if(!input)return;
+  const link=input.value.trim();
+  if(!link){silentNotice('Введите ссылку на обмен','error');return;}
+  if(!/^https?:\/\/steamcommunity\.com\/tradeoffer\/new\/\?partner=\d+&token=[A-Za-z0-9_-]+/i.test(link)){
+    silentNotice('Неверный формат trade ссылки','error');
+    return;
+  }
+  try{
+    const r=await fetch('/api/account/tradelink',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'same-origin',
+      body:JSON.stringify({tradeLink:link})
+    });
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Ошибка');
+    if(!currentUser.serverAccount)currentUser.serverAccount={};
+    currentUser.serverAccount.tradeLink=d.tradeLink;
+    silentNotice('Trade ссылка сохранена','success');
+    renderProfile();
+  }catch(e){
+    silentNotice('Не удалось сохранить: '+e.message,'error');
+  }
+}
+
 async function adminGiveBalance(){const steam=document.getElementById('adminSteamId')?.value.trim(),amount=Number(document.getElementById('adminAmount')?.value);if(!/^\d{17}$/.test(steam)||!amount)return silentNotice('Укажи Steam ID и сумму');const r=await fetch('/api/admin/user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steamid:steam,balanceDelta:amount})});const d=await r.json();silentNotice(r.ok?`Баланс: ${Number(d.user.balance).toFixed(2)} ₽`:d.error);}
 async function adminToggleWithdraw(){const steam=document.getElementById('adminSteamId')?.value.trim();if(!/^\d{17}$/.test(steam))return silentNotice('Укажи Steam ID');const r=await fetch('/api/admin/user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steamid:steam,withdrawDisabled:true})});const d=await r.json();silentNotice(r.ok?'Вывод отключён':d.error)}
 async function adminCreatePromo(){const code=document.getElementById('adminPromoCode')?.value.trim().toUpperCase(),percent=Number(document.getElementById('adminPromoPercent')?.value);if(!/^[A-Z0-9_-]{3,32}$/.test(code)||!percent)return silentNotice('Укажи код и процент');const r=await fetch('/api/admin/promo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,percent})});const d=await r.json();if(!r.ok)return silentNotice(d.error||'Ошибка');silentNotice('Промокод '+d.promo.code+' создан','success');loadPromoCodes();}
@@ -765,11 +820,21 @@ async function withdrawProfileItem(index){
   const item=currentUser.inventory[index];if(!item)return;
   if(!currentUser?.steamid){silentNotice('Сначала войдите через Steam!');return;}
   if(currentUser.serverAccount?.withdrawDisabled){silentNotice('Для этого аккаунта вывод скинов отключён.');return;}
+  if(!currentUser.serverAccount?.tradeLink){
+    silentNotice('Сначала укажите Trade ссылку в профиле','error');
+    switchMainTab('profile');
+    return;
+  }
   if(isWithdrawalLocked(item)){silentNotice('Этот скин уже находится в заявке на вывод.');return;}
   try{
     const r=await fetch('/api/withdrawals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index,item})});
     const d=await r.json();
-    if(!r.ok)throw new Error(d.error==='item_withdraw_pending'?'Этот скин уже находится в заявке на вывод.':(d.error||'Ошибка'));
+    if(!r.ok)throw new Error(
+      d.error==='item_withdraw_pending' ? 'Этот скин уже находится в заявке на вывод.' :
+      d.error==='trade_link_required'    ? 'Укажите Trade ссылку в профиле.' :
+      d.error==='withdraw_disabled'      ? 'Для этого аккаунта вывод скинов отключён.' :
+      (d.error||'Ошибка')
+    );
     if(!currentUser.serverAccount)currentUser.serverAccount={};
     if(!Array.isArray(currentUser.serverAccount.pendingWithdrawals))currentUser.serverAccount.pendingWithdrawals=[];
     currentUser.serverAccount.pendingWithdrawals.push({id:d.id,itemUid:item.uid,status:'pending',index});
