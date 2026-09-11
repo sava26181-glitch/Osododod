@@ -49,13 +49,6 @@ function steamFromSessionCookie(value){
 
 // ============================================================
 //  ХРАНИЛИЩЕ
-//
-//  Upstash Redis (env: UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN)
-//  + опциональный локальный файл (DATA_DIR).
-//
-//  saveStore()      — фоновая запись в Redis (для частых клиентских sync)
-//  saveStoreNow()   — ждём записи в Redis (критичные операции: депозиты, выводы, админ)
-//  refreshFromRedis() — перечитать перед обработкой колбэка из бота
 // ============================================================
 const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL || '').trim().replace(/\/$/,'');
 const REDIS_TOKEN = (process.env.UPSTASH_REDIS_REST_TOKEN || '').trim();
@@ -75,7 +68,7 @@ const PAY_TG_WEBHOOK_URL = (process.env.TELEGRAM_PAYMENT_WEBHOOK_URL || (PUBLIC_
 const SUPPORT_CONTACT = '@Zenodropsupport';
 
 // ============================================================
-//  REDIS
+//  REDIS CLIENT
 // ============================================================
 async function redisCmd(args){
   if(!USE_REDIS) return null;
@@ -104,85 +97,144 @@ async function redisSave(key, obj){
 }
 
 // ============================================================
-//  КЕЙСЫ
+//  КЕЙСЫ — абсолютные бэнды цен (в рублях)
+//
+//  Для каждого кейса заданы диапазоны цен и их веса.
+//  Скин попадает в бэнд по своей цене. Вес бэнда = шанс попасть в него.
+//  Внутри бэнда скин выбирается по весу 1/price^alpha (дешёвые чаще).
+//  fitRtp подтягивает итоговый EV к целевому rtp.
 // ============================================================
 const CASES = {
-  micro:     { price: 13,    rtp: 0.95, alpha: 0.35, pity: 12 },
-  basic:     { price: 100,   rtp: 0.86, alpha: 0.60, pity: 10 },
-  small:     { price: 250,   rtp: 0.87, alpha: 0.65, pity: 10 },
-  premium:   { price: 500,   rtp: 0.88, alpha: 0.70, pity: 10 },
-  expensive: { price: 1000,  rtp: 0.89, alpha: 0.75, pity: 9 },
-  elite:     { price: 2500,  rtp: 0.89, alpha: 0.85, pity: 9 },
-  legendary: { price: 5000,  rtp: 0.90, alpha: 0.90, pity: 8 },
-  titan:     { price: 10000, rtp: 0.90, alpha: 1.00, pity: 8 }
+  micro:     { price: 13,    rtp: 0.92, alpha: 0.35, pity: 12 },
+  basic:     { price: 100,   rtp: 0.85, alpha: 0.55, pity: 10 },
+  small:     { price: 250,   rtp: 0.86, alpha: 0.60, pity: 10 },
+  premium:   { price: 500,   rtp: 0.87, alpha: 0.65, pity: 10 },
+  expensive: { price: 1000,  rtp: 0.88, alpha: 0.70, pity: 9 },
+  elite:     { price: 2500,  rtp: 0.88, alpha: 0.80, pity: 9 },
+  legendary: { price: 5000,  rtp: 0.89, alpha: 0.85, pity: 8 },
+  titan:     { price: 10000, rtp: 0.89, alpha: 0.95, pity: 8 }
 };
 
-const TIERS = [
-  { name:'big_loss', min:0.00, max:0.55, weight: 4 },
-  { name:'loss',     min:0.55, max:0.86, weight: 12 },
-  { name:'low_flat', min:0.86, max:0.96, weight: 20 },
-  { name:'flat',     min:0.96, max:1.08, weight: 34 },
-  { name:'plus',     min:1.08, max:1.50, weight: 20 },
-  { name:'mega',     min:1.50, max:3.00, weight: 8 },
-  { name:'jackpot',  min:3.00, max:12.0, weight: 2 }
-];
+// Вес = относительная «частота». Чем больше — тем чаще скин этого диапазона падает.
+// 'loss' = слив, 'core' = часто, 'rare' = редко, 'other' = всё что вне диапазона.
+const CASE_BANDS = {
+  micro: [
+    { name:'core',  min:0,     max:23,   weight:100,  label:'часто' },
+    { name:'rare',  min:23,    max:56,   weight:2,    label:'очень редко' },
+    { name:'other', min:56,    max:1e9,  weight:0.02 }
+  ],
+  basic: [
+    { name:'core',  min:0,     max:125,  weight:100,  label:'часто' },
+    { name:'rare',  min:125,   max:250,  weight:3,    label:'редко' },
+    { name:'other', min:250,   max:1e9,  weight:0.02 }
+  ],
+  small: [
+    { name:'loss',  min:0,     max:130,  weight:3,    label:'слив' },
+    { name:'low',   min:130,   max:190,  weight:8,    label:'около' },
+    { name:'core',  min:190,   max:280,  weight:100,  label:'средне' },
+    { name:'rare',  min:280,   max:350,  weight:4,    label:'редко' },
+    { name:'other', min:350,   max:1e9,  weight:0.02 }
+  ],
+  premium: [
+    { name:'loss',  min:0,     max:420,  weight:4,    label:'слив' },
+    { name:'core',  min:420,   max:560,  weight:100,  label:'ядро' },
+    { name:'rare',  min:560,   max:670,  weight:4,    label:'редко' },
+    { name:'other', min:670,   max:1e9,  weight:0.02 }
+  ],
+  expensive: [
+    { name:'loss',  min:0,     max:750,  weight:6,    label:'слив' },
+    { name:'core',  min:750,   max:1200, weight:100,  label:'ядро' },
+    { name:'rare',  min:1200,  max:1600, weight:4,    label:'редко' },
+    { name:'other', min:1600,  max:1e9,  weight:0.02 }
+  ],
+  elite: [
+    { name:'loss',  min:0,     max:2100, weight:6,    label:'слив' },
+    { name:'core',  min:2100,  max:2800, weight:100,  label:'ядро' },
+    { name:'rare',  min:2800,  max:3200, weight:4,    label:'редко' },
+    { name:'other', min:3200,  max:1e9,  weight:0.02 }
+  ],
+  legendary: [
+    { name:'loss',  min:0,     max:3600, weight:6,    label:'слив' },
+    { name:'core',  min:3600,  max:5600, weight:100,  label:'ядро' },
+    { name:'rare',  min:5600,  max:6300, weight:4,    label:'редко' },
+    { name:'other', min:6300,  max:1e9,  weight:0.02 }
+  ],
+  titan: [
+    { name:'loss',  min:0,     max:6000, weight:6,    label:'слив' },
+    { name:'core',  min:6000,  max:11000, weight:100, label:'ядро' },
+    { name:'rare',  min:11000, max:16000, weight:4,   label:'редко' },
+    { name:'other', min:16000, max:1e9,  weight:0.02 }
+  ]
+};
+
+// Оставляем TIERS как алиас для API-совместимости
+const TIERS = CASE_BANDS;
 
 function itemPrice(s){
   const v = Number(s?.price ?? s?.value ?? s?.usd ?? 0);
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
-function tierOf(price, casePrice){
-  const r = casePrice > 0 ? price / casePrice : 0;
-  for (const t of TIERS){
-    if (r >= t.min && r < t.max) return t;
+
+function bandOf(price, caseKey){
+  const bands = CASE_BANDS[caseKey];
+  if(!bands) return { name:'other', weight:1, label:'' };
+  for(const b of bands){
+    if(price >= b.min && price < b.max) return b;
   }
-  return r >= TIERS[TIERS.length-1].max ? TIERS[TIERS.length-1] : TIERS[0];
+  return bands[bands.length-1];
 }
-function insideTierWeight(price, alpha){
+
+// Внутрибэндовый вес: чем дешевле предмет, тем чаще
+function insideBandWeight(price, alpha){
   const p = Math.max(price, 1);
   return Math.pow(1 / p, alpha);
 }
-function baseWeights(items, casePrice, alpha){
+
+// Собираем веса: bandWeight * insideBandWeight
+function computeWeights(items, caseKey, alpha){
+  const cfgBands = CASE_BANDS[caseKey] || [];
   const arr = items.map(x => {
     const p = itemPrice(x);
-    const t = tierOf(p, casePrice);
-    const w = t.weight * insideTierWeight(p, alpha);
-    return { ...x, price: p, _tier: t.name, _w: w };
+    const b = bandOf(p, caseKey);
+    const w = Number(b.weight || 0) * insideBandWeight(p, alpha);
+    return { ...x, price: p, _band: b.name, _label: b.label || '', _w: w };
   });
   const total = arr.reduce((s,x) => s + x._w, 0) || 1;
   return arr.map(x => ({ ...x, _w: x._w / total }));
 }
-function fitRtp(weighted, casePrice, targetRtp, iterations = 40){
-  if (!weighted.length || !casePrice) return weighted;
+
+// Подгонка RTP: если EV > target — прижимаем дорогие, если EV < target — прижимаем дешёвые.
+function fitRtpAbsolute(list, casePrice, targetRtp, iterations = 30){
+  if (!list.length || !casePrice) return list;
   const target = casePrice * targetRtp;
-  let list = weighted.slice();
+  let l = list.slice();
   for (let it = 0; it < iterations; it++){
-    const total = list.reduce((s,x) => s + x._w, 0) || 1;
-    const ev = list.reduce((s,x) => s + (x._w / total) * x.price, 0);
+    const total = l.reduce((s,x) => s + x._w, 0) || 1;
+    const ev = l.reduce((s,x) => s + (x._w / total) * x.price, 0);
     if (ev <= 0) break;
     const k = target / ev;
-    if (Math.abs(1 - k) < 0.001) break;
-    list = list.map(x => {
+    if (Math.abs(1 - k) < 0.005) break;
+    l = l.map(x => {
       const p = x.price;
+      // Дорогие тянем сильнее
       const exp = p >= casePrice ? 1.6 : p >= casePrice * 0.5 ? 1.0 : 0.4;
       return { ...x, _w: x._w * Math.pow(k, exp) };
     });
-    const t2 = list.reduce((s,x) => s + x._w, 0) || 1;
-    list = list.map(x => ({ ...x, _w: x._w / t2 }));
   }
-  return list;
+  return l;
 }
-function applyPity(weighted, casePrice, n){
-  if (!n || n <= 0) return weighted;
+
+// Pity: поднять вес "rare" и "core" при длинной серии без плюса
+function applyPity(list, caseKey, n){
+  if (!n || n <= 0) return list;
   const boost = Math.min(1 + n * 0.15, 3.0);
-  return weighted.map(x => {
-    const t = x._tier;
-    if (t === 'plus')  return { ...x, _w: x._w * boost };
-    if (t === 'mega')  return { ...x, _w: x._w * (boost * 0.6) };
-    if (t === 'jackpot') return { ...x, _w: x._w * (boost * 0.4) };
+  return list.map(x => {
+    if (x._band === 'rare') return { ...x, _w: x._w * boost };
+    if (x._band === 'core') return { ...x, _w: x._w * (1 + (boost - 1) * 0.35) };
     return x;
   });
 }
+
 function normalize(list){
   const total = list.reduce((s,x) => s + x._w, 0) || 1;
   return list.map(x => ({ ...x, _w: x._w / total }));
@@ -197,25 +249,30 @@ function pickByWeight(list){
   }
   return list[list.length - 1];
 }
+
 function openCase(caseKey, items, pityCount = 0){
   const cfg = CASES[String(caseKey)];
   if (!cfg || !Array.isArray(items) || !items.length) return null;
-  let weighted = baseWeights(items, cfg.price, cfg.alpha);
-  weighted = fitRtp(weighted, cfg.price, cfg.rtp);
-  weighted = applyPity(weighted, cfg.price, pityCount);
+
+  let weighted = computeWeights(items, caseKey, cfg.alpha);
+  weighted = fitRtpAbsolute(weighted, cfg.price, cfg.rtp);
+  weighted = applyPity(weighted, caseKey, pityCount);
   weighted = normalize(weighted);
+
   const picked = pickByWeight(weighted);
   if (!picked) return null;
+
   return {
     skin: {
       id: picked.id,
       name: picked.name,
       img: picked.img,
       value: picked.price,
-      tier: picked._tier
+      tier: picked._band
     },
     price: cfg.price,
-    tier: picked._tier
+    tier: picked._band,
+    label: picked._label
   };
 }
 
@@ -287,7 +344,6 @@ function saveStoreToDisk(){
   catch(e){ console.error('store save (disk):', e.message); }
 }
 
-// Фоновое сохранение (без ожидания) — для частых клиентских sync
 let __saveTimer = null;
 let __saveInFlight = false;
 function saveStore(){
@@ -301,8 +357,6 @@ function saveStore(){
     finally{ __saveInFlight = false; }
   }, 100);
 }
-
-// Критичное сохранение — ждём записи в Redis. Использовать для депозитов, выводов, действий админа.
 async function saveStoreNow(){
   saveStoreToDisk();
   if(!USE_REDIS) return;
@@ -310,8 +364,6 @@ async function saveStoreNow(){
   try{ await redisSave(REDIS_KEY, data); }
   catch(e){ console.error('redis save now error:', e.message); }
 }
-
-// Перечитать данные из Redis (перед обработкой колбэков от бота).
 async function refreshFromRedis(){
   if(!USE_REDIS) return false;
   const remote = await redisLoad(REDIS_KEY);
@@ -505,20 +557,15 @@ async function sendAdminMenu(chatId){
 }
 
 async function processTelegramUpdate(u){
-  // === CALLBACKS ===
   if(u.callback_query){
     const q=u.callback_query;
     const id=String(q.from.id);
     const d=String(q.data||'');
-
-    // Перечитываем Redis, чтобы видеть самые свежие депозиты/выводы
     await refreshFromRedis();
-
     if(!isTgAdmin(id)){
       await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Нет доступа',show_alert:true});
       return;
     }
-
     if(d.startsWith('wd:')){
       const parts=d.split(':');
       const wid=parts[1], action=parts[2];
@@ -541,7 +588,6 @@ async function processTelegramUpdate(u){
       }
       return;
     }
-
     if(d.startsWith('dep:')){
       const parts=d.split(':');
       const did=parts[1], action=parts[2];
@@ -569,9 +615,7 @@ async function processTelegramUpdate(u){
       }
       return;
     }
-
     if(d==='adm:menu'){ await tg('answerCallbackQuery',{callback_query_id:q.id}); return sendAdminMenu(q.message.chat.id); }
-
     if(d==='adm:withdrawals'){
       await tg('answerCallbackQuery',{callback_query_id:q.id});
       const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
@@ -588,7 +632,6 @@ async function processTelegramUpdate(u){
       }
       return;
     }
-
     if(d==='adm:deposits'){
       await tg('answerCallbackQuery',{callback_query_id:q.id});
       const list=data.deposits.filter(x=>x.status==='pending').slice(-10).reverse();
@@ -605,7 +648,6 @@ async function processTelegramUpdate(u){
       }
       return;
     }
-
     if(d==='adm:stats'){
       await tg('answerCallbackQuery',{callback_query_id:q.id});
       const users=Object.values(data.users);
@@ -621,7 +663,6 @@ async function processTelegramUpdate(u){
         reply_markup:{inline_keyboard:[[{text:'◀ Меню',callback_data:'adm:menu'}]]}
       });
     }
-
     if(d==='adm:promo'){
       await tg('answerCallbackQuery',{callback_query_id:q.id});
       const active=promoList().slice(0,5);
@@ -635,7 +676,6 @@ async function processTelegramUpdate(u){
     return;
   }
 
-  // === MESSAGES ===
   const m=u.message;
   if(!m || !m.chat) return;
   const chatId=String(m.chat.id);
@@ -675,7 +715,6 @@ async function processTelegramUpdate(u){
   if(!admin)return;
 
   if(text==='/panel') return sendAdminMenu(chatId);
-
   if(text==='/withdrawals'){
     await refreshFromRedis();
     const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
@@ -692,7 +731,6 @@ async function processTelegramUpdate(u){
     }
     return;
   }
-
   if(text==='/deposits'){
     await refreshFromRedis();
     const list=data.deposits.filter(x=>x.status==='pending').slice(-10).reverse();
@@ -709,7 +747,6 @@ async function processTelegramUpdate(u){
     }
     return;
   }
-
   if(text==='/stats'){
     await refreshFromRedis();
     const users=Object.values(data.users);
@@ -1247,8 +1284,8 @@ const server = http.createServer(async (req, res) => {
             }
             user.balance = Number(user.balance||0) - cfg.price;
             user.stats.casesOpened = (user.stats.casesOpened||0) + 1;
-            const goodTiers = new Set(['flat','plus','mega','jackpot']);
-            if(goodTiers.has(result.tier)){
+            const goodBands = new Set(['core','rare','low']);
+            if(goodBands.has(result.tier)){
                 user.pity.byCase[caseKey] = 0;
             } else {
                 user.pity.byCase[caseKey] = (user.pity.byCase[caseKey]||0) + 1;
@@ -1261,6 +1298,7 @@ const server = http.createServer(async (req, res) => {
                 price:cfg.price,
                 skin:result.skin,
                 tier:result.tier,
+                label:result.label,
                 balance:user.balance
             }));
         }catch(e){
@@ -1321,6 +1359,7 @@ const server = http.createServer(async (req, res) => {
             telegramBotUrl:TG_BOT_URL||null,
             paymentTelegramBotUrl:PAY_TG_BOT_URL||'https://t.me/ZenodropPayBot',
             cases:CASES,
+            bands: CASE_BANDS,
             storage: USE_REDIS ? 'redis' : 'disk'
         }));
     }
@@ -1359,7 +1398,6 @@ const server = http.createServer(async (req, res) => {
             tgId:ensureUser(sessionUser.steamid)?.tgId||null,
             amount,bonus,method,promo,status:'pending',createdAt:Date.now()
         });
-        // КРИТИЧНО: ждём записи в Redis ДО отправки уведомления
         await saveStoreNow();
         console.log('[Deposit created]', id, 'total deposits:', data.deposits.length);
         await notifyAdmins(
@@ -1424,7 +1462,7 @@ const server = http.createServer(async (req, res) => {
             deposits:data.deposits.slice(-100).reverse(),
             promos:promoList(),
             cases:CASES,
-            tiers:TIERS,
+            bands:CASE_BANDS,
             storage: USE_REDIS ? 'redis' : 'disk'
         }));
     }
