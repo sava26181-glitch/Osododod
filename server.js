@@ -64,14 +64,78 @@ async function redisSave(key,obj){ try{ await redisCmd(['SET',key,JSON.stringify
 
 // ============ КЕЙСЫ ============
 const CASE_CONFIG = {
-  micro:     { price: 13,    rtp: 0.90, alpha: 0.30, pity: 12, accept: [8, 60],     bands: [{name:'core',min:8,max:23,weight:100,label:'часто'},{name:'rare',min:23,max:60,weight:1,label:'очень редко'}] },
-  basic:     { price: 100,   rtp: 0.85, alpha: 0.45, pity: 10, accept: [70, 250],   bands: [{name:'loss',min:70,max:90,weight:6,label:'слив'},{name:'core',min:90,max:125,weight:100,label:'часто'},{name:'rare',min:125,max:250,weight:1.5,label:'редко'}] },
-  small:     { price: 250,   rtp: 0.86, alpha: 0.55, pity: 10, accept: [110, 350],  bands: [{name:'loss',min:110,max:160,weight:6},{name:'mid',min:160,max:190,weight:12},{name:'core',min:190,max:280,weight:100},{name:'rare',min:280,max:350,weight:2}] },
-  premium:   { price: 500,   rtp: 0.87, alpha: 0.60, pity: 10, accept: [340, 670],  bands: [{name:'loss',min:340,max:420,weight:8},{name:'core',min:420,max:560,weight:100},{name:'rare',min:560,max:670,weight:2}] },
-  expensive: { price: 1000,  rtp: 0.88, alpha: 0.65, pity: 9,  accept: [560, 1600], bands: [{name:'loss',min:560,max:750,weight:8},{name:'core',min:750,max:1200,weight:100},{name:'rare',min:1200,max:1600,weight:2}] },
-  elite:     { price: 2500,  rtp: 0.88, alpha: 0.75, pity: 9,  accept: [1800, 3200],bands: [{name:'loss',min:1800,max:2100,weight:8},{name:'core',min:2100,max:2800,weight:100},{name:'rare',min:2800,max:3200,weight:2}] },
-  legendary: { price: 5000,  rtp: 0.89, alpha: 0.80, pity: 8,  accept: [2800, 6300],bands: [{name:'loss',min:2800,max:3600,weight:8},{name:'core',min:3600,max:5600,weight:100},{name:'rare',min:5600,max:6300,weight:2}] },
-  titan:     { price: 10000, rtp: 0.89, alpha: 0.90, pity: 8,  accept: [5000, 16000],bands: [{name:'loss',min:5000,max:6000,weight:8},{name:'core',min:6000,max:11000,weight:100},{name:'rare',min:11000,max:16000,weight:2}] }
+  micro: {
+    price: 13, rtp: 0.90, alpha: 0.30, pity: 12,
+    accept: [8, 60],
+    bands: [
+      { name:'core', min:8, max:23, weight:100, label:'часто', peak:15, spread:4 },
+      { name:'rare', min:23, max:60, weight:1, label:'очень редко', peak:35, spread:15 }
+    ]
+  },
+  basic: {
+    price: 100, rtp: 0.85, alpha: 0.45, pity: 10,
+    accept: [70, 250],
+    bands: [
+      { name:'loss', min:70, max:90, weight:6, label:'слив' },
+      { name:'core', min:90, max:125, weight:100, label:'часто', peak:108, spread:12 },
+      { name:'rare', min:125, max:250, weight:1.5, label:'редко', peak:180, spread:50 }
+    ]
+  },
+  small: {
+    price: 250, rtp: 0.86, alpha: 0.55, pity: 10,
+    accept: [110, 350],
+    bands: [
+      { name:'loss', min:110, max:160, weight:6, label:'слив' },
+      { name:'mid',  min:160, max:190, weight:12, label:'около' },
+      { name:'core', min:190, max:280, weight:100, label:'в среднем', peak:235, spread:30 },
+      { name:'rare', min:280, max:350, weight:2, label:'редко', peak:310, spread:30 }
+    ]
+  },
+  premium: {
+    price: 500, rtp: 0.87, alpha: 0.60, pity: 10,
+    accept: [340, 670],
+    bands: [
+      { name:'loss', min:340, max:420, weight:8, label:'слив' },
+      { name:'core', min:420, max:560, weight:100, label:'часто', peak:490, spread:45 },
+      { name:'rare', min:560, max:670, weight:2, label:'редко', peak:610, spread:40 }
+    ]
+  },
+  expensive: {
+    price: 1000, rtp: 0.88, alpha: 0.65, pity: 9,
+    accept: [560, 1600],
+    bands: [
+      { name:'loss', min:560, max:750, weight:8, label:'слив' },
+      { name:'core', min:750, max:1200, weight:100, label:'дроп', peak:975, spread:150 },
+      { name:'rare', min:1200, max:1600, weight:2, label:'везучий дроп', peak:1400, spread:130 }
+    ]
+  },
+  elite: {
+    price: 2500, rtp: 0.88, alpha: 0.75, pity: 9,
+    accept: [1800, 3200],
+    bands: [
+      { name:'loss', min:1800, max:2100, weight:8, label:'слив' },
+      { name:'core', min:2100, max:2800, weight:100, label:'ядро', peak:2450, spread:220 },
+      { name:'rare', min:2800, max:3200, weight:2, label:'редко', peak:3000, spread:160 }
+    ]
+  },
+  legendary: {
+    price: 5000, rtp: 0.89, alpha: 0.80, pity: 8,
+    accept: [2800, 6300],
+    bands: [
+      { name:'loss', min:2800, max:3600, weight:8, label:'слив' },
+      { name:'core', min:3600, max:5600, weight:100, label:'ядро', peak:4600, spread:600 },
+      { name:'rare', min:5600, max:6300, weight:2, label:'редко', peak:5950, spread:250 }
+    ]
+  },
+  titan: {
+    price: 10000, rtp: 0.89, alpha: 0.90, pity: 8,
+    accept: [5000, 16000],
+    bands: [
+      { name:'loss', min:5000, max:6000, weight:8, label:'слив' },
+      { name:'core', min:6000, max:11000, weight:100, label:'ядро', peak:8500, spread:1600 },
+      { name:'rare', min:11000, max:16000, weight:2, label:'редко', peak:13500, spread:1700 }
+    ]
+  }
 };
 
 const CASES = {};
@@ -84,17 +148,29 @@ for (const k of Object.keys(CASE_CONFIG)) {
 
 function itemPrice(s){ const v = Number(s?.price ?? s?.value ?? s?.usd ?? 0); return Number.isFinite(v) && v > 0 ? v : 0; }
 function weaponKey(name){
-  // "AK-47 | Redline" → "ak-47"
   const n = String(name||'').toLowerCase();
   const cut = n.split('|')[0].trim();
   return cut || n;
 }
 function bandOf(price, bands){ for(const b of bands){ if(price>=b.min && price<b.max) return b; } return null; }
-function insideBandWeight(price, alpha){ const p=Math.max(price,1); return Math.pow(1/p, alpha); }
+
+function insideBandWeight(price, alpha, band){
+  const p = Math.max(price, 1);
+  // базовое степенное распределение
+  let w = Math.pow(1 / p, alpha);
+
+  // bell-кривая внутри бэнда, если задан peak
+  if (band && Number.isFinite(Number(band.peak))) {
+    const peak = Number(band.peak);
+    const spread = Math.max(Number(band.spread) || peak * 0.5, 1);
+    const d = (p - peak) / spread;
+    w *= Math.exp(-d * d);
+  }
+  return w;
+}
 
 // ============ РАЗНООБРАЗИЕ: недавние дропы + типы оружия ============
 function applyDiversity(list, recentDrops){
-  // recentDrops: [{name, weapon, ts}], последние ~8 дропов.
   if (!Array.isArray(recentDrops) || !recentDrops.length) return list;
   const now = Date.now();
   const recentNames = new Map();
@@ -102,7 +178,6 @@ function applyDiversity(list, recentDrops){
   for (const d of recentDrops) {
     if (!d) continue;
     const age = now - Number(d.ts || 0);
-    // «Свежесть» падает: чем новее дроп, тем сильнее штраф.
     const decay = age < 5*60*1000 ? 1.0 : age < 30*60*1000 ? 0.6 : 0.25;
     if (d.name) recentNames.set(d.name, Math.max(recentNames.get(d.name)||0, decay));
     if (d.weapon) recentWeapons.set(d.weapon, Math.max(recentWeapons.get(d.weapon)||0, decay));
@@ -110,10 +185,10 @@ function applyDiversity(list, recentDrops){
   return list.map(x => {
     let factor = 1;
     const namePen = recentNames.get(x.name) || 0;
-    if (namePen > 0) factor *= Math.max(0.03, 1 - namePen * 0.97);   // точный скин: до 0.03
+    if (namePen > 0) factor *= Math.max(0.03, 1 - namePen * 0.97);
     const wk = weaponKey(x.name);
     const weaponPen = recentWeapons.get(wk) || 0;
-    if (weaponPen > 0) factor *= Math.max(0.2, 1 - weaponPen * 0.8); // тип оружия: до 0.2
+    if (weaponPen > 0) factor *= Math.max(0.2, 1 - weaponPen * 0.8);
     return { ...x, _w: x._w * factor };
   });
 }
@@ -127,7 +202,9 @@ function computeWeights(items, caseKey, alpha, recentDrops){
   const pool = inWindow.length ? inWindow : items.map(x => ({ ...x, price: itemPrice(x) }));
   let arr = pool.map(x => {
     const b = bandOf(x.price, bands);
-    const w = b ? Number(b.weight||0) * insideBandWeight(x.price, alpha) : 0.01 * insideBandWeight(x.price, alpha);
+    const w = b
+      ? Number(b.weight||0) * insideBandWeight(x.price, alpha, b)
+      : 0.01 * insideBandWeight(x.price, alpha, null);
     return { ...x, _band: b ? b.name : 'fallback', _label: b ? (b.label||'') : '', _w: w };
   });
   arr = applyDiversity(arr, recentDrops);
@@ -748,7 +825,6 @@ const server = http.createServer(async (req, res) => {
       user.balance = Number(user.balance||0) - cfg.price;
       user.stats.casesOpened = (user.stats.casesOpened||0)+1;
 
-      // Обновляем recentDrops: последний дроп впереди, храним до 8
       user.recentDrops.unshift({
         name: result.skin.name,
         weapon: weaponKey(result.skin.name),
