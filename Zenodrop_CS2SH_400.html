@@ -137,7 +137,7 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 @keyframes zenoReveal{0%{opacity:0;transform:scale(.72);filter:blur(14px)}65%{opacity:1;filter:blur(0);transform:scale(1.06)}100%{opacity:1;filter:blur(0);transform:scale(1)}}
 @keyframes zenoLine{to{transform:scaleX(1)}}
 @keyframes zenoSub{to{opacity:1}}
-@keyframes zenoGlow{0%,100%{transform:scale(.85);opacity:.55}50%{transform:scale(1.18);opacity:1}}
+@keyframes autoHide{to{opacity:0;visibility:hidden;pointer-events:none}}
 @media (max-width:420px){
   body{padding:10px}
   .container{max-width:100%;gap:10px}
@@ -221,8 +221,7 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .trade-link-badge.no{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)}
 </style>
 </head>
-<body>
-<div class="loading-screen" id="loadingScreen"><div class="zeno-intro"><span>Zeno</span>drop</div><div class="loading-subtitle">CS2 UPGRADE</div></div>
+<body><div class="loading-screen" id="loadingScreen" style="animation:autoHide .6s ease 3s forwards"><div class="zeno-intro"><span>Zeno</span>drop</div><div class="loading-subtitle">CS2 UPGRADE</div></div>
 <div class="container">
 <div class="zeno-toast-container" id="zenoToastContainer"></div>
 <div class="header">
