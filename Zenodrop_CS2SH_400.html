@@ -217,26 +217,6 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .trade-link-badge{display:inline-flex;align-items:center;font-size:9px;font-weight:900;padding:3px 7px;border-radius:6px;text-transform:uppercase}
 .trade-link-badge.ok{background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.3)}
 .trade-link-badge.no{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)}
-.info-banner{background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(245,158,11,.18);border-left:3px solid #f59e0b;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;margin-top:2px}
-.info-banner-title{font-size:11px;font-weight:900;color:#f59e0b;text-transform:uppercase;letter-spacing:.5px}
-.info-banner-text{font-size:11px;color:#9ca3af;line-height:1.55}
-.info-banner-text b{color:#e5e7eb;font-weight:800}
-#infoBtn{background:#161924;color:#f59e0b;border:1px solid rgba(245,158,11,.35);width:34px;height:34px;border-radius:50%;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;flex-shrink:0;font-family:Georgia,serif;font-style:italic}
-#infoBtn:hover{background:rgba(245,158,11,.15);border-color:#f59e0b;box-shadow:0 0 14px rgba(245,158,11,.35)}
-#infoModal{position:fixed;inset:0;background:rgba(4,6,12,.86);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:1200;padding:14px}
-#infoModal.active{display:flex}
-.info-modal-card{width:min(560px,100%);max-height:92vh;overflow:auto;background:linear-gradient(180deg,#181d2a,#111520);border:1px solid rgba(245,158,11,.28);border-radius:22px;box-shadow:0 28px 100px rgba(0,0,0,.7);padding:20px}
-.info-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.info-modal-title{font-size:20px;font-weight:950;color:#fff}
-.info-modal-close{background:#222838;border:0;color:#f7b32b;font-size:22px;width:36px;height:36px;border-radius:10px;cursor:pointer}
-.info-block{background:#0f141f;border:1px solid rgba(255,255,255,.055);border-radius:14px;padding:13px;margin-bottom:10px}
-.info-block-title{font-size:12px;font-weight:900;color:#f59e0b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
-.info-block p{font-size:12px;color:#c4cad6;line-height:1.6}
-.info-block ul{margin:6px 0 0 18px;padding:0}
-.info-block li{font-size:12px;color:#c4cad6;line-height:1.65;margin-bottom:3px}
-.info-block code{background:#1b2130;padding:2px 6px;border-radius:5px;font-size:11px;color:#fbbf24}
-.info-modal-footer{font-size:10px;color:#6f7686;text-align:center;margin-top:14px;line-height:1.5}
-@media (max-width:420px){#infoBtn{width:30px;height:30px;font-size:12px}.info-modal-card{padding:16px;border-radius:18px}.info-modal-title{font-size:17px}.info-block{padding:11px}.info-block p,.info-block li{font-size:11px}}
 </style>
 </head>
 <body>
@@ -246,7 +226,6 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 <div class="header">
   <div class="logo-area"><span>Zeno</span>drop</div>
   <div style="display:flex;gap:8px;align-items:center;">
-    <button id="infoBtn" onclick="openInfo()" title="Как это работает">i</button>
     <button id="mp3OpenBtn" onclick="openMp3Player()" title="Музыка">♪</button>
     <button id="steamAuthBtn" onclick="initSteamAuth()"><svg class="steam-icon" viewBox="0 0 24 24" aria-hidden="true">
 <defs><linearGradient id="steamGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#66c0f4"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs>
@@ -281,12 +260,6 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 <button class="btn-upgrade" id="upgradeBtn" disabled>Прокачать</button>
 </div>
 <div class="quick-chance-panel" id="quickChancePanel"></div>
-<div class="info-banner">
-  <div class="info-banner-title">Как считается шанс апгрейда</div>
-  <div class="info-banner-text">
-    <b>Шанс = стоимость вашего скина ÷ стоимость целевого × 100%.</b> Максимум — 70%. Для целей дороже 5 000 ₽ реальный шанс дополнительно снижается сервером. Итоговый результат броска генерируется на сервере, стрелка лишь докручивается к нему.
-  </div>
-</div>
 <div class="skins-selection-row">
 <div class="card-skin"><div class="skin-type">Ваш скин</div><div class="skin-name" id="selectedSkinName">--</div><div class="skin-img-wrap"><img id="selectedSkinImg" src="" alt="" style="display:none;max-height:70px;object-fit:contain;"><span id="selectedSkinPlaceholder" style="color:#4b5563;font-size:11px;">Выберите</span></div><div class="skin-price" id="selectedSkinPrice">0.00</div></div>
 <div class="card-skin" style="border-color:rgba(245,158,11,.2);"><div class="skin-type">Желаемый дроп</div><div class="skin-name" id="targetSkinName">--</div><div class="skin-img-wrap"><img id="targetSkinImg" src="" alt="" style="display:none;max-height:70px;object-fit:contain;"><span id="targetSkinPlaceholder" style="color:#4b5563;font-size:11px;">Из каталога</span></div><div class="skin-price" id="targetSkinPrice">0.00</div></div>
@@ -340,57 +313,122 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 
 <div id="modalOverlay"><div class="modal-card"><h3>Настройка быстрых кнопок</h3><p style="font-size:11px;color:#9ca3af;">Введите проценты (максимум до 70%)</p><div class="modal-inputs"><input type="text" id="quickValuesInput" value="10, 20, 30, 40, 50, 70"></div><div class="modal-buttons"><button class="btn-close" onclick="document.getElementById('modalOverlay').style.display='none'">Отмена</button><button class="btn-save" onclick="saveQuickSettings()">Сохранить</button></div></div></div>
 
-<div id="infoModal"><div class="info-modal-card">
-  <div class="info-modal-head">
-    <div class="info-modal-title">Как работает Zenodrop</div>
-    <button class="info-modal-close" onclick="closeInfo()">×</button>
+<div class="zeno-mp3" id="zenoMp3">
+  <div class="mp3-panel" id="mp3Panel">
+    <div class="mp3-head"><span>Музыка</span><button class="mp3-ico" onclick="closeMp3Player()" title="Закрыть">×</button></div>
+    <div class="mp3-tracks">
+      <div class="mp3-tr" data-src="https://muzend.net/uploads/music/2026/08/The_Limba_Cha_sha.mp3">
+        <span class="mp3-tr-name">The Limba — Ча ща</span>
+      </div>
+    </div>
+    <div class="mp3-ctrl">
+      <button class="mp3-btn" id="mp3Play">Пауза</button>
+      <input type="range" id="mp3Seek" value="0" min="0" max="100" step="0.1">
+      <span id="mp3Time">0:00 / 0:00</span>
+      <input type="range" id="mp3Vol" min="0" max="1" step="0.05" value="0.7">
+    </div>
   </div>
-  <div class="info-block">
-    <div class="info-block-title">🔐 Авторизация</div>
-    <p>Вход выполняется через Steam OpenID. Мы не получаем доступ к вашему паролю или инвентарю — только публичный профиль и аватар. Для вывода скинов потребуется указать торговую ссылку в профиле.</p>
+  <div class="mp3-mini">
+    <button class="mp3-ico" id="mp3MiniPlay" onclick="mp3TogglePlay(event)" title="Играть/Пауза">▶</button>
+    <span class="mp3-now" id="mp3Now">Музыка</span>
+    <button class="mp3-ico" onclick="mp3TogglePanel(event)" title="Плейлист">≡</button>
   </div>
-  <div class="info-block">
-    <div class="info-block-title">🎁 Кейсы</div>
-    <ul>
-      <li>Стоимость открытия указана на карточке кейса.</li>
-      <li>Шанс выпадения предмета зависит от его рыночной цены относительно цены кейса.</li>
-      <li>Дорогие предметы (ножи, дорогие AK) выпадают редко — это заложено в экономику.</li>
-      <li>Внутри каждого кейса действует «pity-система»: после серии дешёвых дропов шанс редкого временно растёт.</li>
-      <li>Мульти-открытие (2×–5×) считается независимо для каждого кейса.</li>
-    </ul>
+  <audio id="zenoAudio" preload="none" style="display:none"></audio>
+  <iframe id="zenoSC" width="1" height="1" frameborder="0" allow="autoplay" style="display:none;border:0"></iframe>
+</div>
+  <body>
+<div class="loading-screen" id="loadingScreen"><div class="zeno-intro"><span>Zeno</span>drop</div><div class="loading-subtitle">CS2 UPGRADE</div></div>
+<div class="container">
+<div class="zeno-toast-container" id="zenoToastContainer"></div>
+<div class="header">
+  <div class="logo-area"><span>Zeno</span>drop</div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button id="mp3OpenBtn" onclick="openMp3Player()" title="Музыка">♪</button>
+    <button id="steamAuthBtn" onclick="initSteamAuth()"><svg class="steam-icon" viewBox="0 0 24 24" aria-hidden="true">
+<defs><linearGradient id="steamGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#66c0f4"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs>
+<circle cx="16.9" cy="7.1" r="4.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/>
+<circle cx="6.2" cy="16.9" r="3.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/>
+<path d="M8.9 15.1 14.2 10.2" fill="none" stroke="url(#steamGrad)" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="16.9" cy="7.1" r="1.35" fill="#fff"/>
+<circle cx="6.2" cy="16.9" r="1" fill="#fff"/>
+</svg>Войти через Steam</button>
+    <div class="profile-avatar-btn" id="headerProfileBtn" onclick="switchMainTab('profile')" style="display:none;"><div id="headerAvatarContainer" style="width:100%;height:100%;background:#000;"></div></div>
   </div>
-  <div class="info-block">
-    <div class="info-block-title">⬆️ Апгрейд</div>
-    <ul>
-      <li>Формула: <code>шанс = ваш скин ÷ целевой скин × 100%</code>.</li>
-      <li>Максимальный шанс — 70%.</li>
-      <li>Для дорогих целей (от 5 000 ₽) реальный шанс дополнительно снижается.</li>
-      <li>У каждого игрока есть индивидуальный коэффициент удачи, привязанный к SteamID. Он не меняется со временем.</li>
-      <li>Результат генерируется на сервере, анимация стрелки — только визуализация.</li>
-    </ul>
+</div>
+<div class="main-nav">
+<button class="main-tab" id="navUpgrade" onclick="switchMainTab('upgrade')">Апгрейд</button>
+<button class="main-tab active" id="navCases" onclick="switchMainTab('cases')">Кейсы</button>
+<button class="main-tab" id="navProfile" onclick="switchMainTab('profile')">Профиль</button>
+</div>
+
+<div class="tab-content" id="tabUpgradeContent">
+<div class="zeno-layout">
+<div class="wheel-container">
+<div class="wheel-wrapper">
+  <div class="fast-spin-btn" id="fastSpinBtn" title="Быстрый апгрейд" onclick="toggleFastSpin()">
+    <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
   </div>
-  <div class="info-block">
-    <div class="info-block-title">💰 Пополнение и вывод</div>
-    <ul>
-      <li>Минимальная сумма пополнения — 50 ₽.</li>
-      <li>Бонус по промокоду начисляется вместе с депозитом после подтверждения.</li>
-      <li>Вывод скинов возможен только при указанной торговой ссылке Steam.</li>
-      <li>Каждая заявка на вывод обрабатывается вручную администрацией — обычно в течение нескольких часов.</li>
-      <li>Один скин не может находиться в двух заявках одновременно.</li>
-    </ul>
+  <div class="wheel-pointer"></div>
+  <div class="wheel-canvas-box"><canvas id="wheelCanvas" width="300" height="300"></canvas></div>
+  <div class="wheel-center-content"><div class="wheel-percent" id="wheelPercent">0.00%</div><div class="wheel-chance-label">шанс</div></div>
+  <div class="disabled-overlay" id="wheelOverlay"></div>
+  <div id="resultOverlay"><span id="resultText">Неудача</span></div>
+</div>
+<button class="btn-upgrade" id="upgradeBtn" disabled>Прокачать</button>
+</div>
+<div class="quick-chance-panel" id="quickChancePanel"></div>
+<div class="skins-selection-row">
+<div class="card-skin"><div class="skin-type">Ваш скин</div><div class="skin-name" id="selectedSkinName">--</div><div class="skin-img-wrap"><img id="selectedSkinImg" src="" alt="" style="display:none;max-height:70px;object-fit:contain;"><span id="selectedSkinPlaceholder" style="color:#4b5563;font-size:11px;">Выберите</span></div><div class="skin-price" id="selectedSkinPrice">0.00</div></div>
+<div class="card-skin" style="border-color:rgba(245,158,11,.2);"><div class="skin-type">Желаемый дроп</div><div class="skin-name" id="targetSkinName">--</div><div class="skin-img-wrap"><img id="targetSkinImg" src="" alt="" style="display:none;max-height:70px;object-fit:contain;"><span id="targetSkinPlaceholder" style="color:#4b5563;font-size:11px;">Из каталога</span></div><div class="skin-price" id="targetSkinPrice">0.00</div></div>
+</div>
+<div class="inventory-section">
+<div class="inv-header-row"><div class="inv-tabs">
+<button class="inv-tab active" id="tabInventory" onclick="switchCatalogTab('inventory')">Инвентарь</button>
+<button class="inv-tab" id="tabCatalogSkins" onclick="switchCatalogTab('skins')">Скины</button>
+</div>
+<div class="inv-total-value" id="invTotalValue">Сумма: 0.00 ₽</div>
+<div class="price-filter-box" id="priceFilterBox"><input type="number" id="minPriceInput" class="price-input" placeholder="От" value="0"><span style="color:#6b7280;font-size:11px;">-</span><input type="number" id="maxPriceInput" class="price-input" placeholder="До" value="1000000"></div>
+</div>
+<div class="items-grid" id="itemsGrid"></div>
+</div>
+</div>
+</div>
+
+<div class="tab-content" id="tabCasesContent">
+<div id="casesListContainer" style="display:flex;flex-direction:column;gap:14px;">
+<div class="promo-heading" onclick="topUpBalance()"><div class="promo-heading-title">Промокоды на пополнение</div><div class="promo-heading-subtitle">Введите код при пополнении и получите дополнительный бонус</div><div id="promoCodesBlock" class="promo-list"></div><div id="promoHeadingTimer" class="promo-timer"></div></div>
+<div class="cases-section-title">Коллекция кейсов</div>
+<div class="cases-grid" id="casesGrid"></div>
+</div>
+<div class="case-opening-view" id="caseOpeningView">
+<button class="back-cases-btn" onclick="closeCaseOpening()">← Назад к кейсам</button>
+<div style="font-size:16px;font-weight:900;color:#fff;" id="activeCaseTitle">Кейс</div>
+<div class="roulette-container"><div class="roulette-pointer"></div><div class="roulette-track" id="rouletteTrack"></div></div>
+<div class="case-actions-panel" id="caseActionsPanel">
+  <div class="case-open-count-title">Количество открытий</div>
+  <div class="multi-open-row">
+    <button class="multi-btn active" data-count="1" onclick="selectOpenCount(1)">1×</button>
+    <button class="multi-btn" data-count="2" onclick="selectOpenCount(2)">2×</button>
+    <button class="multi-btn" data-count="3" onclick="selectOpenCount(3)">3×</button>
+    <button class="multi-btn" data-count="4" onclick="selectOpenCount(4)">4×</button>
+    <button class="multi-btn" data-count="5" onclick="selectOpenCount(5)">5×</button>
   </div>
-  <div class="info-block">
-    <div class="info-block-title">🔗 Trade ссылка</div>
-    <p>Откройте Steam → Инвентарь → Обмен → «Ссылка для обмена». Скопируйте и вставьте её в профиле. Без неё вывод скинов технически невозможен — Steam не отправляет предметы по SteamID, только по partner/token.</p>
-  </div>
-  <div class="info-block">
-    <div class="info-block-title">🛡️ Честность</div>
-    <p>Все ключевые процессы — генерация дропа, шанс апгрейда, начисление баланса — происходят на сервере и не могут быть подделаны через браузер. История инвентаря и операций фиксируется в базе.</p>
-  </div>
-  <div class="info-modal-footer">
-    Поддержка: @Zenodropsupport · По всем спорным ситуациям обращайтесь через Telegram.
-  </div>
-</div></div>
+  <button class="btn-upgrade" id="mainOpenBtn" onclick="startOpening()">Открыть 1×</button>
+  <label class="fast-case-toggle">
+    <input type="checkbox" id="fastCaseCheckbox"> Быстрое открытие
+  </label>
+</div>
+<div class="action-buttons" id="actionButtons"><button class="action-btn sell-btn" id="sellBtn" onclick="sellCurrentItem()">Продать</button><button class="action-btn retry-btn" onclick="startOpening(selectedOpenCount)">Еще раз</button></div>
+<div class="inventory-section" style="width:100%;margin-top:4px;flex:1;"><div style="font-size:12px;font-weight:800;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Содержимое кейса</div><div class="items-grid" id="caseContentsGrid" style="max-height:none;flex:1;min-height:220px;"></div></div>
+</div>
+</div>
+
+<div class="tab-content" id="tabProfileContent"><div class="profile-wrapper" id="profileContentArea"></div></div>
+</div>
+
+<div class="topup-modal" id="topupModal"><div class="topup-card"><div class="topup-head"><div><div class="topup-title">Пополнение баланса</div><div class="topup-subtitle">Выберите способ, укажите сумму и при наличии введите промокод</div></div><button class="topup-close" onclick="closeTopup()">×</button></div><div class="payment-tabs"><button class="payment-tab active" data-method="СБП" onclick="selectPaymentMethod('СБП')">СБП</button><button class="payment-tab" data-method="Крипта" onclick="selectPaymentMethod('Крипта')">Криптовалюта</button><button class="payment-tab" data-method="Telegram" onclick="selectPaymentMethod('Telegram')">Telegram</button></div><div class="pay-panel"><div class="pay-info-card"><div><div class="pay-info-title" id="paymentTitle">СБП</div><div id="paymentInfo" class="pay-info-text">Заявка создаётся прямо на сайте.</div></div></div><div class="field-label">Сумма пополнения</div><input id="depositAmount" class="pay-input" type="number" min="50" placeholder="Введите сумму, ₽" oninput="updateDepositPreview()"><div class="quick-amounts"><button class="quick-amount" onclick="setDepositAmount(100)">100 ₽</button><button class="quick-amount" onclick="setDepositAmount(500)">500 ₽</button><button class="quick-amount" onclick="setDepositAmount(1000)">1 000 ₽</button><button class="quick-amount" onclick="setDepositAmount(5000)">5 000 ₽</button></div><div class="field-label">Промокод</div><div class="promo-box"><input id="depositPromo" class="pay-input" placeholder="Введите промокод" oninput="updateDepositPreview()"><button class="promo-refresh" onclick="loadPromoCodes(true)">Обновить</button></div><div id="promoActiveText" class="promo-active"></div><button id="depositMainAction" class="pay-action" onclick="createDepositRequest()">Пополнить баланс</button><button id="telegramDepositAction" class="pay-action tg-pay-action" onclick="openTelegramDeposit()" style="display:none;margin-top:10px">Открыть Telegram</button><div id="depositResult" class="withdraw-note"></div></div></div></div>
+
+<div id="modalOverlay"><div class="modal-card"><h3>Настройка быстрых кнопок</h3><p style="font-size:11px;color:#9ca3af;">Введите проценты (максимум до 70%)</p><div class="modal-inputs"><input type="text" id="quickValuesInput" value="10, 20, 30, 40, 50, 70"></div><div class="modal-buttons"><button class="btn-close" onclick="document.getElementById('modalOverlay').style.display='none'">Отмена</button><button class="btn-save" onclick="saveQuickSettings()">Сохранить</button></div></div></div>
 
 <div class="zeno-mp3" id="zenoMp3">
   <div class="mp3-panel" id="mp3Panel">
@@ -826,10 +864,6 @@ async function loadPromoCodes(openModal=false){try{const r=await fetch('/api/pro
 
 async function copyZenodropId(){const id=currentUser?.serverAccount?.zenoId||'';if(!id)return;try{await navigator.clipboard.writeText(id);silentNotice('Zenodrop ID скопирован','success');}catch(e){}}
 
-function openInfo(){const m=document.getElementById('infoModal');if(m)m.classList.add('active');}
-function closeInfo(){const m=document.getElementById('infoModal');if(m)m.classList.remove('active');}
-document.getElementById('infoModal')?.addEventListener('click',e=>{if(e.target.id==='infoModal')closeInfo();});
-
 async function saveTradeLink(){
   const input=document.getElementById('tradeLinkInput');
   if(!input)return;
@@ -1009,7 +1043,7 @@ async function startOpening(count){
         id: poolItem.id||d.skin.id||('skin_'+stableHash(d.skin.name).toString(36)),
         name: poolItem.name||d.skin.name,
         category:'skins',
-        value: Number(d.skin.value ?? poolItem.value ?? 0),
+        value: Number(d.skin.value ?? poolItemFrame.value ?? 0),
         img: poolItem.img||d.skin.img,
         uid: newInventoryUid()
       });
@@ -1040,11 +1074,13 @@ async function startOpening(count){
 
   setTimeout(()=>{
     track.style.transition=`transform ${animDuration/1000}s cubic-bezier(.15,.85,.35,1)`;
-    const targetX=leftPad+winIdx*step;
-    track.style.transform=`translate3d(-${cycles*activeCase.items.length*step+targetX-center}px,0,0)`;
+    const targetX=leftPad+win(Idx*step;
+    track.style.transform=`animatetranslate3d(-${cycles*activeCase.items.length*);
+step+targetX-center}px,0, 0)`;
   },50);
 
-  let spinTicks=0;
+  };
+ let spinTicks=0;
   const spinInterval=setInterval(()=>{
     playCaseSpinTick();spinTicks++;
     if(spinTicks>(isFast?8:32))clearInterval(spinInterval);
@@ -1170,9 +1206,7 @@ function startUpgradePointerSpin(duration, finalAngle){
     const t=Math.min(1,elapsed/duration);
     const eased=1-Math.pow(1-t,3);
     pointer.style.transform=`rotate(${target*eased}deg)`;
-    if(t<1 && isSpinning) pointerSpinRaf=requestAnimationFrame(animate);
-  };
-  pointerSpinRaf=requestAnimationFrame(animate);
+    if(t<1 && isSpinning) pointerSpinRaf=requestAnimation  pointerSpinRaf=requestAnimationFrame(animate);
 }
 function resetUpgradePointer(){
   cancelAnimationFrame(pointerSpinRaf);
