@@ -47,9 +47,22 @@ function steamFromSessionCookie(value){
   return m[1];
 }
 
-// ===============================
-// STORE / TELEGRAM
-// ===============================
+// ============================================================
+//  ХРАНИЛИЩЕ
+//
+//  Приоритет:
+//    1. Upstash Redis (env: UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN)
+//    2. Локальный файл (DATA_DIR / __dirname)
+//
+//  data — синхронный объект в памяти.
+//  saveStore() пишет и на диск, и в Redis (дебаунс 300 мс).
+//  initStore() при старте: сначала Redis, если пусто → диск, если и там пусто → с нуля.
+// ============================================================
+const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL || '').trim().replace(/\/$/,'');
+const REDIS_TOKEN = (process.env.UPSTASH_REDIS_REST_TOKEN || '').trim();
+const USE_REDIS = !!(REDIS_URL && REDIS_TOKEN);
+const REDIS_KEY = (process.env.REDIS_STORE_KEY || 'zenodrop:store').trim();
+
 const DATA_DIR = (process.env.DATA_DIR || __dirname).trim();
 const DATA_FILE = path.join(DATA_DIR, 'zenodrop_data.json');
 const CATALOG_FILE = path.join(DATA_DIR, 'cs2_catalog_cache.json');
@@ -58,9 +71,39 @@ const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_BOT_URL = (process.env.TELEGRAM_BOT_URL || '').trim();
 const TG_WEBHOOK_URL = (process.env.TELEGRAM_WEBHOOK_URL || (PUBLIC_URL ? PUBLIC_URL + '/telegram/admin-webhook' : '')).trim();
 const PAY_TG_TOKEN = (process.env.TELEGRAM_PAYMENT_BOT_TOKEN || '').trim();
-const PAY_TG_BOT_URL = (process.env.TELEGRAM_PAYMENT_BOT_URL || 'https://t.me/ZenodropPayBot').trim();
-const PAY_TG_WEBHOOK_URL = (process.env.TELEGRAM_PAYMENT_WEBHOOK_URL || (PUBLIC_URL ? PUBLIC_URL + '/telegram/payment-webhook' : '')).trim();
+const PAY_TG_BOT_URL = (process.env.TELEGRAM_PAYMENT_BOT_URL || 'https://t case.me/ZenodropPayBot').trimPrice();
+const PAY_TG_WEBHOOK_URL = (process.env.T);
+ELEGRAM_PAYMENT_WEBHOOK_URL    || (PUBLIC_URL ? PUBLIC_URL + const '/telegram/payment-webhook' : w '')).trim();
 const SUPPORT_CONTACT = '@Zenodropsupport';
+
+// ============================================================
+//  REDIS CLIENT (Upstash REST API)
+// ============================================================
+async function redisCmd(args){
+  if(!USE_REDIS) return null;
+  try{
+    const r = await fetch(REDIS_URL, {
+      method:'POST',
+      headers:{
+        'Authorization': 'Bearer ' + REDIS_TOKEN,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(args)
+    });
+    if(!r.ok){ console.error('Redis HTTP', r.status); return null; }
+    const j = await r.json();
+    return j?.result ?? null;
+  }catch(e){ console.error('Redis error:', e.message); return null; }
+}
+async function redisLoad(key){
+  const v = await redisCmd(['GET', key]);
+  if(v === null || v === undefined) return null;
+  try{ return typeof v === 'string' ? JSON.parse(v) : v; }catch(e){ return null; }
+}
+async function redisSave(key, obj){
+  try{ await redisCmd(['SET', key, JSON.stringify(obj)]); }
+  catch(e){ console.error('redisSave error:', e.message); }
+}
 
 // ============================================================
 //  КЕЙСЫ
@@ -104,8 +147,7 @@ function insideTierWeight(price, alpha){
 function baseWeights(items, casePrice, alpha){
   const arr = items.map(x => {
     const p = itemPrice(x);
-    const t = tierOf(p, casePrice);
-    const w = t.weight * insideTierWeight(p, alpha);
+    const t = tierOf(p, = t.weight * insideTierWeight(p, alpha);
     return { ...x, price: p, _tier: t.name, _w: w };
   });
   const total = arr.reduce((s,x) => s + x._w, 0) || 1;
@@ -179,15 +221,7 @@ function openCase(caseKey, items, pityCount = 0){
 }
 
 // ============================================================
-//  АПГРЕЙД + "УДАЧА"
-//
-//  Персональная удача на основе хэша Steam ID:
-//    - 30% игроков — "неудачники": множитель 0.85 (шансы -15%)
-//    - 20% игроков — "счастливчики": множитель 1.15 (шансы +15%)
-//    - 50% игроков — нейтральные: множитель 1.0
-//
-//  Плюс штраф за дорогой таргет (от 5000 ₽).
-//  Нижний клапан 0.5%, верхний — 95%.
+//  АПГРЕЙД + СЧАСТЛИВЧИКИ
 // ============================================================
 const LUCK_MAP = new Map();
 
@@ -198,9 +232,9 @@ function getPlayerLuck(steamid){
   const hash = crypto.createHash('sha256').update('zenodrop_luck:' + id).digest();
   const r = hash[0] / 255;
   let luck;
-  if (r < 0.30)      luck = 0.85;   // неудачники
-  else if (r < 0.50) luck = 1.15;   // счастливчики
-  else               luck = 1.0;    // нейтральные
+  if (r < 0.30)      luck = 0.85;
+  else if (r < 0.50) luck = 1.15;
+  else               luck = 1.0;
   LUCK_MAP.set(id, luck);
   return luck;
 }
@@ -210,34 +244,35 @@ function upgrade(chance, steamid, targetPrice){
   if (!Number.isFinite(chance)) return false;
   if (chance < 0)   chance = 0;
   if (chance > 100) chance = 100;
-
   const price = Number(targetPrice || 0);
   let real = chance;
-
-  // Штраф за дорогой таргет
   if (price >= 20000)      real *= 0.35;
   else if (price >= 15000) real *= 0.50;
   else if (price >= 10000) real *= 0.60;
   else if (price >= 5000)  real *= 0.75;
-
-  // Персональная удача
   real *= getPlayerLuck(steamid);
-
   if (real < 0.5) real = 0.5;
   if (real > 95)  real = 95;
-
   return Math.random() * 100 < real;
 }
 
 const TG_ADMIN_IDS = new Set(String(process.env.TG_ADMIN_IDS || '').split(',').map(x=>x.trim()).filter(Boolean));
 
-const data = loadStore();
-for(const u of Object.values(data.users)){ ensureZenodropId(u); }
-saveStore();
+// ============================================================
+//  STORE
+// ============================================================
+let data = {
+  users:{},
+  withdrawals:[],
+  deposits:[],
+  promos:{},
+  admins:{},
+  links:{}
+};
 
-function loadStore(){
+function loadStoreFromDisk(){
   try {
-    const x=JSON.parse(fs.readFileSync(DATA_FILE,'utf8'));
+    const x = JSON.parse(fs.readFileSync(DATA_FILE,'utf8'));
     return {
       users: x.users || {},
       withdrawals: x.withdrawals || [],
@@ -247,12 +282,62 @@ function loadStore(){
       links: x.links || {}
     };
   } catch(e) {
-    return {users:{},withdrawals:[],deposits:[],promos:{},admins:{},links:{}};
+    return null;
   }
 }
-function saveStore(){
-  try { fs.writeFileSync(DATA_FILE, JSON.stringify(data,null,2)); } catch(e){ console.error('store save:',e.message); }
+function saveStoreToDisk(){
+  try { fs.writeFileSync(DATA_FILE, JSON.stringify(data,null,2)); }
+  catch(e){ console.error('store save (disk):', e.message); }
 }
+let __saveTimer = null;
+let __saveInFlight = false;
+function saveStore(){
+  saveStoreToDisk();
+  if(!USE_REDIS) return;
+  if(__saveTimer) clearTimeout(__saveTimer);
+  __saveTimer = setTimeout(async ()=>{
+    if(__saveInFlight) return;
+    __saveInFlight = true;
+    try{ await redisSave(REDIS_KEY, data); }
+    finally{ __saveInFlight = false; }
+  }, 300);
+}
+async function initStore(){
+  if(USE_REDIS){
+    const remote = await redisLoad(REDIS_KEY);
+    if(remote && typeof remote === 'object'){
+      data = {
+        users: remote.users || {},
+        withdrawals: remote.withdrawals || [],
+        deposits: remote.deposits || [],
+        promos: remote.promos || {},
+        admins: remote.admins || {},
+        links: remote.links || {}
+      };
+      console.log('Store loaded from Redis:',
+        Object.keys(data.users).length, 'users,',
+        data.withdrawals.length, 'withdrawals,',
+        data.deposits.length, 'deposits');
+      return;
+    }
+    console.log('Redis empty → trying local disk');
+  }
+  const local = loadStoreFromDisk();
+  if(local){
+    data = local;
+    console.log('Store loaded from disk:',
+      Object.keys(data.users).length, 'users,',
+      data.withdrawals.length, 'withdrawals,',
+      data.deposits.length, 'deposits');
+    if(USE_REDIS){
+      console.log('Pushing local store to Redis...');
+      await redisSave(REDIS_KEY, data);
+    }
+    return;
+  }
+  console.log('Empty store (fresh start)');
+}
+
 function ensureUser(steamid){
   const id=String(steamid||''); if(!id)return null;
   if(!data.users[id]) data.users[id]={
@@ -375,11 +460,6 @@ function ensureOneActivePromo(){
   }
   return createAutoPromo();
 }
-ensureOneActivePromo();
-setInterval(()=>{
-  const active=promoList()[0];
-  if(!active || (active.expiresAt && active.expiresAt<=Date.now()) || active.auto) createAutoPromo();
-},15*60*1000);
 
 // ============================================================
 //  АДМИН-БОТ
@@ -412,10 +492,7 @@ async function processTelegramUpdate(u){
       const parts=d.split(':');
       const wid=parts[1], action=parts[2];
       const w=data.withdrawals.find(x=>x.id===wid);
-      if(!w){
-        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка не найдена',show_alert:true});
-        return;
-      }
+      if(!w){ await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка не найдена',show_alert:true}); return; }
       if(action==='send'){
         w.status='approved';w.updatedAt=Date.now();saveStore();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка подтверждена'});
@@ -434,39 +511,26 @@ async function processTelegramUpdate(u){
       const parts=d.split(':');
       const did=parts[1], action=parts[2];
       const dep=data.deposits.find(x=>x.id===did);
-      if(!dep){
-        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка не найдена',show_alert:true});
-        return;
-      }
-      if(dep.status!=='pending'){
-        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Уже обработана'});
-        return;
-      }
+      if(!dep){ await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка не найдена',show_alert:true}); return; }
+      if(dep.status!=='pending'){ await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Уже обработана'}); return; }
       if(action==='approve'){
         const u=ensureUser(dep.steamid);
         const total=Number(dep.amount||0)+Number(dep.bonus||0);
         u.balance+=total;
         u.stats.totalDeposited=(u.stats.totalDeposited||0)+total;
         if(dep.promo && data.promos[dep.promo]) data.promos[dep.promo].uses=(data.promos[dep.promo].uses||0)+1;
-        dep.status='paid';
-        dep.updatedAt=Date.now();
-        saveStore();
+        dep.status='paid';dep.updatedAt=Date.now();saveStore();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'✅ Зачислено'});
         await tg('sendMessage',{chat_id:q.message.chat.id,text:`✅ Пополнение <b>${did}</b> зачислено: <b>+${total.toFixed(2)} ₽</b>\nSteam: <code>${dep.steamid}</code>`,parse_mode:'HTML'});
         if(dep.tgId) await tg('sendMessage',{chat_id:dep.tgId,text:`✅ Баланс пополнен на <b>${total.toFixed(2)} ₽</b>`,parse_mode:'HTML'});
       } else if(action==='reject'){
-        dep.status='rejected';
-        dep.updatedAt=Date.now();
-        saveStore();
+        dep.status='rejected';dep.updatedAt=Date.now();saveStore();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Отклонено'});
         if(dep.tgId) await tg('sendMessage',{chat_id:dep.tgId,text:`❌ Пополнение <b>${did}</b> отклонено.`,parse_mode:'HTML'});
       }
       return;
     }
-    if(d==='adm:menu'){
-      await tg('answerCallbackQuery',{callback_query_id:q.id});
-      return sendAdminMenu(q.message.chat.id);
-    }
+    if(d==='adm:menu'){ await tg('answerCallbackQuery',{callback_query_id:q.id}); return sendAdminMenu(q.message.chat.id); }
     if(d==='adm:withdrawals'){
       await tg('answerCallbackQuery',{callback_query_id:q.id});
       const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
@@ -541,14 +605,12 @@ async function processTelegramUpdate(u){
       parse_mode:'HTML'
     });
   }
-
   if(text==='/help'){
     return tg('sendMessage',{chat_id:chatId,
       text:'<b>Zenodrop</b>\n\n/link STEAMID\n/status\n/help'+(admin?'\n\n<b>Админ:</b>\n/panel — панель\n/deposits — заявки на пополнение\n/withdrawals — заявки на вывод\n/stats — статистика\n/give STEAMID SUM\n/withdrawlock STEAMID on|off\n/adminsteam STEAMID\n/promo CODE PERCENT':''),
       parse_mode:'HTML'
     });
   }
-
   if(text==='/status'){
     const steam=data.links[chatId];
     const u2=steam?ensureUser(steam):null;
@@ -557,7 +619,6 @@ async function processTelegramUpdate(u){
       parse_mode:'HTML'
     });
   }
-
   if(text.startsWith('/link ')){
     const steam=text.split(/\s+/)[1];
     if(!/^\d{17}$/.test(steam)) return tg('sendMessage',{chat_id:chatId,text:'Формат: /link 7656119XXXXXXXXXX'});
@@ -565,11 +626,9 @@ async function processTelegramUpdate(u){
     const u2=ensureUser(steam);u2.tgId=chatId;saveStore();
     return tg('sendMessage',{chat_id:chatId,text:`✅ Привязан Steam ID <code>${steam}</code>`,parse_mode:'HTML'});
   }
-
   if(!admin)return;
 
   if(text==='/panel') return sendAdminMenu(chatId);
-
   if(text==='/withdrawals'){
     const list=data.withdrawals.filter(x=>x.status==='pending').slice(-10).reverse();
     if(!list.length)return tg('sendMessage',{chat_id:chatId,text:'Заявок на вывод нет.'});
@@ -585,7 +644,6 @@ async function processTelegramUpdate(u){
     }
     return;
   }
-
   if(text==='/deposits'){
     const list=data.deposits.filter(x=>x.status==='pending').slice(-10).reverse();
     if(!list.length)return tg('sendMessage',{chat_id:chatId,text:'Заявок на пополнение нет.'});
@@ -601,7 +659,6 @@ async function processTelegramUpdate(u){
     }
     return;
   }
-
   if(text==='/stats'){
     const users=Object.values(data.users);
     const totalBal=users.reduce((s,u)=>s+(Number(u.balance)||0),0);
@@ -613,7 +670,6 @@ async function processTelegramUpdate(u){
       parse_mode:'HTML'
     });
   }
-
   let a=text.match(/^\/give\s+(\d{17})\s+([\d.]+)/i);
   if(a){
     const u2=ensureUser(a[1]);
@@ -621,7 +677,6 @@ async function processTelegramUpdate(u){
     saveStore();
     return tg('sendMessage',{chat_id:chatId,text:`✅ Начислено ${Number(a[2]).toFixed(2)} ₽\nSteam: <code>${a[1]}</code>\nБаланс: <b>${Number(u2.balance).toFixed(2)} ₽</b>`,parse_mode:'HTML'});
   }
-
   a=text.match(/^\/withdrawlock\s+(\d{17})\s+(on|off)/i);
   if(a){
     const u2=ensureUser(a[1]);
@@ -629,19 +684,15 @@ async function processTelegramUpdate(u){
     saveStore();
     return tg('sendMessage',{chat_id:chatId,text:`✅ Вывод для <code>${a[1]}</code>: ${u2.withdrawDisabled?'запрещён':'разрешён'}`,parse_mode:'HTML'});
   }
-
   a=text.match(/^\/adminsteam\s+(\d{17})/i);
   if(a){data.admins['steam:'+a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Steam ID ${a[1]} получил web-admin.`});}
-
   a=text.match(/^\/admin\s+(\d+)/i);
   if(a){data.admins[a[1]]=true;saveStore();return tg('sendMessage',{chat_id:chatId,text:`✅ Telegram ID ${a[1]} получил админку.`});}
-
   a=text.match(/^\/promo\s+([A-Za-z0-9_-]+)\s+(\d+(?:\.\d+)?)\s*(?:([\d.]+))?/i);
   if(a){
     const p=makePromo(a[1],a[2],a[3]||0);
     return tg('sendMessage',{chat_id:chatId,text:`✅ Промокод <code>${p.code}</code> создан: +${p.percent}%`,parse_mode:'HTML'});
   }
-
   return tg('sendMessage',{chat_id:chatId,text:'Неизвестная команда. /panel — админ-панель, /help — список.'});
 }
 
@@ -949,10 +1000,6 @@ async function buildCs2Catalog() {
     return result.slice(0, 7000);
 }
 
-loadCatalogFromDisk();
-if(!cs2CatalogCache.data) refreshCatalogInBackground();
-setInterval(refreshCatalogInBackground, CS2_CACHE_MS);
-
 // ===============================
 // COOKIES / READ JSON
 // ===============================
@@ -1168,44 +1215,6 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    if(pathname==='/api/case/preview' && req.method==='POST'){
-        try{
-            const body=await readJson(req);
-            const caseKey=String(body.case||'');
-            const skins=Array.isArray(body.skins)?body.skins:[];
-            const cfg=CASES[caseKey];
-            if(!cfg || !skins.length){
-                res.writeHead(400,{'Content-Type':'application/json'});
-                return res.end(JSON.stringify({error:'invalid_input'}));
-            }
-            const N = Math.min(Number(body.n)||20000, 200000);
-            let sum=0, tiers={};
-            let minD=Infinity, maxD=0;
-            for(let i=0;i<N;i++){
-                const r = openCase(caseKey, skins, 0);
-                if(!r) continue;
-                sum += r.skin.value;
-                tiers[r.tier] = (tiers[r.tier]||0)+1;
-                if(r.skin.value<minD) minD=r.skin.value;
-                if(r.skin.value>maxD) maxD=r.skin.value;
-            }
-            const ev = sum / N;
-            res.writeHead(200,{'Content-Type':'application/json'});
-            return res.end(JSON.stringify({
-                ok:true, case:caseKey, samples:N,
-                ev: +ev.toFixed(2),
-                evPercent: +((ev/cfg.price)*100).toFixed(2),
-                targetRtp: cfg.rtp,
-                minDrop: minD,
-                maxDrop: maxD,
-                tiers
-            }));
-        }catch(e){
-            res.writeHead(400,{'Content-Type':'application/json'});
-            return res.end(JSON.stringify({error:'invalid_json'}));
-        }
-    }
-
     if(pathname==='/api/account/sync' && req.method==='POST'){
         if(!sessionUser?.steamid){
             res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});
@@ -1258,7 +1267,7 @@ const server = http.createServer(async (req, res) => {
             telegramBotUrl:TG_BOT_URL||null,
             paymentTelegramBotUrl:PAY_TG_BOT_URL||'https://t.me/ZenodropPayBot',
             cases:CASES,
-            tiers:TIERS.map(t=>({name:t.name,min:t.min,max:t.max,weight:t.weight}))
+            storage: USE_REDIS ? 'redis' : 'disk'
         }));
     }
 
@@ -1356,7 +1365,8 @@ const server = http.createServer(async (req, res) => {
             deposits:data.deposits.slice(-100).reverse(),
             promos:promoList(),
             cases:CASES,
-            tiers:TIERS
+            tiers:TIERS,
+            storage: USE_REDIS ? 'redis' : 'disk'
         }));
     }
 
@@ -1541,10 +1551,29 @@ const server = http.createServer(async (req, res) => {
     res.end('Not found');
 });
 
-server.listen(PORT, () => {
+// ===============================
+// BOOT
+// ===============================
+(async () => {
+  await initStore();
+  for(const u of Object.values(data.users)){ ensureZenodropId(u); }
+  saveStore();
+  ensureOneActivePromo();
+  setInterval(()=>{
+    const active=promoList()[0];
+    if(!active || (active.expiresAt && active.expiresAt<=Date.now()) || active.auto) createAutoPromo();
+  },15*60*1000);
+
+  loadCatalogFromDisk();
+  if(!cs2CatalogCache.data) refreshCatalogInBackground();
+  setInterval(refreshCatalogInBackground, CS2_CACHE_MS);
+
+  server.listen(PORT, () => {
     console.log('Zenodrop running on port ' + PORT);
     console.log('PUBLIC_URL:', PUBLIC_URL || '(not set)');
     console.log('DATA_DIR:', DATA_DIR);
+    console.log('Storage:', USE_REDIS ? 'Redis (Upstash)' : 'Local disk only');
     if(TG_TOKEN){ console.log('Admin TG enabled'); telegramStart(); } else { console.log('Admin TG disabled: no token'); }
     if(PAY_TG_TOKEN){ console.log('Payment TG enabled'); paymentTelegramStart(); } else { console.log('Payment TG disabled: no token'); }
-});
+  });
+})();
