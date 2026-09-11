@@ -15,9 +15,17 @@ const KEY = (
 const STEAM_API_KEY = (process.env.STEAM_API_KEY || '').trim();
 
 if (!KEY) {
-    console.error('ERROR: Set CS2SH_API_KEY in Render Environment Variables');
+    console.error('ERROR: Set CS2SH_API_KEY in environment variables');
     process.exit(1);
 }
+
+// Универсальная публичная ссылка (Layer: PUBLIC_URL, Render: RENDER_EXTERNAL_URL)
+const PUBLIC_URL = (
+  process.env.PUBLIC_URL ||
+  process.env.APP_URL ||
+  process.env.RENDER_EXTERNAL_URL ||
+  ''
+).trim().replace(/\/$/,'');
 
 const html = fs.readFileSync(path.join(__dirname, 'Zenodrop_CS2SH_400.html'));
 
@@ -43,12 +51,16 @@ function steamFromSessionCookie(value){
 // ===============================
 // STORE / TELEGRAM
 // ===============================
-const DATA_FILE = path.join(__dirname, 'zenodrop_data.json');
+const DATA_DIR = (process.env.DATA_DIR || __dirname).trim();
+const DATA_FILE = path.join(DATA_DIR, 'zenodrop_data.json');
+const CATALOG_FILE = path.join(DATA_DIR, 'cs2_catalog_cache.json');
+
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_BOT_URL = (process.env.TELEGRAM_BOT_URL || '').trim();
-const TG_WEBHOOK_URL = (process.env.TELEGRAM_WEBHOOK_URL || ((process.env.RENDER_EXTERNAL_URL || '').trim() ? (process.env.RENDER_EXTERNAL_URL.trim().replace(/\/$/,'') + '/telegram/admin-webhook') : '')).trim();
+const TG_WEBHOOK_URL = (process.env.TELEGRAM_WEBHOOK_URL || (PUBLIC_URL ? PUBLIC_URL + '/telegram/admin-webhook' : '')).trim();
 const PAY_TG_TOKEN = (process.env.TELEGRAM_PAYMENT_BOT_TOKEN || '').trim();
 const PAY_TG_BOT_URL = (process.env.TELEGRAM_PAYMENT_BOT_URL || 'https://t.me/ZenodropPayBot').trim();
+const PAY_TG_WEBHOOK_URL = (process.env.TELEGRAM_PAYMENT_WEBHOOK_URL || (PUBLIC_URL ? PUBLIC_URL + '/telegram/payment-webhook' : '')).trim();
 const SUPPORT_CONTACT = '@Zenodropsupport';
 
 // ============================================================
@@ -172,7 +184,6 @@ function upgrade(chance, steamid, targetPrice){
   return Math.random() * 100 < real;
 }
 
-const PAY_TG_WEBHOOK_URL = (process.env.TELEGRAM_PAYMENT_WEBHOOK_URL || ((process.env.RENDER_EXTERNAL_URL || '').trim() ? (process.env.RENDER_EXTERNAL_URL.trim().replace(/\/$/,'') + '/telegram/payment-webhook') : '')).trim();
 const TG_ADMIN_IDS = new Set(String(process.env.TG_ADMIN_IDS || '').split(',').map(x=>x.trim()).filter(Boolean));
 
 const data = loadStore();
@@ -341,7 +352,6 @@ async function sendAdminMenu(chatId){
 }
 
 async function processTelegramUpdate(u){
-  // ============ CALLBACKS ============
   if(u.callback_query){
     const q=u.callback_query;
     const id=String(q.from.id);
@@ -469,7 +479,6 @@ async function processTelegramUpdate(u){
     return;
   }
 
-  // ============ MESSAGES ============
   const m=u.message;
   if(!m || !m.chat) return;
   const chatId=String(m.chat.id);
@@ -589,7 +598,7 @@ async function processTelegramUpdate(u){
 }
 
 // ============================================================
-//  ПЛАТЁЖНЫЙ БОТ (юзерский)
+//  ПЛАТЁЖНЫЙ БОТ
 // ============================================================
 function infoText(){
   return `<b>Zenodrop — информация</b>\n\n<b>Политика конфиденциальности:</b> <a href="/privacy">открыть</a>\n<b>Пользовательское соглашение:</b> <a href="/terms">открыть</a>\n\n<b>Поддержка:</b> ${SUPPORT_CONTACT}`;
@@ -667,7 +676,9 @@ async function paymentTelegramStart(){
     ]});
     if(PAY_TG_WEBHOOK_URL){
       const secret=crypto.createHash('sha256').update(PAY_TG_TOKEN).digest('hex').slice(0,32);
-      await tgPay('setWebhook',{url:PAY_TG_WEBHOOK_URL,secret_token:secret,allowed_updates:['message','callback_query'],drop_pending_updates:false});
+      const r=await tgPay('setWebhook',{url:PAY_TG_WEBHOOK_URL,secret_token:secret,allowed_updates:['message','callback_query'],drop_pending_updates:false});
+      if(r?.ok) console.log('Payment webhook enabled:',PAY_TG_WEBHOOK_URL);
+      else console.error('Payment setWebhook failed:',r?.description);
     }
   }catch(e){ console.error('Payment Telegram init:',e.message); }
 }
@@ -689,7 +700,9 @@ async function telegramStart(){
     ]});
     if(TG_WEBHOOK_URL){
       const secret=crypto.createHash('sha256').update(TG_TOKEN).digest('hex').slice(0,32);
-      await tg('setWebhook',{url:TG_WEBHOOK_URL,secret_token:secret,allowed_updates:['message','callback_query'],drop_pending_updates:false});
+      const r=await tg('setWebhook',{url:TG_WEBHOOK_URL,secret_token:secret,allowed_updates:['message','callback_query'],drop_pending_updates:false});
+      if(r?.ok) console.log('Telegram webhook enabled:',TG_WEBHOOK_URL);
+      else console.error('Telegram setWebhook failed:',r?.description);
     }else{
       await tg('deleteWebhook',{drop_pending_updates:false});
       startTelegramPollingFallback();
@@ -717,7 +730,6 @@ async function startTelegramPollingFallback(){
 // ===============================
 // CS2.SH + КЭШ
 // ===============================
-const CATALOG_FILE = path.join(__dirname, 'cs2_catalog_cache.json');
 let cs2CatalogCache = { data: null, expires: 0 };
 const CS2_CACHE_MS = 10 * 60 * 1000;
 
@@ -933,7 +945,7 @@ const server = http.createServer(async (req, res) => {
         if(signedSteam){
             const stored=ensureUser(signedSteam);
             if(stored){
-                sessionUser={steamid:signedSteam,username:stored.username||'Игрок Zenodrop',avatar:stored.avatar||''};
+                sessionUser={steamid:signedSteam,username:stored.username||'',avatar:stored.avatar||''};
                 ensureZenodropId(stored);
             }
         }
@@ -979,7 +991,7 @@ const server = http.createServer(async (req, res) => {
                     const player = playerData.response?.players?.[0] || {};
                     const userData = {
                         steamid: steamId,
-                        username: player.personaname || 'Unknown',
+                        username: player.personaname || '',
                         avatar: player.avatarfull || player.avatarmedium || player.avatar || ''
                     };
                     const sessionId = makeSessionCookie(steamId);
@@ -1427,6 +1439,8 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
     console.log('Zenodrop running on port ' + PORT);
+    console.log('PUBLIC_URL:', PUBLIC_URL || '(not set)');
+    console.log('DATA_DIR:', DATA_DIR);
     if(TG_TOKEN){ console.log('Admin TG enabled'); telegramStart(); } else { console.log('Admin TG disabled: no token'); }
     if(PAY_TG_TOKEN){ console.log('Payment TG enabled'); paymentTelegramStart(); } else { console.log('Payment TG disabled: no token'); }
 });
