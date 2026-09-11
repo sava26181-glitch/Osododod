@@ -184,14 +184,18 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .inv-action-icon{width:15px;height:15px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.mini-action-btn:hover .inv-action-icon{stroke:#11131c}
 
 /* MP3 плеер */
-.zeno-mp3{position:fixed;bottom:14px;right:14px;z-index:9998;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db}
+#mp3OpenBtn{background:#161924;color:#f59e0b;border:1px solid rgba(245,158,11,.35);width:34px;height:34px;border-radius:50%;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;flex-shrink:0}
+#mp3OpenBtn:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b;box-shadow:0 0 14px rgba(245,158,11,.4)}
+.zeno-mp3{position:fixed;bottom:14px;right:14px;z-index:9998;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;display:none}
+.zeno-mp3.active{display:block;animation:mp3In .25s ease both}
+@keyframes mp3In{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .mp3-mini{display:flex;align-items:center;gap:6px;background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:6px 8px;box-shadow:0 8px 28px rgba(0,0,0,.55);min-width:200px;max-width:min(300px,calc(100vw - 28px))}
 .mp3-ico{background:#1a1f2e;border:1px solid rgba(255,255,255,.08);color:#f59e0b;width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;transition:.15s}
 .mp3-ico:hover{background:#f59e0b;color:#11131c;border-color:#f59e0b}
 .mp3-now{flex:1;font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .mp3-panel{display:none;background:linear-gradient(145deg,#161924,#11131c);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:8px;margin-bottom:6px;box-shadow:0 10px 32px rgba(0,0,0,.6);width:min(300px,calc(100vw - 28px))}
-.mp3-panel.open{display:block;animation:mp3In .2s ease both}
-@keyframes mp3In{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.mp3-panel.open{display:block;animation:mp3PanelIn .2s ease both}
+@keyframes mp3PanelIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .mp3-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:10px;font-weight:900;color:#f59e0b;text-transform:uppercase;letter-spacing:.5px}
 .mp3-tracks{display:flex;flex-direction:column;gap:3px;margin-bottom:6px;max-height:120px;overflow-y:auto}
 .mp3-tr{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;border:1px solid transparent;transition:.15s}
@@ -204,7 +208,7 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 #mp3Seek{flex:1;accent-color:#f59e0b;height:3px;min-width:40px}
 #mp3Vol{width:44px;accent-color:#f59e0b;height:3px}
 #mp3Time{font-size:9px;color:#8d94a6;min-width:58px;text-align:center}
-@media (max-width:420px){.zeno-mp3{bottom:8px;right:8px}.mp3-mini{min-width:170px}}
+@media (max-width:420px){.zeno-mp3{bottom:8px;right:8px}.mp3-mini{min-width:170px}#mp3OpenBtn{width:30px;height:30px;font-size:12px}}
 </style>
 </head>
 <body>
@@ -214,6 +218,7 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 <div class="header">
   <div class="logo-area"><span>Zeno</span>drop</div>
   <div style="display:flex;gap:8px;align-items:center;">
+    <button id="mp3OpenBtn" onclick="openMp3Player()" title="Музыка">♪</button>
     <button id="steamAuthBtn" onclick="initSteamAuth()"><svg class="steam-icon" viewBox="0 0 24 24" aria-hidden="true">
 <defs><linearGradient id="steamGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#66c0f4"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs>
 <circle cx="16.9" cy="7.1" r="4.1" fill="none" stroke="url(#steamGrad)" stroke-width="2"/>
@@ -296,15 +301,12 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 
 <div id="modalOverlay"><div class="modal-card"><h3>Настройка быстрых кнопок</h3><p style="font-size:11px;color:#9ca3af;">Введите проценты (максимум до 70%)</p><div class="modal-inputs"><input type="text" id="quickValuesInput" value="10, 20, 30, 40, 50, 70"></div><div class="modal-buttons"><button class="btn-close" onclick="document.getElementById('modalOverlay').style.display='none'">Отмена</button><button class="btn-save" onclick="saveQuickSettings()">Сохранить</button></div></div></div>
 
-<div class="zeno-mp3">
+<div class="zeno-mp3" id="zenoMp3">
   <div class="mp3-panel" id="mp3Panel">
-    <div class="mp3-head"><span>Музыка</span><button class="mp3-ico" onclick="mp3TogglePanel()" title="Свернуть">×</button></div>
+    <div class="mp3-head"><span>Музыка</span><button class="mp3-ico" onclick="closeMp3Player()" title="Закрыть">×</button></div>
     <div class="mp3-tracks">
       <div class="mp3-tr" data-src="https://muzend.net/uploads/music/2026/08/The_Limba_Cha_sha.mp3">
         <span class="mp3-tr-name">The Limba — Ча ща</span>
-      </div>
-      <div class="mp3-tr" data-sc="https://soundcloud.com/korol-saundklauda/tantsui-pantera-speed-up-2">
-        <span class="mp3-tr-name">Kagramanov — Танцуй, пантера</span>
       </div>
     </div>
     <div class="mp3-ctrl">
@@ -629,7 +631,7 @@ function renderProfile(){
       <div class="stat-card"><div class="stat-title">Депозит</div><div class="stat-value">${s.totalDeposited} ₽</div></div>
     </div>
     <div class="profile-balance-row"><div><div class="balance-amount">${currentUser.balance.toFixed(2)} ₽</div><div class="balance-history">Баланс привязан к Steam</div></div><button class="topup-btn" onclick="topUpBalance()">Пополнить</button></div>
-    <div class="zeno-id-row"><div><div class="zeno-id-label">Zenodrop ID</div><div class="zeno-id-value" id="zenoIdValue">${escapeHtml(currentUser.serverAccount?.zenoId||'—')}</div></div><button class="zeno-id-copy" onclick="copyZenodropId()">Копировать</button><button class="zeno-id-copy" onclick="openTelegramDeposit()">Пополнить TG</button></div>
+    <div class="zeno-id-row"><div><div class="zeno-id-label">Zenodrop ID</div><div class="zeno-id-value" id="zenoIdValue">${escapeHtml(currentUser.serverAccount?.zenoId||'—')}</div></div><button class="zeno-id-copy" onclick="copyZenodropId()">Копировать</button></div>
   </div>
   ${currentUser.webAdmin?`<div class="admin-box"><div style="font-size:12px;font-weight:900;color:#f59e0b">ADMIN PANEL</div><div class="admin-row"><input id="adminSteamId" class="admin-input" placeholder="Steam ID"><input id="adminAmount" class="admin-input" type="number" placeholder="Баланс"><button class="admin-btn" onclick="adminGiveBalance()">Выдать</button><button class="admin-btn" onclick="adminToggleWithdraw()">Вывод ON/OFF</button></div><div class="admin-row"><input id="adminPromoCode" class="admin-input" placeholder="PROMO"><input id="adminPromoPercent" class="admin-input" type="number" placeholder="%"><button class="admin-btn" onclick="adminCreatePromo()">Промо</button></div><div id="adminState" class="promo-small">Загрузка...</div></div>`:''}
   <div class="best-drop-card"><div class="best-drop-title">Лучший дроп</div><div class="best-drop-content"><div><div class="best-drop-name">${escapeHtml(b.name)}</div><div class="best-drop-price">${b.value>0?b.value.toFixed(2)+' ₽':'--'}</div></div>${b.img?`<img src="${escapeAttr(b.img)}" class="best-drop-img">`:''}</div></div>
@@ -1084,6 +1086,14 @@ const mp3TimeEl = document.getElementById('mp3Time');
 const mp3Vol = document.getElementById('mp3Vol');
 const mp3Panel = document.getElementById('mp3Panel');
 
+function openMp3Player(){
+  const p=document.getElementById('zenoMp3');
+  if(p) p.classList.add('active');
+}
+function closeMp3Player(){
+  const p=document.getElementById('zenoMp3');
+  if(p) p.classList.remove('active');
+}
 function mp3TogglePanel(e){
   if(e) e.stopPropagation();
   mp3Panel.classList.toggle('open');
@@ -1193,6 +1203,21 @@ window.addEventListener('pagehide',()=>{
       bestDrop: currentUser.bestDrop
     });
     fetch('/api/account/sync',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',keepalive:true,body:payload}).catch(()=>{});
+  }catch(e){}
+});
+
+window.addEventListener('load',()=>{
+  try{
+    // Убираем старый кэш тестового профиля, если он остался
+    const st=localStorage.getItem('zeno_local_user_anon');
+    if(st){
+      try{
+        const u=JSON.parse(st);
+        if(u && (u.username==='Игрок Zenodrop' || u.steamid)){
+          localStorage.removeItem('zeno_local_user_anon');
+        }
+      }catch(e){ localStorage.removeItem('zeno_local_user_anon'); }
+    }
   }catch(e){}
 });
 
