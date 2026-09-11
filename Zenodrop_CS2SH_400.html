@@ -137,7 +137,7 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 @keyframes zenoReveal{0%{opacity:0;transform:scale(.72);filter:blur(14px)}65%{opacity:1;filter:blur(0);transform:scale(1.06)}100%{opacity:1;filter:blur(0);transform:scale(1)}}
 @keyframes zenoLine{to{transform:scaleX(1)}}
 @keyframes zenoSub{to{opacity:1}}
-@keyframes autoHide{to{opacity:0;visibility:hidden;pointer-events:none}}
+@keyframes zenoGlow{0%,100%{transform:scale(.85);opacity:.55}50%{transform:scale(1.18);opacity:1}}
 @media (max-width:420px){
   body{padding:10px}
   .container{max-width:100%;gap:10px}
@@ -207,7 +207,6 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 #mp3Vol{width:44px;accent-color:#f59e0b;height:3px}
 #mp3Time{font-size:9px;color:#8d94a6;min-width:58px;text-align:center}
 @media (max-width:420px){.zeno-mp3{bottom:8px;right:8px}.mp3-mini{min-width:170px}#mp3OpenBtn{width:30px;height:30px;font-size:12px}}
-/* === TRADE LINK === */
 .trade-link-box{display:flex;flex-direction:column;gap:8px;background:#0d0f17;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 11px;margin-top:10px}
 .trade-link-title{font-size:10px;color:#8d94a6;text-transform:uppercase;font-weight:800;letter-spacing:.5px}
 .trade-link-row{display:flex;gap:8px;align-items:center}
@@ -221,7 +220,8 @@ body{background:#0d0f17;font-family:'Segoe UI',Roboto,sans-serif;color:#d1d5db;m
 .trade-link-badge.no{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)}
 </style>
 </head>
-<body><div class="loading-screen" id="loadingScreen" style="animation:autoHide .6s ease 3s forwards"><div class="zeno-intro"><span>Zeno</span>drop</div><div class="loading-subtitle">CS2 UPGRADE</div></div>
+<body>
+<div class="loading-screen" id="loadingScreen"><div class="zeno-intro"><span>Zeno</span>drop</div><div class="loading-subtitle">CS2 UPGRADE</div></div>
 <div class="container">
 <div class="zeno-toast-container" id="zenoToastContainer"></div>
 <div class="header">
@@ -340,8 +340,8 @@ let USD_RUB_RATE=80;
 let CATALOG_ITEMS=[],CASES_DATA=[];
 let currentUser=null,currentTab='inventory';
 let activeCase=null,isCaseSpinning=false,currentWonItem=null,currentWonItemsList=[];
-let">< selectedItemIndexinput=null,targetWeapon id=null,isSpinning=false,current="Rotation=0,activeQuickChadminance=null;
-let quickChSteances=[10,20,30,40,am50,70],MAX_CHANCE=70,isFastSpinActive=false;
+let selectedItemIndex=null,targetWeapon=null,isSpinning=false,currentRotation=0,activeQuickChance=null;
+let quickChances=[10,20,30,40,50,70],MAX_CHANCE=70,isFastSpinActive=false;
 let selectedOpenCount=1;
 const canvas=document.getElementById('wheelCanvas'),ctx=canvas.getContext('2d'),track=document.getElementById('rouletteTrack');
 
@@ -680,20 +680,16 @@ function renderProfile(){
     <div class="trade-link-box">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div class="trade-link-title">Steam Trade ссылка</div>
-        ${tradeLink
-          ? '<span class="trade-link-badge ok">Указана</span>'
-          : '<span class="trade-link-badge no">Не указана</span>'}
+        ${tradeLink ? '<span class="trade-link-badge ok">Указана</span>' : '<span class="trade-link-badge no">Не указана</span>'}
       </div>
       <div class="trade-link-row">
-        <input id="tradeLinkInput" class="trade-link-input" type="text"
-          placeholder="https://steamcommunity.com/tradeoffer/new/?partner=...&token=..."
-          value="${escapeAttr(tradeLink)}">
+        <input id="tradeLinkInput" class="trade-link-input" type="text" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=...&token=..." value="${escapeAttr(tradeLink)}">
         <button class="trade-link-save" onclick="saveTradeLink()">Сохранить</button>
       </div>
       <div class="trade-link-hint">Без неё вывод скинов в Steam недоступен. Открой Steam → Инвентарь → Обмен → «Ссылка для обмена».</div>
     </div>
   </div>
-  ${currentUser.webAdmin?`<div class="admin-box"><div style="font-size:12px;font-weight:900;color:#f59e0b">ADMIN PANEL</div><div class="admin-rowId" class="admin-input" placeholder="Steam ID"><input id="adminAmount" class="admin-input" type="number" placeholder="Баланс"><button class="admin-btn" onclick="adminGiveBalance()">Выдать</button><button class="admin-btn" onclick="adminToggleWithdraw()">Вывод ON/OFF</button></div><div class="admin-row"><input id="adminPromoCode" class="admin-input" placeholder="PROMO"><input id="adminPromoPercent" class="admin-input" type="number" placeholder="%"><button class="admin-btn" onclick="adminCreatePromo()">Промо</button></div><div id="adminState" class="promo-small">Загрузка...</div></div>`:''}
+  ${currentUser.webAdmin?`<div class="admin-box"><div style="font-size:12px;font-weight:900;color:#f59e0b">ADMIN PANEL</div><div class="admin-row"><input id="adminSteamId" class="admin-input" placeholder="Steam ID"><input id="adminAmount" class="admin-input" type="number" placeholder="Баланс"><button class="admin-btn" onclick="adminGiveBalance()">Выдать</button><button class="admin-btn" onclick="adminToggleWithdraw()">Вывод ON/OFF</button></div><div class="admin-row"><input id="adminPromoCode" class="admin-input" placeholder="PROMO"><input id="adminPromoPercent" class="admin-input" type="number" placeholder="%"><button class="admin-btn" onclick="adminCreatePromo()">Промо</button></div><div id="adminState" class="promo-small">Загрузка...</div></div>`:''}
   <div class="best-drop-card"><div class="best-drop-title">Лучший дроп</div><div class="best-drop-content"><div><div class="best-drop-name">${escapeHtml(b.name)}</div><div class="best-drop-price">${b.value>0?b.value.toFixed(2)+' ₽':'--'}</div></div>${b.img?`<img src="${escapeAttr(b.img)}" class="best-drop-img">`:''}</div></div>
   <div class="profile-inventory-box">
     <div class="inv-header-row"><div style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase">Инвентарь (${currentUser.inventory.length})</div>${currentUser.inventory.length>0?'<button class="sell-all-btn" onclick="sellAllProfileItems()">Продать все</button>':''}</div>
@@ -759,12 +755,7 @@ async function saveTradeLink(){
     return;
   }
   try{
-    const r=await fetch('/api/account/tradelink',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      credentials:'same-origin',
-      body:JSON.stringify({tradeLink:link})
-    });
+    const r=await fetch('/api/account/tradelink',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({tradeLink:link})});
     const d=await r.json();
     if(!r.ok)throw new Error(d.error||'Ошибка');
     if(!currentUser.serverAccount)currentUser.serverAccount={};
@@ -831,7 +822,6 @@ async function withdrawProfileItem(index){
     if(!r.ok)throw new Error(
       d.error==='item_withdraw_pending' ? 'Этот скин уже находится в заявке на вывод.' :
       d.error==='trade_link_required'    ? 'Укажите Trade ссылку в профиле.' :
-      d.error==='withdraw_disabled'      ? 'Для этого аккаунта вывод скинов отключён.' :
       (d.error||'Ошибка')
     );
     if(!currentUser.serverAccount)currentUser.serverAccount={};
@@ -1079,243 +1069,4 @@ function renderGrid(){
 function createCard(x,sel,click){
   const c=document.createElement('div');
   c.className=`item-card ${sel?'selected':''} ${isWithdrawalLocked(x)?'withdraw-locked':''}`;
-  c.innerHTML=`<img src="${escapeAttr(x.img)}" alt=""><div class="iname">${escapeHtml(x.name)}</div><div class="iprice">${x.value.toFixed(2)} ₽</div>${isWithdrawalLocked(x)?'<div style="font-size:9px;color:#f59e0b;margin-top:4px;font-weight:800">ВЫВОД</div>':''}`;
-  c.onclick=click;
-  return c;
-}
-minPriceInput.addEventListener('input',renderGrid);maxPriceInput.addEventListener('input',renderGrid);
-
-let pointerSpinRaf=0;
-let pointerSpinStart=0;
-function startUpgradePointerSpin(duration, finalAngle){
-  const pointer=document.querySelector('.wheel-pointer');
-  if(!pointer)return;
-  cancelAnimationFrame(pointerSpinRaf);
-  pointerSpinStart=performance.now();
-  const target=360*5+finalAngle;
-  const animate=(now)=>{
-    const elapsed=now-pointerSpinStart;
-    const t=Math.min(1,elapsed/duration);
-    const eased=1-Math.pow(1-t,3);
-    pointer.style.transform=`rotate(${target*eased}deg)`;
-    if(t<1 && isSpinning) pointerSpinRaf=requestAnimationFrame(animate);
-  };
-  pointerSpinRaf=requestAnimationFrame(animate);
-}
-function resetUpgradePointer(){
-  cancelAnimationFrame(pointerSpinRaf);
-  const pointer=document.querySelector('.wheel-pointer');
-  if(pointer)pointer.style.transform='rotate(0deg)';
-}
-
-document.getElementById('upgradeBtn').onclick=async()=>{
-  if(!currentUser||!currentUser.steamid){silentNotice('Для апгрейда необходимо войти через Steam!');return;}
-  if(isSpinning||selectedItemIndex===null||!targetWeapon)return;
-  const source=currentUser.inventory[selectedItemIndex];
-  if(!source)return;
-  if(isWithdrawalLocked(source)){silentNotice('Этот скин уже находится в заявке на вывод.');return;}
-  const baseChance=activeQuickChance??Math.min(source.value/targetWeapon.value*100,MAX_CHANCE);
-  const chance=Math.max(0,Math.min(MAX_CHANCE,baseChance));
-  if(chance<=0||chance>MAX_CHANCE)return;
-  isSpinning=true;upgradeBtn.disabled=true;wheelOverlay.style.display='block';
-
-  let success;
-  try{
-    const rollRes=await fetch('/api/upgrade-roll',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      cache:'no-store',
-      body:JSON.stringify({chance, targetPrice:Number(targetWeapon.value)||0})
-    });
-    const roll=await rollRes.json().catch(()=>null);
-    if(!rollRes.ok||!roll?.ok)throw new Error(roll?.error||'upgrade_roll_failed');
-    success=!!roll.success;
-  }catch(e){
-    isSpinning=false;upgradeBtn.disabled=false;wheelOverlay.style.display='none';
-    silentNotice('Не удалось получить результат апгрейда. Попробуйте ещё раз.','error');
-    return;
-  }
-
-  const sector=chance*3.6;
-  const finalAngle=success
-    ? 180-sector/2+sector*(0.16+Math.random()*0.68)
-    : (()=>{const start=180-sector/2;const offset=Math.random()*(360-sector);return offset<start?offset:offset+sector;})();
-  if(!isFastSpinActive) startUpgradePointerSpin(3700,finalAngle);
-  currentUser.stats.upgradesTotal++;
-  saveUserData();
-
-  const handleUpgradeResult=()=>{
-    resultOverlay.style.display='flex';
-    resultText.textContent=success?'Успех!':'Неудача';
-    resultText.style.color=success?'#4ade80':'#f87171';
-    if(success) playSuccessSound(); else playUpgradeFailSound();
-    const i=currentUser.inventory.findIndex(x=>x.uid===source.uid);
-    if(i>=0)currentUser.inventory.splice(i,1);
-    if(success){
-      const won={...targetWeapon};
-      currentUser.inventory.push({...won,uid:newInventoryUid()});
-      if(won.value>currentUser.bestDrop.value)currentUser.bestDrop={name:won.name,value:won.value,img:won.img};
-    }
-    saveUserData();
-    resetCaseResultState();
-    setTimeout(()=>{
-      resultOverlay.style.display='none';wheelOverlay.style.display='none';isSpinning=false;resetUpgradePointer();selectedItemIndex=null;targetWeapon=null;activeQuickChance=null;renderQuickChances();renderGrid();updateUI();canvas.style.transition='none';canvas.style.transform='none';
-    },isFastSpinActive?600:2000);
-  };
-
-  if(isFastSpinActive){handleUpgradeResult();return;}
-
-  let tickCount=0;
-  const tickInterval=setInterval(()=>{playUpgradeSpinSound();tickCount++;if(tickCount>25)clearInterval(tickInterval);},120);
-  setTimeout(()=>{clearInterval(tickInterval);handleUpgradeResult();},3700);
-};
-
-// MP3 плеер
-let mp3CurrentIdx = 0;
-let mp3HasLoaded = false;
-const mp3Audio = document.getElementById('zenoAudio');
-const mp3SC = document.getElementById('zenoSC');
-const mp3Tracks = document.querySelectorAll('.mp3-tr');
-const mp3PlayBtn = document.getElementById('mp3Play');
-const mp3MiniPlay = document.getElementById('mp3MiniPlay');
-const mp3NowEl = document.getElementById('mp3Now');
-const mp3Seek = document.getElementById('mp3Seek');
-const mp3TimeEl = document.getElementById('mp3Time');
-const mp3Vol = document.getElementById('mp3Vol');
-const mp3Panel = document.getElementById('mp3Panel');
-
-function openMp3Player(){
-  const p=document.getElementById('zenoMp3');
-  if(p) p.classList.add('active');
-}
-function closeMp3Player(){
-  const p=document.getElementById('zenoMp3');
-  if(p) p.classList.remove('active');
-}
-function mp3TogglePanel(e){
-  if(e) e.stopPropagation();
-  mp3Panel.classList.toggle('open');
-}
-function mp3ScEmbed(url){
-  return 'https://w.soundcloud.com/player/?url='+encodeURIComponent(url)+'&color=%23f59e0b&auto_play=true&hide_related=true&show_comments=false&show_user=false&show_reposts=false&visual=false';
-}
-function mp3SetPlayIcon(isPlaying){
-  if(mp3PlayBtn) mp3PlayBtn.textContent = isPlaying ? 'Пауза' : 'Играть';
-  if(mp3MiniPlay) mp3MiniPlay.textContent = isPlaying ? '❚❚' : '▶';
-}
-function mp3LoadTrack(i){
-  mp3Tracks.forEach(t=>t.classList.remove('active'));
-  const t=mp3Tracks[i]; if(!t)return;
-  t.classList.add('active');
-  mp3CurrentIdx=i;
-  mp3HasLoaded = true;
-  if(mp3NowEl) mp3NowEl.textContent = t.querySelector('.mp3-tr-name')?.textContent || 'Музыка';
-  if(t.dataset.src){
-    mp3SC.style.display='none';
-    mp3Audio.style.display='block';
-    mp3Audio.src=t.dataset.src;
-    mp3Audio.volume=mp3Vol.value;
-    mp3Audio.play().catch(()=>{});
-    mp3SetPlayIcon(true);
-  } else if(t.dataset.sc){
-    mp3Audio.pause(); mp3Audio.removeAttribute('src'); mp3Audio.style.display='none';
-    mp3SC.src=mp3ScEmbed(t.dataset.sc);
-    mp3SC.style.display='block';
-    mp3SetPlayIcon(true);
-  }
-}
-function mp3TogglePlay(e){
-  if(e) e.stopPropagation();
-  if(!mp3HasLoaded){ mp3LoadTrack(0); return; }
-  if(mp3Audio.src){
-    if(mp3Audio.paused){ mp3Audio.play(); mp3SetPlayIcon(true); }
-    else{ mp3Audio.pause(); mp3SetPlayIcon(false); }
-  } else {
-    mp3Panel.classList.add('open');
-  }
-}
-mp3Tracks.forEach((t,i)=>t.addEventListener('click',()=>mp3LoadTrack(i)));
-mp3Audio.addEventListener('timeupdate',()=>{
-  if(mp3Audio.duration){
-    mp3Seek.value=(mp3Audio.currentTime/mp3Audio.duration)*100;
-    const m=Math.floor(mp3Audio.currentTime/60),s=Math.floor(mp3Audio.currentTime%60);
-    const dm=Math.floor(mp3Audio.duration/60),ds=Math.floor(mp3Audio.duration%60);
-    mp3TimeEl.textContent=`${m}:${String(s).padStart(2,'0')} / ${dm}:${String(ds).padStart(2,'0')}`;
-  }
-});
-mp3Audio.addEventListener('play',()=>mp3SetPlayIcon(true));
-mp3Audio.addEventListener('pause',()=>mp3SetPlayIcon(false));
-mp3Seek.addEventListener('input',()=>{ if(mp3Audio.duration) mp3Audio.currentTime=(mp3Seek.value/100)*mp3Audio.duration; });
-mp3Vol.addEventListener('input',()=>{ mp3Audio.volume=mp3Vol.value; });
-mp3Audio.addEventListener('ended',()=>mp3LoadTrack((mp3CurrentIdx+1)%mp3Tracks.length));
-
-// Автообновление баланса с сервера
-async function refreshUserFromServer(){
-  if(!currentUser || !currentUser.steamid) return;
-  try{
-    const r=await fetch('/api/current-user',{cache:'no-store',credentials:'same-origin'});
-    if(!r.ok) return;
-    const u=await r.json();
-    if(!u || !u.serverAccount) return;
-    const newBal=Number(u.serverAccount.balance)||0;
-    const changed = Math.abs((currentUser.balance||0) - newBal) > 0.001;
-    currentUser.balance=newBal;
-    if(Array.isArray(u.serverAccount.inventory)) currentUser.inventory=u.serverAccount.inventory.map(x=>({...x}));
-    if(u.serverAccount.bestDrop) currentUser.bestDrop=u.serverAccount.bestDrop;
-    if(u.serverAccount.stats) currentUser.stats={...currentUser.stats,...u.serverAccount.stats};
-    currentUser.serverAccount=u.serverAccount;
-    if(changed){
-      renderGrid();
-      updateUI();
-      if(document.getElementById('tabProfileContent')?.classList.contains('active')) renderProfile();
-      silentNotice(`Баланс обновлён: ${newBal.toFixed(2)} ₽`,'success');
-    }
-  }catch(e){}
-}
-setInterval(refreshUserFromServer, 20000);
-window.addEventListener('focus', refreshUserFromServer);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshUserFromServer(); });
-
-window.addEventListener('beforeunload',()=>{
-  if(!currentUser||!currentUser.steamid) return;
-  try{
-    const payload=JSON.stringify({
-      balance: currentUser.balance,
-      stats: {upgradesTotal: currentUser.stats.upgradesTotal, casesOpened: currentUser.stats.casesOpened},
-      inventory: currentUser.inventory,
-      bestDrop: currentUser.bestDrop
-    });
-    if(navigator.sendBeacon){
-      navigator.sendBeacon('/api/account/sync', new Blob([payload],{type:'application/json'}));
-    }
-  }catch(e){}
-});
-
-window.addEventListener('pagehide',()=>{
-  if(!currentUser||!currentUser.steamid) return;
-  try{
-    const payload=JSON.stringify({
-      balance: currentUser.balance,
-      stats: {upgradesTotal: currentUser.stats.upgradesTotal, casesOpened: currentUser.stats.casesOpened},
-      inventory: currentUser.inventory,
-      bestDrop: currentUser.bestDrop
-    });
-    fetch('/api/account/sync',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',keepalive:true,body:payload}).catch(()=>{});
-  }catch(e){}
-});
-
-window.onerror=function(msg,src,line,col){
-  const el=document.getElementById('loadingScreen');
-  if(el){el.style.opacity='1';el.style.display='flex';el.innerHTML='<div style="padding:24px;text-align:center;max-width:90vw"><div style="color:#f87171;font-weight:900;font-size:15px;margin-bottom:10px">Ошибка JS</div><div style="color:#fff;font-size:12px;line-height:1.5;word-break:break-word">'+String(msg)+'<br><br>строка: '+line+'</div></div>';}
-  return false;
-};
-window.addEventListener('unhandledrejection',function(e){
-  const el=document.getElementById('loadingScreen');
-  if(el){el.style.opacity='1';el.style.display='flex';el.innerHTML='<div style="padding:24px;text-align:center;max-width:90vw"><div style="color:#f87171;font-weight:900;font-size:15px;margin-bottom:10px">Promise</div><div style="color:#fff;font-size:12px;word-break:break-word">'+String((e.reason&&e.reason.message)||e.reason||'')+'</div></div>';}
-});
-window.onload=initializeApp;
-setTimeout(function(){try{finishIntro();}catch(e){}},8000);
-</script>
-<footer style="margin:30px 12px 20px;padding:16px 0;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#687184;text-align:center;line-height:1.7"><a href="/info" style="color:#aab3c3;text-decoration:none">Информация</a> · <a href="/privacy" style="color:#aab3c3;text-decoration:none">Политика конфиденциальности</a> · <a href="/terms" style="color:#aab3c3;text-decoration:none">Пользовательское соглашение</a> · Поддержка: @Zenodropsupport<br><span style="color:#687184">Кодовое слово: Agetalp</span></footer>
-</body>
-</html>
+  c.innerHTML=`<img src="${escapeAttr(x.img)}" alt=""><div class="iname">${escapeHtml(x.name)}</div><div class="iprice">${x.value.toFixed(2)} ₽</div>${isWithdrawalLocked(x)?'<div style="font-size:9px;color:#f59e0b;margin-top:4px;
