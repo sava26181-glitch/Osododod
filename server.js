@@ -156,10 +156,7 @@ function bandOf(price, bands){ for(const b of bands){ if(price>=b.min && price<b
 
 function insideBandWeight(price, alpha, band){
   const p = Math.max(price, 1);
-  // базовое степенное распределение
   let w = Math.pow(1 / p, alpha);
-
-  // bell-кривая внутри бэнда, если задан peak
   if (band && Number.isFinite(Number(band.peak))) {
     const peak = Number(band.peak);
     const spread = Math.max(Number(band.spread) || peak * 0.5, 1);
@@ -169,7 +166,7 @@ function insideBandWeight(price, alpha, band){
   return w;
 }
 
-// ============ РАЗНООБРАЗИЕ: недавние дропы + типы оружия ============
+// ============ РАЗНООБРАЗИЕ ============
 function applyDiversity(list, recentDrops){
   if (!Array.isArray(recentDrops) || !recentDrops.length) return list;
   const now = Date.now();
@@ -455,16 +452,44 @@ async function processTelegramUpdate(u){
       const [,wid,action]=d.split(':');
       const w=data.withdrawals.find(x=>x.id===wid);
       if(!w){ await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Заявка не найдена',show_alert:true}); return; }
+
       if(action==='send'){
-        w.status='approved'; w.updatedAt=Date.now(); await saveStoreNow();
-        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Подтверждено'});
-        await tg('sendMessage',{chat_id:q.message.chat.id,text:`🎁 <b>${wid}</b> подтверждена.\n${w.item?.name}`,parse_mode:'HTML'});
-        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Вывод <b>${wid}</b> подтверждён.`,parse_mode:'HTML'});
-      } else if(action==='reject'){
-        const user=ensureUser(w.steamid); if(user) user.balance+=Number(w.refund||0);
-        w.status='rejected'; w.updatedAt=Date.now(); await saveStoreNow();
+        const user=ensureUser(w.steamid);
+        if(user && Array.isArray(user.inventory) && w.item?.uid){
+          const before=user.inventory.length;
+          user.inventory = user.inventory.filter(x => x.uid !== w.item.uid);
+          console.log(`[wd:${wid}] removed ${before-user.inventory.length} item(s) from ${w.steamid}`);
+        }
+        w.status='approved'; w.updatedAt=Date.now();
+        await saveStoreNow();
+
+        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Скин выдан'});
+        await tg('sendMessage',{
+          chat_id:q.message.chat.id,
+          text:`🎁 <b>${wid}</b> — скин выдан.\nИнвентарь игрока очищен.\n\n<b>Подтвердите факт отправки в Steam:</b>\n<i>${w.item?.name}</i>`,
+          parse_mode:'HTML',
+          reply_markup:{inline_keyboard:[[{text:'✅ Подтвердить отправку',callback_data:`wd:${wid}:confirm`}]]}
+        });
+        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`🎁 Ваш вывод <b>${wid}</b> обрабатывается.\nСкин «${w.item?.name}» будет отправлен в Steam.`,parse_mode:'HTML'});
+        return;
+      }
+
+      if(action==='confirm'){
+        w.status='delivered'; w.deliveredAt=Date.now();
+        await saveStoreNow();
+        await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Отправка подтверждена'});
+        await tg('sendMessage',{chat_id:q.message.chat.id,text:`✅ <b>${wid}</b> отмечен как доставленный.`,parse_mode:'HTML'});
+        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`✅ Ваш скин «${w.item?.name}» отправлен в Steam.`,parse_mode:'HTML'});
+        return;
+      }
+
+      if(action==='reject'){
+        w.status='rejected'; w.updatedAt=Date.now();
+        await saveStoreNow();
         await tg('answerCallbackQuery',{callback_query_id:q.id,text:'Отклонено'});
-        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`❌ Вывод <b>${wid}</b> отклонён.`,parse_mode:'HTML'});
+        await tg('sendMessage',{chat_id:q.message.chat.id,text:`❌ <b>${wid}</b> отклонён. Скин возвращён игроку.`,parse_mode:'HTML'});
+        if(w.tgId) await tg('sendMessage',{chat_id:w.tgId,text:`❌ Вывод <b>${wid}</b> отклонён. Скин остался в вашем инвентаре.`,parse_mode:'HTML'});
+        return;
       }
       return;
     }
@@ -931,7 +956,7 @@ const server = http.createServer(async (req, res) => {
     const ap = data.withdrawals.some(x=>x.steamid===sessionUser.steamid && x.item?.uid===itemUid && (x.status==='pending'||x.status==='approved'));
     if(ap){ res.writeHead(409); return res.end(JSON.stringify({error:'item_withdraw_pending'})); }
     const id = 'wd_'+Date.now().toString(36)+'_'+crypto.randomBytes(3).toString('hex');
-    const w = {id,steamid:sessionUser.steamid,tgId:stored.tgId||null,index,item:{name:item.name,value:Number(item.value),img:item.img||'',assetid:item.assetid||null,uid:itemUid},value:Number(item.value),refund:Number(item.value),status:'pending',createdAt:Date.now()};
+    const w = {id,steamid:sessionUser.steamid,tgId:stored.tgId||null,index,item:{name:item.name,value:Number(item.value),img:item.img||'',assetid:item.assetid||null,uid:itemUid},value:Number(item.value),status:'pending',createdAt:Date.now()};
     data.withdrawals.push(w); await saveStoreNow();
     await notifyAdmins(`🟠 <b>Вывод</b>\n<code>${id}</code>\n<code>${sessionUser.steamid}</code>\n${w.value.toFixed(2)} ₽\n${item.name}`,[[{text:'🎁 Выдать',callback_data:`wd:${id}:send`},{text:'❌ Отклонить',callback_data:`wd:${id}:reject`}]]);
     res.writeHead(200,{'Content-Type':'application/json'});
