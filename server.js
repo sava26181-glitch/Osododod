@@ -19,7 +19,6 @@ if (!KEY) {
     process.exit(1);
 }
 
-// Универсальная публичная ссылка (Layer: PUBLIC_URL, Render: RENDER_EXTERNAL_URL)
 const PUBLIC_URL = (
   process.env.PUBLIC_URL ||
   process.env.APP_URL ||
@@ -67,120 +66,166 @@ const SUPPORT_CONTACT = '@Zenodropsupport';
 //  КЕЙСЫ
 // ============================================================
 const CASES = {
-  micro:     { price: 13,    rtp: 0.95 },
-  basic:     { price: 100,   rtp: 0.82 },
-  small:     { price: 250,   rtp: 0.82 },
-  premium:   { price: 500,   rtp: 0.83 },
-  expensive: { price: 1000,  rtp: 0.84 },
-  elite:     { price: 2500,  rtp: 0.84 },
-  legendary: { price: 5000,  rtp: 0.85 },
-  titan:     { price: 10000, rtp: 0.86 }
+  micro:     { price: 13,    rtp: 0.95, alpha: 0.35, pity: 12 },
+  basic:     { price: 100,   rtp: 0.86, alpha: 0.60, pity: 10 },
+  small:     { price: 250,   rtp: 0.87, alpha: 0.65, pity: 10 },
+  premium:   { price: 500,   rtp: 0.88, alpha: 0.70, pity: 10 },
+  expensive: { price: 1000,  rtp: 0.89, alpha: 0.75, pity: 9 },
+  elite:     { price: 2500,  rtp: 0.89, alpha: 0.85, pity: 9 },
+  legendary: { price: 5000,  rtp: 0.90, alpha: 0.90, pity: 8 },
+  titan:     { price: 10000, rtp: 0.90, alpha: 1.00, pity: 8 }
 };
+
+const TIERS = [
+  { name:'big_loss', min:0.00, max:0.55, weight: 4 },
+  { name:'loss',     min:0.55, max:0.86, weight: 12 },
+  { name:'low_flat', min:0.86, max:0.96, weight: 20 },
+  { name:'flat',     min:0.96, max:1.08, weight: 34 },
+  { name:'plus',     min:1.08, max:1.50, weight: 20 },
+  { name:'mega',     min:1.50, max:3.00, weight: 8 },
+  { name:'jackpot',  min:3.00, max:12.0, weight: 2 }
+];
 
 function itemPrice(s){
   const v = Number(s?.price ?? s?.value ?? s?.usd ?? 0);
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
-
-function fitToRtp(list, cp, rtp){
-  if (!list.length || !cp || !rtp) return list;
-  const ev = list.reduce((s,x) => s + x.weight * itemPrice(x), 0);
-  if (ev <= 0) return list;
-  const target = cp * rtp;
-  if (ev <= target) return list;
-  const k = target / ev;
-  return list.map(x => {
+function tierOf(price, casePrice){
+  const r = casePrice > 0 ? price / casePrice : 0;
+  for (const t of TIERS){
+    if (r >= t.min && r < t.max) return t;
+  }
+  return r >= TIERS[TIERS.length-1].max ? TIERS[TIERS.length-1] : TIERS[0];
+}
+function insideTierWeight(price, alpha){
+  const p = Math.max(price, 1);
+  return Math.pow(1 / p, alpha);
+}
+function baseWeights(items, casePrice, alpha){
+  const arr = items.map(x => {
     const p = itemPrice(x);
-    const exp = p >= cp * 1.5 ? 1.6 : p >= cp ? 1.0 : 0.4;
-    return { ...x, weight: Math.max(1e-9, x.weight * Math.pow(k, exp)) };
+    const t = tierOf(p, casePrice);
+    const w = t.weight * insideTierWeight(p, alpha);
+    return { ...x, price: p, _tier: t.name, _w: w };
   });
+  const total = arr.reduce((s,x) => s + x._w, 0) || 1;
+  return arr.map(x => ({ ...x, _w: x._w / total }));
 }
-
-function rangeWeight(price, cp){
-  const r = cp > 0 ? price / cp : 0;
-  if (r < 0.78) return 0.04;
-  if (r < 0.86) return 0.55;
-  if (r < 0.94) return 1.60;
-  if (r < 0.98) return 2.20;
-  if (r < 1.00) return 2.30;
-  if (r < 1.06) return 2.30;
-  if (r < 1.15) return 1.20;
-  if (r < 1.35) return 0.40;
-  if (r < 1.70) return 0.12;
-  if (r < 2.50) return 0.03;
-  if (r < 4.00) return 0.006;
-  return 0.0005;
-}
-
-function microWeight(price){
-  if (price <= 8)   return 3.0;
-  if (price <= 15)  return 7.5;
-  if (price <= 25)  return 5.0;
-  if (price <= 50)  return 1.5;
-  if (price <= 120) return 0.25;
-  return 0.02;
-}
-
-function weightedRandom(skins, casePrice){
-  if(!Array.isArray(skins) || !skins.length) return null;
-  const cp = Number(casePrice || 0);
-  const total = skins.reduce((s, x) => s + Number(x.weight || 0), 0);
-  let list = skins.map(s => ({
-    ...s,
-    weight: total > 0 ? Number(s.weight || 0) / total : 1 / skins.length
-  }));
-  list = list.map(s => {
-    const price = itemPrice(s);
-    const m = cp <= 20 ? microWeight(price) : rangeWeight(price, cp);
-    return { ...s, weight: Math.max(1e-9, s.weight * m), _price: price };
-  });
-  const rtp = Number(CASES[Object.keys(CASES).find(k => CASES[k].price === cp)]?.rtp || 0);
-  if (rtp > 0 && cp > 0) list = fitToRtp(list, cp, rtp);
-  const total2 = list.reduce((sum, x) => sum + x.weight, 0);
-  if (total2 <= 0) {
-    const fb = list[list.length - 1];
-    if (!fb) return null;
-    const { _price, ...rest } = fb;
-    return rest;
+function fitRtp(weighted, casePrice, targetRtp, iterations = 40){
+  if (!weighted.length || !casePrice) return weighted;
+  const target = casePrice * targetRtp;
+  let list = weighted.slice();
+  for (let it = 0; it < iterations; it++){
+    const total = list.reduce((s,x) => s + x._w, 0) || 1;
+    const ev = list.reduce((s,x) => s + (x._w / total) * x.price, 0);
+    if (ev <= 0) break;
+    const k = target / ev;
+    if (Math.abs(1 - k) < 0.001) break;
+    list = list.map(x => {
+      const p = x.price;
+      const exp = p >= casePrice ? 1.6 : p >= casePrice * 0.5 ? 1.0 : 0.4;
+      return { ...x, _w: x._w * Math.pow(k, exp) };
+    });
+    const t2 = list.reduce((s,x) => s + x._w, 0) || 1;
+    list = list.map(x => ({ ...x, _w: x._w / t2 }));
   }
-  const roll = Math.random();
+  return list;
+}
+function applyPity(weighted, casePrice, n){
+  if (!n || n <= 0) return weighted;
+  const boost = Math.min(1 + n * 0.15, 3.0);
+  return weighted.map(x => {
+    const t = x._tier;
+    if (t === 'plus')  return { ...x, _w: x._w * boost };
+    if (t === 'mega')  return { ...x, _w: x._w * (boost * 0.6) };
+    if (t === 'jackpot') return { ...x, _w: x._w * (boost * 0.4) };
+    return x;
+  });
+}
+function normalize(list){
+  const total = list.reduce((s,x) => s + x._w, 0) || 1;
+  return list.map(x => ({ ...x, _w: x._w / total }));
+}
+function pickByWeight(list){
+  const total = list.reduce((s,x) => s + x._w, 0) || 1;
+  let r = Math.random() * total;
   let cur = 0;
-  for (const x of list) {
-    cur += x.weight / total2;
-    if (roll <= cur) {
-      const { _price, ...rest } = x;
-      return rest;
-    }
+  for (const x of list){
+    cur += x._w;
+    if (r <= cur) return x;
   }
-  const last = list[list.length - 1];
-  const { _price, ...rest } = last;
-  return rest;
+  return list[list.length - 1];
 }
-
-function openCase(caseKey, skins){
+function openCase(caseKey, items, pityCount = 0){
   const cfg = CASES[String(caseKey)];
-  if (!cfg || !Array.isArray(skins) || !skins.length) return null;
-  const skin = weightedRandom(skins, cfg.price);
-  if (!skin) return null;
-  return { skin, price: cfg.price };
+  if (!cfg || !Array.isArray(items) || !items.length) return null;
+  let weighted = baseWeights(items, cfg.price, cfg.alpha);
+  weighted = fitRtp(weighted, cfg.price, cfg.rtp);
+  weighted = applyPity(weighted, cfg.price, pityCount);
+  weighted = normalize(weighted);
+  const picked = pickByWeight(weighted);
+  if (!picked) return null;
+  return {
+    skin: {
+      id: picked.id,
+      name: picked.name,
+      img: picked.img,
+      value: picked.price,
+      tier: picked._tier
+    },
+    price: cfg.price,
+    tier: picked._tier
+  };
 }
 
 // ============================================================
-//  АПГРЕЙД
+//  АПГРЕЙД + "УДАЧА"
+//
+//  Персональная удача на основе хэша Steam ID:
+//    - 30% игроков — "неудачники": множитель 0.85 (шансы -15%)
+//    - 20% игроков — "счастливчики": множитель 1.15 (шансы +15%)
+//    - 50% игроков — нейтральные: множитель 1.0
+//
+//  Плюс штраф за дорогой таргет (от 5000 ₽).
+//  Нижний клапан 0.5%, верхний — 95%.
 // ============================================================
+const LUCK_MAP = new Map();
+
+function getPlayerLuck(steamid){
+  const id = String(steamid || '');
+  if (!id) return 1.0;
+  if (LUCK_MAP.has(id)) return LUCK_MAP.get(id);
+  const hash = crypto.createHash('sha256').update('zenodrop_luck:' + id).digest();
+  const r = hash[0] / 255;
+  let luck;
+  if (r < 0.30)      luck = 0.85;   // неудачники
+  else if (r < 0.50) luck = 1.15;   // счастливчики
+  else               luck = 1.0;    // нейтральные
+  LUCK_MAP.set(id, luck);
+  return luck;
+}
+
 function upgrade(chance, steamid, targetPrice){
   chance = Number(chance);
   if (!Number.isFinite(chance)) return false;
   if (chance < 0)   chance = 0;
   if (chance > 100) chance = 100;
+
   const price = Number(targetPrice || 0);
   let real = chance;
+
+  // Штраф за дорогой таргет
   if (price >= 20000)      real *= 0.35;
   else if (price >= 15000) real *= 0.50;
   else if (price >= 10000) real *= 0.60;
   else if (price >= 5000)  real *= 0.75;
+
+  // Персональная удача
+  real *= getPlayerLuck(steamid);
+
   if (real < 0.5) real = 0.5;
   if (real > 95)  real = 95;
+
   return Math.random() * 100 < real;
 }
 
@@ -218,7 +263,8 @@ function ensureUser(steamid){
     tgId:null,
     createdAt:Date.now(),
     inventory:[],
-    bestDrop:{name:'--',value:0,img:''}
+    bestDrop:{name:'--',value:0,img:''},
+    pity:{count:0, byCase:{}}
   };
   if(!data.users[id].stats) data.users[id].stats={totalDeposited:0, upgradesTotal:0, casesOpened:0};
   if(typeof data.users[id].stats.totalDeposited!=='number') data.users[id].stats.totalDeposited=0;
@@ -226,6 +272,8 @@ function ensureUser(steamid){
   if(typeof data.users[id].stats.casesOpened!=='number') data.users[id].stats.casesOpened=0;
   if(!Array.isArray(data.users[id].inventory)) data.users[id].inventory=[];
   if(!data.users[id].bestDrop) data.users[id].bestDrop={name:'--',value:0,img:''};
+  if(!data.users[id].pity) data.users[id].pity={count:0, byCase:{}};
+  if(!data.users[id].pity.byCase) data.users[id].pity.byCase={};
   return data.users[id];
 }
 function makeZenodropId(userOrSteam){
@@ -1018,11 +1066,12 @@ const server = http.createServer(async (req, res) => {
         if(sessionUser){
             const stored=ensureUser(sessionUser.steamid);
             ensureZenodropId(stored);
+            const luck = getPlayerLuck(sessionUser.steamid);
             const serverAccount={
                 ...stored,
                 pendingWithdrawals:pendingWithdrawalsForUser(sessionUser.steamid)
             };
-            return res.end(JSON.stringify({...sessionUser,serverAccount,webAdmin:isWebAdmin(sessionUser.steamid)}));
+            return res.end(JSON.stringify({...sessionUser,serverAccount,webAdmin:isWebAdmin(sessionUser.steamid),luck}));
         }
         return res.end(JSON.stringify(null));
     }
@@ -1089,18 +1138,70 @@ const server = http.createServer(async (req, res) => {
                 res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
                 return res.end(JSON.stringify({error:'insufficient_balance',balance:Number(user.balance||0),price:cfg.price}));
             }
-            const result=openCase(caseKey, skins);
+            const pityState = user.pity.byCase[caseKey] || 0;
+            const result = openCase(caseKey, skins, pityState);
             if(!result || !result.skin){
                 res.writeHead(500,{'Content-Type':'application/json','Cache-Control':'no-store'});
                 return res.end(JSON.stringify({error:'roll_failed'}));
             }
             user.balance = Number(user.balance||0) - cfg.price;
-            user.stats.casesOpened=(user.stats.casesOpened||0)+1;
+            user.stats.casesOpened = (user.stats.casesOpened||0) + 1;
+            const goodTiers = new Set(['flat','plus','mega','jackpot']);
+            if(goodTiers.has(result.tier)){
+                user.pity.byCase[caseKey] = 0;
+            } else {
+                user.pity.byCase[caseKey] = (user.pity.byCase[caseKey]||0) + 1;
+            }
             saveStore();
             res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-            return res.end(JSON.stringify({ok:true,case:caseKey,price:cfg.price,skin:result.skin,balance:user.balance}));
+            return res.end(JSON.stringify({
+                ok:true,
+                case:caseKey,
+                price:cfg.price,
+                skin:result.skin,
+                tier:result.tier,
+                balance:user.balance
+            }));
         }catch(e){
             res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'});
+            return res.end(JSON.stringify({error:'invalid_json'}));
+        }
+    }
+
+    if(pathname==='/api/case/preview' && req.method==='POST'){
+        try{
+            const body=await readJson(req);
+            const caseKey=String(body.case||'');
+            const skins=Array.isArray(body.skins)?body.skins:[];
+            const cfg=CASES[caseKey];
+            if(!cfg || !skins.length){
+                res.writeHead(400,{'Content-Type':'application/json'});
+                return res.end(JSON.stringify({error:'invalid_input'}));
+            }
+            const N = Math.min(Number(body.n)||20000, 200000);
+            let sum=0, tiers={};
+            let minD=Infinity, maxD=0;
+            for(let i=0;i<N;i++){
+                const r = openCase(caseKey, skins, 0);
+                if(!r) continue;
+                sum += r.skin.value;
+                tiers[r.tier] = (tiers[r.tier]||0)+1;
+                if(r.skin.value<minD) minD=r.skin.value;
+                if(r.skin.value>maxD) maxD=r.skin.value;
+            }
+            const ev = sum / N;
+            res.writeHead(200,{'Content-Type':'application/json'});
+            return res.end(JSON.stringify({
+                ok:true, case:caseKey, samples:N,
+                ev: +ev.toFixed(2),
+                evPercent: +((ev/cfg.price)*100).toFixed(2),
+                targetRtp: cfg.rtp,
+                minDrop: minD,
+                maxDrop: maxD,
+                tiers
+            }));
+        }catch(e){
+            res.writeHead(400,{'Content-Type':'application/json'});
             return res.end(JSON.stringify({error:'invalid_json'}));
         }
     }
@@ -1156,7 +1257,8 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({
             telegramBotUrl:TG_BOT_URL||null,
             paymentTelegramBotUrl:PAY_TG_BOT_URL||'https://t.me/ZenodropPayBot',
-            cases:CASES
+            cases:CASES,
+            tiers:TIERS.map(t=>({name:t.name,min:t.min,max:t.max,weight:t.weight}))
         }));
     }
 
@@ -1252,7 +1354,9 @@ const server = http.createServer(async (req, res) => {
             users:Object.values(data.users),
             withdrawals:data.withdrawals.slice(-100).reverse(),
             deposits:data.deposits.slice(-100).reverse(),
-            promos:promoList()
+            promos:promoList(),
+            cases:CASES,
+            tiers:TIERS
         }));
     }
 
