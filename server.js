@@ -13,6 +13,9 @@ const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
 if (!KEY) { console.error('ERROR: Set CS2SH_API_KEY'); process.exit(1); }
 
 const PUBLIC_URL = (process.env.PUBLIC_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/$/,'');
+const IS_PROD = !!PUBLIC_URL && PUBLIC_URL.startsWith('https://');
+const SECURE_FLAG = IS_PROD ? ' Secure;' : '';
+
 const html = fs.readFileSync(path.join(__dirname, 'Zenodrop_CS2SH_400.html'), 'utf8').replaceAll('__GOOGLE_CLIENT_ID__', GOOGLE_CLIENT_ID);
 
 const sessions = new Map();
@@ -58,7 +61,12 @@ function readGoogleStateCookie(value){
   return {state:parts[0],verifier:parts[1]};
 }
 function googleConfigured(){ return !!GOOGLE_CLIENT_ID; }
-function googleBaseUrl(req){ return 'https://zenodrop.fun'; }
+function googleBaseUrl(req){
+  if (PUBLIC_URL) return PUBLIC_URL;
+  const proto = req.headers['x-forwarded-proto'] || 'http';
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  return `${proto}://${host}`;
+}
 function base64url(buf){ return Buffer.from(buf).toString('base64url'); }
 function googlePkceChallenge(verifier){ return base64url(crypto.createHash('sha256').update(verifier).digest()); }
 
@@ -727,8 +735,6 @@ async function cs2Fetch(url, options = {}) {
 }
 
 async function buildCs2Catalog() {
-    // Один снимок цен вместо десятков POST-запросов по 100 предметов.
-    // CS2.SH сам рекомендует GET /v1/prices/latest для полного снапшота.
     const [schema, prices] = await Promise.all([
       cs2Fetch('https://api.cs2.sh/v1/schema'),
       cs2Fetch('https://api.cs2.sh/v1/prices/latest')
@@ -748,7 +754,6 @@ async function buildCs2Catalog() {
     const priorityWords=['ak-47 |','m4a1-s |','m4a4 |','awp |','usp-s |','glock-18 |','p250 |','deagle |','desert eagle |','famas |','galil ar |','mp9 |','mac-10 |','mp7 |','mp5-sd |','ump-45 |','p90 |','ssg 08 |','scar-20 |','aug |','sg 553 |','nova |','xm1014 |','mag-7 |','sawed-off |','tec-9 |','five-seven |','cz75-auto |','dual berettas |','r8 revolver |','negev |','m249 |'];
     const selected=[]; const selectedSet=new Set();
     const add=x=>{ if(selected.length>=7000||!x||selectedSet.has(x.name))return; selectedSet.add(x.name); selected.push(x); };
-    // Сохраняем прежний порядок/фильтрацию отбора каталога.
     const knives=candidates.filter(x=>/^★\s/.test(x.name)||x.name.toLowerCase().includes('gloves'));
     const priority=candidates.filter(x=>priorityWords.some(w=>x.name.toLowerCase().startsWith(w)));
     for(const x of knives)add(x); for(const x of priority)add(x);
@@ -809,7 +814,14 @@ const server = http.createServer(async (req, res) => {
       access_type:'online',
       prompt:'select_account'
     });
-    res.writeHead(302,{Location:'https://accounts.google.com/o/oauth2/v2/auth?'+params.toString(), 'Cache-Control':'no-store', 'Set-Cookie':`google_oauth_state=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600, gstate=${makeGoogleStateCookie(state,verifier)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`});
+    res.writeHead(302,{
+      Location:'https://accounts.google.com/o/oauth2/v2/auth?'+params.toString(),
+      'Cache-Control':'no-store',
+      'Set-Cookie':[
+        `google_oauth_state=${state}; Path=/; HttpOnly;${SECURE_FLAG} SameSite=Lax; Max-Age=600`,
+        `gstate=${makeGoogleStateCookie(state,verifier)}; Path=/; HttpOnly;${SECURE_FLAG} SameSite=Lax; Max-Age=600`
+      ]
+    });
     return res.end();
   }
 
@@ -818,10 +830,20 @@ const server = http.createServer(async (req, res) => {
       const code=String(urlObj.searchParams.get('code')||'').trim();
       const state=String(urlObj.searchParams.get('state')||'').trim() || String(cookies.google_oauth_state||'').trim();
       const oauthErr=String(urlObj.searchParams.get('error')||'').trim();
-      const stateData=googleOAuthStates.get(state);
+      let stateData=googleOAuthStates.get(state);
       googleOAuthStates.delete(state);
-      if(oauthErr) return res.writeHead(302,{Location:googleBaseUrl(req)+'/?google_error='+encodeURIComponent(oauthErr)}),res.end();
+      if(!stateData){
+        const cookieData=readGoogleStateCookie(cookies.gstate);
+        if(cookieData && cookieData.state===state){
+          stateData={verifier:cookieData.verifier,createdAt:Date.now()};
+        }
+      }
+      if(oauthErr){
+        console.error('Google OAuth error param:', oauthErr);
+        return res.writeHead(302,{Location:googleBaseUrl(req)+'/?google_error='+encodeURIComponent(oauthErr)}),res.end();
+      }
       if(!code || !stateData || Date.now()-stateData.createdAt>10*60*1000){
+        console.error('Google OAuth invalid_callback. code?',!!code,'stateData?',!!stateData,'state?',state);
         return res.writeHead(302,{Location:googleBaseUrl(req)+'/?google_error=invalid_callback'}),res.end();
       }
       const redirectUri=googleBaseUrl(req)+'/auth/google/callback';
@@ -830,14 +852,21 @@ const server = http.createServer(async (req, res) => {
         headers:{'Content-Type':'application/x-www-form-urlencoded'},
         body:new URLSearchParams({
           code,client_id:GOOGLE_CLIENT_ID,redirect_uri:redirectUri,
-          grant_type:'authorization_code',code_verifier:stateData.verifier, ...(GOOGLE_CLIENT_SECRET ? {client_secret:GOOGLE_CLIENT_SECRET} : {})
+          grant_type:'authorization_code',code_verifier:stateData.verifier,
+          ...(GOOGLE_CLIENT_SECRET ? {client_secret:GOOGLE_CLIENT_SECRET} : {})
         })
       });
       const tokens=await tokenResp.json().catch(()=>({}));
-      if(!tokenResp.ok || !tokens.access_token) throw new Error('google_token_exchange_failed');
+      if(!tokenResp.ok || !tokens.access_token){
+        console.error('Google token exchange failed:', tokenResp.status, tokens);
+        throw new Error('google_token_exchange_failed');
+      }
       const userResp=await fetch('https://openidconnect.googleapis.com/v1/userinfo',{headers:{Authorization:'Bearer '+tokens.access_token}});
       const info=await userResp.json().catch(()=>({}));
-      if(!userResp.ok || !info.sub) throw new Error('google_userinfo_failed');
+      if(!userResp.ok || !info.sub){
+        console.error('Google userinfo failed:', userResp.status, info);
+        throw new Error('google_userinfo_failed');
+      }
       if(info.email_verified===false) throw new Error('google_email_not_verified');
 
       const accountId=`google_${String(info.sub)}`;
@@ -852,11 +881,15 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(302,{
         'Location':googleBaseUrl(req)+'/#profile',
         'Cache-Control':'no-store',
-        'Set-Cookie':[`session_id=${sid}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`,`google_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,`gstate=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`]
+        'Set-Cookie':[
+          `session_id=${sid}; Path=/; HttpOnly;${SECURE_FLAG} SameSite=Lax; Max-Age=31536000`,
+          `google_oauth_state=; Path=/; HttpOnly;${SECURE_FLAG} SameSite=Lax; Max-Age=0`,
+          `gstate=; Path=/; HttpOnly;${SECURE_FLAG} SameSite=Lax; Max-Age=0`
+        ]
       });
       return res.end();
     }catch(e){
-      console.error('Google OAuth callback:',e);
+      console.error('Google OAuth callback ERROR:', e?.message || e, e?.stack || '');
       res.writeHead(302,{Location:googleBaseUrl(req)+'/?google_error=auth_failed', 'Cache-Control':'no-store'});
       return res.end();
     }
@@ -875,8 +908,6 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({error:'credential_required'}));
       }
 
-      // Google validates the ID token signature/claims. We additionally verify
-      // that the token was issued for this exact Zenodrop Client ID.
       const verifyResp=await fetch('https://oauth2.googleapis.com/tokeninfo?id_token='+encodeURIComponent(credential));
       const info=await verifyResp.json();
       if(!verifyResp.ok || !info.sub || info.aud !== GOOGLE_CLIENT_ID || (info.email_verified && info.email_verified !== 'true')) {
@@ -910,7 +941,11 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200,{
         'Content-Type':'application/json',
         'Cache-Control':'no-store',
-        'Set-Cookie':[`session_id=${sid}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`,`google_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,`gstate=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`]
+        'Set-Cookie':[
+          `session_id=${sid}; Path=/; HttpOnly;${SECURE_FLAG} SameSite=Lax; Max-Age=31536000`,
+          `google_oauth_state=; Path=/; HttpOnly;${SECURE_FLAG} SameSite=Lax; Max-Age=0`,
+          `gstate=; Path=/; HttpOnly;${SECURE_FLAG} SameSite=Lax; Max-Age=0`
+        ]
       });
       const responseAccount = {...stored, pendingWithdrawals: pendingWithdrawalsForUser(accountId)};
       return res.end(JSON.stringify({
@@ -954,7 +989,7 @@ const server = http.createServer(async (req, res) => {
           sessions.set(sid,userData);
           const stored = ensureUser(steamId); ensureZenodropId(stored); stored.username=userData.username; stored.avatar=userData.avatar;
           await saveStoreNow();
-          res.writeHead(302,{Location:'/','Set-Cookie':`session_id=${sid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`});
+          res.writeHead(302,{Location:'/','Set-Cookie':`session_id=${sid}; Path=/; HttpOnly;${SECURE_FLAG} SameSite=Lax; Max-Age=31536000`});
           return res.end();
         }
       }
@@ -975,7 +1010,7 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === '/auth/logout') {
     if (cookies.session_id) sessions.delete(cookies.session_id);
-    res.writeHead(302,{Location:'/','Set-Cookie':'session_id=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'});
+    res.writeHead(302,{Location:'/','Set-Cookie':`session_id=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT${SECURE_FLAG}`});
     return res.end();
   }
 
@@ -1072,7 +1107,6 @@ const server = http.createServer(async (req, res) => {
     }catch(e){ res.writeHead(400); return res.end(JSON.stringify({error:'invalid_json'})); }
   }
 
-  // === TRADE LINK ===
   if(pathname==='/api/account/tradelink' && req.method==='POST'){
     if(!sessionUser?.steamid){ res.writeHead(401); return res.end(JSON.stringify({error:'auth_required'})); }
     try{
@@ -1456,6 +1490,7 @@ hr{border:0;border-top:1px solid rgba(255,255,255,.08);margin:28px 0}
   server.listen(PORT, () => {
     console.log('Zenodrop on ' + PORT);
     console.log('PUBLIC_URL:', PUBLIC_URL || '(not set)');
+    console.log('IS_PROD:', IS_PROD);
     console.log('DATA_DIR:', DATA_DIR);
     console.log('Storage:', USE_REDIS ? 'Redis' : 'disk');
     if(TG_TOKEN){ console.log('Admin TG enabled'); telegramStart(); } else console.log('Admin TG off');
