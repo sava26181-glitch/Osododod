@@ -782,14 +782,41 @@ const server = http.createServer(async (req, res) => {
   const pathname = urlObj.pathname;
   const cookies = parseCookies(req);
 
+  // ---- Session restore (агрессивный fallback) ----
   let sessionUser = null;
-  if (cookies.session_id && sessions.has(cookies.session_id)) sessionUser = sessions.get(cookies.session_id);
-  else {
-    const accountId = accountFromSessionCookie(cookies.session_id);
-    if(accountId){ const stored=ensureUser(accountId); if(stored){ sessionUser={steamid:accountId,username:stored.username||'',avatar:stored.avatar||'',email:stored.email||''}; ensureZenodropId(stored); } }
-    else {
-      const signedSteam = steamFromSessionCookie(cookies.session_id);
-      if(signedSteam){ const stored=ensureUser(signedSteam); if(stored){ sessionUser={steamid:signedSteam,username:stored.username||'',avatar:stored.avatar||''}; ensureZenodropId(stored); } }
+  const sid = cookies.session_id;
+  if (sid) {
+    if (sessions.has(sid)) {
+      sessionUser = sessions.get(sid);
+    } else {
+      const accountId = accountFromSessionCookie(sid);
+      if (accountId) {
+        const stored = ensureUser(accountId);
+        if (stored) {
+          sessionUser = {
+            steamid: accountId,
+            username: stored.username || '',
+            avatar: stored.avatar || '',
+            email: stored.email || ''
+          };
+          ensureZenodropId(stored);
+          sessions.set(sid, sessionUser); // восстановили сессию в Map
+        }
+      } else {
+        const signedSteam = steamFromSessionCookie(sid);
+        if (signedSteam) {
+          const stored = ensureUser(signedSteam);
+          if (stored) {
+            sessionUser = {
+              steamid: signedSteam,
+              username: stored.username || '',
+              avatar: stored.avatar || ''
+            };
+            ensureZenodropId(stored);
+            sessions.set(sid, sessionUser);
+          }
+        }
+      }
     }
   }
 
